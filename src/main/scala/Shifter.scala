@@ -14,18 +14,18 @@ object Shifter {
         // 桶形移位器，实现右移
         val candidates = Wire(Vec(32, UInt(32.W)))
         for (i <- 0 until 32){
-            candidates(i) := VecInit.fill(i)(Mux(io.sgn, 0.U(1.W), io.src(31))).asUInt ## io.src(31, i)
+            candidates(i) := VecInit.fill(i)(Mux(io.sgn, io.src(31), 0.U(1.W))).asUInt ## io.src(31, i)
         }
         io.res := candidates(io.shf)
     }
 
     object Shifter {
-        def apply(src: UInt, shf: UInt, sgn: Bool): UInt = {
+        def apply(src: UInt, shf: UInt, sgn: Bool): Shifter = {
             val shifter = Module(new Shifter)
             shifter.io.src := src
             shifter.io.shf := shf
             shifter.io.sgn := sgn
-            shifter.io.res
+            shifter
         }
     }
 

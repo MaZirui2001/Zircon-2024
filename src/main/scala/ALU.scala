@@ -26,13 +26,13 @@ class ALU extends Module {
     val adder_cout = adder.io.cout
 
     // shifter
-    val sfter_src = WireDefault(Mux(io.op === SLL, Reverse(io.src1), io.src1))
-    val sfter_shf = WireDefault(io.src2(5, 0))
-    val sfter_sgn = WireDefault(io.op === SRA)
+    val sfter_src = Mux(io.op === SLL, Reverse(io.src1), io.src1)
+    val sfter_shf = io.src2(4, 0)
+    val sfter_sgn = io.op === SRA
 
     val shifter = Shifter(sfter_src, sfter_shf, sfter_sgn)
 
-    val sfter_res = WireDefault(shifter)
+    val sfter_res = Mux(io.op === SLL, Reverse(shifter.io.res), shifter.io.res)
 
     io.res := adder_res
     // result select
