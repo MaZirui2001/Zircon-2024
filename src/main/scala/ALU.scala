@@ -32,7 +32,7 @@ class ALU extends Module {
 
     val shifter = Shifter(sfter_src, sfter_shf, sfter_sgn)
 
-    val sfter_res = Mux(io.op === SLL, Reverse(shifter.io.res), shifter.io.res)
+    val sfter_res = shifter.io.res
 
     io.res := adder_res
     // result select
@@ -62,7 +62,7 @@ class ALU extends Module {
             io.res := ~(io.src1 | io.src2)
         }
         is(SLL){
-            io.res := sfter_res
+            io.res := Reverse(shifter.io.res)
         }
         is(SRL){
             io.res := sfter_res
