@@ -26,7 +26,7 @@ class Cluster_FIFO[T <: Data](gen: T, n: Int, ew: Int, dw: Int, is_flst: Boolean
     io.enq.foreach(_.ready := all_enq_ready)
 
     val deq_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(ew.W)))
-    val deq_ptr_rev = RegInit(VecInit.tabulate(ew)(i => VecInit.tabulate(dw)(j => deq_ptr(j)(i)).asUInt))
+    val deq_ptr_rev = VecInit.tabulate(ew)(i => VecInit.tabulate(dw)(j => deq_ptr(j)(i)).asUInt)
     io.deq.zipWithIndex.foreach{ case (deq, i) => 
         deq.valid := Mux1H(deq_ptr(i), fifos.map(_.deq.valid))
         deq.bits := Mux1H(deq_ptr(i), fifos.map(_.deq.bits))
@@ -52,7 +52,7 @@ class Cluster_FIFO[T <: Data](gen: T, n: Int, ew: Int, dw: Int, is_flst: Boolean
         deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(ew.W) }
     }.otherwise{
         val counter = PopCount(VecInit(io.deq.map(_.valid)).asUInt & VecInit(io.deq.map(_.ready)).asUInt).take(log2Ceil(ew))
-        deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(ew)(i => shift_sub_n(ptr, i))(counter)}
+        deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(ew)(i => shift_add_n(ptr, i))(counter)}
     }
 
     fifos.zipWithIndex.foreach{ case (fifo, i) => 

@@ -48,34 +48,47 @@ class FIFO_Dut(n: Int = 8) {
 class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
     behavior of "ALU"
     it should "pass" in {
-        test(new Cluster_FIFO(UInt(32.W), 8, 4, 3, false))
+        test(new Cluster_FIFO(UInt(32.W), 16, 4, 3, false))
         .withAnnotations(Seq(WriteVcdAnnotation))
         { c =>
             val values = ALU_Op.all
             val fifo = new FIFO_Dut(8)
             // push 6 data for both dut and ref
-            val push_vec = Vector.fill(6)(Random.nextInt(0x7FFFFFFF))
-            c.io.enq(0).bits.poke(push_vec(0).U)
-            c.io.enq(1).bits.poke(push_vec(1).U)
-            c.io.enq(2).bits.poke(push_vec(2).U)
-            c.io.enq(3).bits.poke(push_vec(3).U)
-            
-            c.io.enq(0).valid.poke(true.B)
-            c.io.enq(1).valid.poke(true.B)
-            c.io.enq(2).valid.poke(true.B)
-            c.io.enq(3).valid.poke(false.B)
-            c.clock.step(1)
-            c.io.enq(0).valid.poke(true.B)
-            c.io.enq(1).valid.poke(true.B)
-            c.io.enq(2).valid.poke(false.B)
-            c.io.enq(3).valid.poke(false.B)
-            c.clock.step(1)
-            c.io.enq(0).valid.poke(true.B)
-            c.io.enq(1).valid.poke(false.B)
-            c.io.enq(2).valid.poke(false.B)
-            c.io.enq(3).valid.poke(false.B)
-            c.clock.step(1)
-            // c.clock.step(1)
+            var data = 1;
+            for (i <- 0 until 20){
+                if(c.io.enq(0).ready.peek().litToBoolean && i < 10){
+                    c.io.enq(0).valid.poke(true.B)
+                    c.io.enq(0).bits.poke(data.U)
+                    data += 1
+                    c.io.enq(1).valid.poke(true.B)
+                    c.io.enq(1).bits.poke(data.U)
+                    data += 1
+                    c.io.enq(2).valid.poke(true.B)
+                    c.io.enq(2).bits.poke(data.U)
+                    data += 1
+                    c.io.enq(3).valid.poke(Random.nextBoolean().B)
+                    c.io.enq(3).bits.poke(data.U)
+                    if(c.io.enq(3).valid.peek().litToBoolean){
+                    data += 1
+                    }
+                }
+                else if(i >= 10){
+                    c.io.enq(0).valid.poke(false.B)
+                    c.io.enq(1).valid.poke(false.B)
+                    c.io.enq(2).valid.poke(false.B)
+                    c.io.enq(3).valid.poke(false.B)
+                }
+                c.io.deq(0).ready.poke(true.B)
+                c.io.deq(1).ready.poke(Random.nextBoolean().B)
+                if(c.io.deq(1).ready.peek().litToBoolean){
+                    c.io.deq(2).ready.poke(Random.nextBoolean().B)
+                }else{
+                    c.io.deq(2).ready.poke(false.B)
+                }
+                c.clock.step(1)
+
+
+            }
         }
     }
 }
