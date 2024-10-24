@@ -1,47 +1,58 @@
 import chisel3._
 import chisel3.util._
 
-class Cluster_FIFO_IO[T <: Data](gen: T, n: Int, k: Int, is_flst: Boolean) extends Bundle {
-    val enq 	= Vec(k, Flipped(Decoupled(gen)))
-    val deq 	= Vec(k, Decoupled(gen))
+class Cluster_FIFO_IO[T <: Data](gen: T, n: Int, ew: Int, dw: Int, is_flst: Boolean) extends Bundle {
+    val enq 	= Vec(ew, Flipped(Decoupled(gen)))
+    val deq 	= Vec(dw, Decoupled(gen))
     val flush 	= Input(Bool())
-    val hptr    = if(is_flst) Some(Input(Vec(k, UInt((n/k).W)))) else None
+    val hptr    = if(is_flst) Some(Input(Vec(ew, UInt((n/ew).W)))) else None
 }
 
-class Cluster_FIFO[T <: Data](gen: T, n: Int, k: Int, is_flst: Boolean) extends Module {
-    val io = IO(new Cluster_FIFO_IO(gen, n, k, is_flst))
+class Cluster_FIFO[T <: Data](gen: T, n: Int, ew: Int, dw: Int, is_flst: Boolean) extends Module {
+    assert(ew >= dw, "enq width must be greater than or equal to deq width")
+    val io = IO(new Cluster_FIFO_IO(gen, n, ew, dw, is_flst))
 
-    val fifos = VecInit.tabulate(k)(i => Module(new FIFO(gen, n/k, is_flst)).io)
+    // FIFO has ew entries, each entry has n/ew elements
+    val fifos = VecInit.tabulate(ew)(i => Module(new FIFO(gen, n/ew, is_flst)).io)
 
-    val enq_ptr = RegInit(VecInit.tabulate(k)(i => (1 << i).U(k.W)))
+    val all_enq_ready = fifos.map(_.enq.ready).reduce(_ && _)
+
+    val enq_ptr = RegInit(VecInit.tabulate(ew)(i => (1 << i).U(ew.W)))
     fifos.zipWithIndex.foreach({ case (fifo, i) => 
-        fifo.enq.valid := Mux1H(enq_ptr(i), io.enq.map(_.valid))
+        fifo.enq.valid := Mux1H(enq_ptr(i), io.enq.map(_.valid)) && all_enq_ready 
         fifo.enq.bits := Mux1H(enq_ptr(i), io.enq.map(_.bits))
-        io.enq(i).ready := Mux1H(enq_ptr(i), fifos.map(_.enq.ready))
     })
+    // the enq ready is 1 only when all the fifos are ready
+    io.enq.foreach(_.ready := all_enq_ready)
 
-    val deq_ptr = RegInit(VecInit.tabulate(k)(i => (1 << i).U(k.W)))
-    fifos.zipWithIndex.foreach({ case (fifo, i) => 
-        fifo.deq.ready := Mux1H(deq_ptr(i), io.deq.map(_.ready))
-        io.deq(i).valid := Mux1H(deq_ptr(i), fifos.map(_.deq.valid))
-        io.deq(i).bits := Mux1H(deq_ptr(i), fifos.map(_.deq.bits))
-    })
+    val deq_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(ew.W)))
+    val deq_ptr_rev = RegInit(VecInit.tabulate(ew)(i => VecInit.tabulate(dw)(j => deq_ptr(j)(i)).asUInt))
+    io.deq.zipWithIndex.foreach{ case (deq, i) => 
+        deq.valid := Mux1H(deq_ptr(i), fifos.map(_.deq.valid))
+        deq.bits := Mux1H(deq_ptr(i), fifos.map(_.deq.bits))
+    }
+
+    // all the deq.ready signals are the same
+    // ready of fifo deq is 1 only when a dptr that points to the fifo
+    fifos.zipWithIndex.foreach{ case (fifo, i) => 
+        fifo.deq.ready := deq_ptr_rev(i).orR && Mux1H(deq_ptr_rev(i), io.deq.map(_.ready))
+    }
 
     // update enq_ptr
     import FIFO_Utils._
     when(io.flush){
-        enq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(k.W) }
-    }.elsewhen(VecInit(io.enq.map(_.ready)).reduceTree(_ && _)){
-        val counter = PopCount(io.enq.map(_.valid)).take(log2Ceil(k))
-        enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(k)(i => shift_add_n(ptr, i))(counter)}
+        enq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(ew.W) }
+    }.otherwise{
+        val counter = PopCount(VecInit(io.enq.map(_.valid)).asUInt & VecInit(io.enq.map(_.ready)).asUInt).take(log2Ceil(ew))
+        enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(ew)(i => shift_sub_n(ptr, i))(counter)}
     }
 
     // update deq_ptr
     when(io.flush){
-        deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(k.W) }
-    }.elsewhen(VecInit(io.deq.map(_.valid)).reduceTree(_ && _)){
-        val counter = PopCount(io.deq.map(_.ready)).take(log2Ceil(k))
-        deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(k)(i => shift_add_n(ptr, i))(counter)}
+        deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(ew.W) }
+    }.otherwise{
+        val counter = PopCount(VecInit(io.deq.map(_.valid)).asUInt & VecInit(io.deq.map(_.ready)).asUInt).take(log2Ceil(ew))
+        deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(ew)(i => shift_sub_n(ptr, i))(counter)}
     }
 
     fifos.zipWithIndex.foreach{ case (fifo, i) => 

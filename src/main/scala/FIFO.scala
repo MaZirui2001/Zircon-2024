@@ -6,10 +6,19 @@ object FIFO_Utils{
 		val n = x.getWidth
 		x(n-2, 0) ## x(n-1)
 	}
+	def shift_sub_1(x: UInt): UInt = {
+		val n = x.getWidth
+		x(0) ## x(n-1, 1)
+	}
 	def shift_add_n(x: UInt, k: Int): UInt = {
 		val n = x.getWidth
 		if (k == 0) x
 		else x(n-k-1, 0) ## x(n-1, n-k)
+	}
+	def shift_sub_n(x: UInt, k: Int): UInt = {
+		val n = x.getWidth
+		if (k == 0) x
+		else x(k-1, 0) ## x(n-1, k)
 	}
 }
 // is_flst: The FIFO is a free list for reg rename
@@ -24,7 +33,7 @@ class FIFO[T <: Data](gen: T, n: Int, is_flst: Boolean) extends Module {
 	val io = IO(new FIFO_IO(gen, n, is_flst))
 
 	val q = RegInit(
-		if(is_flst) VecInit.fill(n)(0.U.asTypeOf(gen))
+		if(!is_flst) VecInit.fill(n)(0.U.asTypeOf(gen))
 		else VecInit.tabulate(n)(i => (i+1).U.asTypeOf(gen))
 	)
 

@@ -68,18 +68,15 @@ object Adder {
         val c = Wire(MixedVec(Vec(16, UInt(4.W)), Vec(4, UInt(4.W)), Vec(1, UInt(4.W))))
 
         for (i <- 0 until 16){
-            val (p0n, g0n, c0n) = BLevel_Carry4(pi(i*4+3, i*4), gi(i*4+3, i*4), 
-                                                if(i == 0) io.cin 
-                                                else if(i % 4 == 0) c(2).asUInt(i / 4 - 1)
-                                                else c(1).asUInt(i-1))
+            val cin = if(i == 0) io.cin else if(i % 4 == 0) c(2).asUInt(i / 4 - 1) else c(1).asUInt(i-1)
+            val (p0n, g0n, c0n) = BLevel_Carry4(pi(i*4+3, i*4), gi(i*4+3, i*4), cin)
             p(0)(i) := p0n
             g(0)(i) := g0n
             c(0)(i) := c0n
         }
         for (i <- 0 until 4){
-            val (p1n, g1n, c1n) = BLevel_Carry4(p(0).asUInt(i*4+3, i*4), g(0).asUInt(i*4+3, i*4), 
-                                                if(i == 0) io.cin
-                                                else c(2).asUInt(i - 1))
+            val cin = if(i == 0) io.cin else c(2).asUInt(i-1)
+            val (p1n, g1n, c1n) = BLevel_Carry4(p(0).asUInt(i*4+3, i*4), g(0).asUInt(i*4+3, i*4), cin)
             p(1)(i) := p1n
             g(1)(i) := g1n
             c(1)(i) := c1n

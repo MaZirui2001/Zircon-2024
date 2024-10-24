@@ -4,3 +4,9 @@ import chisel3.util._
 object ALU_Op extends ChiselEnum{
     val ADD, SUB, SLT, SLTU, AND, OR, XOR, NOR, SLL, SRL, SRA, LUI = Value
 }
+object CPU_Config{
+    object RegisterFile{
+        val nlreg = 32
+        val npreg = 64
+    }
+}
