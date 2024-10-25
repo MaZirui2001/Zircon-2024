@@ -2,6 +2,7 @@ import chisel3._
 import circt.stage.ChiselStage
 import chisel3.stage.ChiselOption
 import Adder._
+import Multiply._
 object FIFOMain extends App {
     var firtool_options = Array("-disable-all-randomization", 
                                 "-strip-debug-info",
@@ -14,7 +15,7 @@ object FIFOMain extends App {
                                 "-split-verilog",
                                 )
     ChiselStage.emitSystemVerilogFile(
-        new Cluster_FIFO(UInt(8.W), 16, 4, 3, false),
+        new Mul_Booth2_Wallce,
         Array("-td", "build/"),
         firtoolOpts = firtool_options,
     )

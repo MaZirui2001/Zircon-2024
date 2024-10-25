@@ -86,7 +86,7 @@ object Adder {
         c(2)(0) := c2n
 
         io.res := io.src1 ^ io.src2 ^ (c(0).asUInt(62, 0) ## io.cin)
-        io.cout := c(0)(63)
+        io.cout := c(0).asUInt(63)
     }
     class Xilinx_Adder(n: Int) extends Module{
         val io = IO(new Adder_IO(n))
