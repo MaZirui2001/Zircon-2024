@@ -7,6 +7,8 @@ object ALU_Op extends ChiselEnum{
 object CPU_Config{
     object RegisterFile{
         val nlreg = 32
+        val wlreg = log2Ceil(nlreg)
         val npreg = 64
+        val wpreg = log2Ceil(npreg)
     }
 }
