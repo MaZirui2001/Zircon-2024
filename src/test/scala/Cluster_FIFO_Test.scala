@@ -46,7 +46,7 @@ class FIFO_Dut(n: Int = 8) {
 }
 
 class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
-    behavior of "ALU"
+    behavior of "FIFO"
     it should "pass" in {
         test(new Cluster_FIFO(UInt(32.W), 16, 4, 3, false))
         .withAnnotations(Seq(WriteVcdAnnotation))
