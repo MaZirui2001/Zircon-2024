@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import CPU_Config.RegisterFile._
 import CPU_Config.ReserveQueue._
+import CPU_Config.Issue._
 import Zircon_Util._
 
 class Flist_Entry(n1: Int, n2: Int) extends Bundle {
@@ -44,18 +45,7 @@ class IQ_Entry extends Bundle {
 object IQ_Entry{
     def apply(inst_vld: Bool, prj: UInt, prj_wk: Bool, prk: UInt, prk_wk: Bool, prd: UInt, rd_vld: Bool, op: ALU_BR_Op.Type, pcq_idx: UInt, imq_idx: UInt, rob_idx: UInt, age: UInt): IQ_Entry = {
         val ie = Wire(new IQ_Entry)
-        ie.inst_vld := inst_vld
-        ie.prj := prj
-        ie.prj_wk := prj_wk
-        ie.prk := prk
-        ie.prk_wk := prk_wk
-        ie.prd := prd
-        ie.rd_vld := rd_vld
-        ie.op := op
-        ie.pcq_idx := pcq_idx
-        ie.imq_idx := imq_idx
-        ie.rob_idx := rob_idx
-        ie.age := age
+        ie.inst_vld := inst_vld; ie.prj := prj; ie.prj_wk := prj_wk; ie.prk := prk; ie.prk_wk := prk_wk; ie.prd := prd; ie.rd_vld := rd_vld; ie.op := op
         ie
     }
     def apply(): IQ_Entry = {
@@ -68,8 +58,8 @@ class IQ_FList(ew: Int, dw: Int, num: Int) extends Module{
     val n = dw
     val len = num / n
     val io = IO(new Bundle{
-        val enq     = Vec(ew, Flipped(DecoupledIO(new Flist_Entry(log2Ceil(len), n))))
-        val deq     = Vec(dw, DecoupledIO(new Flist_Entry(log2Ceil(len), n)))
+        val enq     = Vec(ew, Flipped(DecoupledIO(new Flist_Entry(log2Ceil(len), log2Ceil(n)))))
+        val deq     = Vec(dw, DecoupledIO(new Flist_Entry(log2Ceil(len), log2Ceil(n))))
         val flush   = Input(Bool())
     })
     
@@ -115,9 +105,10 @@ object IQ_FList{
     def apply(ew: Int, dw: Int, num: Int): IQ_FList = Module(new IQ_FList(ew, dw, num))
 }
 class Issue_Queue_IO(ew: Int, dw: Int) extends Bundle {
-    val enq     = Vec(ew, Flipped(DecoupledIO(new IQ_Entry)))
-    val deq     = Vec(dw, DecoupledIO(new IQ_Entry))
-    val flush   = Input(Bool())
+    val enq         = Vec(ew, Flipped(DecoupledIO(new IQ_Entry)))
+    val deq         = Vec(dw, DecoupledIO(new IQ_Entry))
+    val wake_bus    = Input(Vec(wissue, UInt(wpreg.W)))
+    val flush       = Input(Bool())
 }
 
 class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
@@ -142,27 +133,33 @@ class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
     val free_item = flst.io.deq.map(_.bits.offset)
     // write to iq
     for (i <- 0 until ew){
-        for(j <- 0 until n){
-            when(free_iq(i)(j) && io.enq(i).valid && flst.io.deq(0).valid){
-                iq(j)(free_item(j)) := io.enq(i).bits
-            }
+        when(io.enq(i).valid && flst.io.deq(0).valid){
+            iq(free_iq(i))(free_item(i)) := io.enq(i).bits
         }
     }
     flst.io.flush := io.flush
+
+    /* wake up */
+    iq.foreach{case (qq) =>
+        qq.foreach{case (e) =>
+            e.prj_wk := io.wake_bus.map(_ === e.prd).reduce(_ || _)
+            e.prk_wk := io.wake_bus.map(_ === e.prd).reduce(_ || _)
+        }
+    }
 
     /* select dw items from iq */
     var flst_insert_ptr = 1.U(n.W)
     flst.io.enq.foreach(_.valid := false.B)
     flst.io.enq.foreach(_.bits := DontCare)
     for(i <- 0 until dw){
-        val issue_valid = iq(i).map{ 
-            case (e) => e.prj_wk && e.prk_wk && e.inst_vld}
+        val issue_valid = iq(i).map{ case (e) => e.prj_wk && e.prk_wk && e.inst_vld}
         val issue_age = iq(i).map(_.age)
         val select_item = VecInit.tabulate(len)(j => Select_Item(
             idx_1h = (1 << j).U(len.W),
             vld = issue_valid(j),
             age = issue_age(j)
         )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(esltu(a.age, b.age), a, b), a), b))
+        
         io.deq(i).valid := select_item.vld
         io.deq(i).bits := Mux1H(select_item.idx_1h, iq(i))
         flst.io.enq.zipWithIndex.foreach{ case (enq, j) => 

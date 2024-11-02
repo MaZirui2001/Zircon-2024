@@ -23,4 +23,7 @@ object CPU_Config{
         val nrob = 32
         val wrob = log2Ceil(nrob)
     }
+    object Issue{
+        val wissue = 5
+    }
 }
