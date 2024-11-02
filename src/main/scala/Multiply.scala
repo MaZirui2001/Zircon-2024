@@ -33,14 +33,7 @@ object Multiply{
         io.res := code
         io.add1 := add_1
     }
-    object Booth2{
-        def apply(src1: UInt, src2: UInt): Booth2 = {
-            val booth2 = Module(new Booth2)
-            booth2.io.src1 := src1
-            booth2.io.src2 := src2
-            booth2
-        }
-    }
+
     def CSA(src1: UInt, src2: UInt, cin: UInt): (UInt, UInt) = {
         val sum = src1 ^ src2 ^ cin
         val cout = (src1 & src2) | (src1 & cin) | (src2 & cin)
@@ -110,20 +103,11 @@ object Multiply{
         io.sum := sum(5).asUInt
         io.cout := cout.asUInt
     }
-    object Wallce_Tree17_Cin15{
-        def apply(src: UInt, cin: UInt): Wallce_Tree17_Cin15 = {
-            val wallce = Module(new Wallce_Tree17_Cin15)
-            wallce.io.src := src
-            wallce.io.cin := cin
-            wallce
-        }
-    }
     class Mul_Booth2_Wallce extends Module {
         val io = IO(new Multiply_IO)
         // extend
         val src1 = Mux(io.op === MULHU, 0.U(32.W) ## io.src1, (Fill(32, io.src1(31)) ## io.src1))
         val src2 = Mux(io.op === MULHU, 0.U(32.W) ## io.src2, (Fill(32, io.src2(31)) ## io.src2))
-        // val src1 = 0.U(64.W)
 
         // Booth2 encoder x 17
         val add1_booth = Wire(Vec(17, Bool()))
@@ -162,14 +146,20 @@ object Multiply{
             is(MULHU){ io.res := fadd.io.res(63, 32) }
         }
     }
-    class Test extends Module{
-        val io = IO(new Bundle{
-            val src1 = Input(UInt(32.W))
-            val src2 = Input(UInt(32.W))
-            val op   = Input(MDU_Op())
-            val res  = Output(UInt(32.W))
-        })
-        val mul = Booth2(io.src1, io.src2)
-        io.res := mul.io.res
+    object Booth2{
+        def apply(src1: UInt, src2: UInt): Booth2 = {
+            val booth2 = Module(new Booth2)
+            booth2.io.src1 := src1
+            booth2.io.src2 := src2
+            booth2
+        }
+    }
+     object Wallce_Tree17_Cin15{
+        def apply(src: UInt, cin: UInt): Wallce_Tree17_Cin15 = {
+            val wallce = Module(new Wallce_Tree17_Cin15)
+            wallce.io.src := src
+            wallce.io.cin := cin
+            wallce
+        }
     }
 }

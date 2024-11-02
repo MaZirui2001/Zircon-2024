@@ -3,7 +3,7 @@ import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util._
 import Adder._
-import ALU_Op._
+import ALU_BR_Op._
 
 class AdderTest extends AnyFlatSpec with ChiselScalatestTester{
     behavior of "Adder"

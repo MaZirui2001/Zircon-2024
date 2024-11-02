@@ -3,10 +3,10 @@ import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util._
 import Adder._
-import ALU_Op._
+import ALU_BR_Op._
 
 object ALU_Dut{
-    def ALU(src1: Int, src2: Int, op: ALU_Op.Type): Int = {
+    def ALU(src1: Int, src2: Int, op: ALU_BR_Op.Type): Int = {
         // 用case语句在软件层面模拟一个ALU
         op match{
             case ADD => src1 + src2
@@ -31,11 +31,11 @@ class ALU_Test extends AnyFlatSpec with ChiselScalatestTester{
         test(new ALU)
         // .withAnnotations(Seq(WriteVcdAnnotation))
         { c =>
-            val values = ALU_Op.all
+            val values = ALU_BR_Op.all
             for (i <- 0 until 100) {
                 val a = Random.nextLong(0xFFFFFFFFL)
                 val b = Random.nextLong(0xFFFFFFFFL)
-                val op = values((Random.nextInt(ALU_Op.all.length)))
+                val op = values((Random.nextInt(ALU_BR_Op.all.length)))
                 c.io.src1.poke(a.U)
                 c.io.src2.poke(b.U)
                 c.io.op.poke(op)

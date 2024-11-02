@@ -1,66 +1,51 @@
 import chisel3._
 import chisel3.util._
+import Zircon_Util._
 
-object FIFO_Utils{
-	def shift_add_1(x: UInt): UInt = {
-		val n = x.getWidth
-		x(n-2, 0) ## x(n-1)
-	}
-	def shift_sub_1(x: UInt): UInt = {
-		val n = x.getWidth
-		x(0) ## x(n-1, 1)
-	}
-	def shift_add_n(x: UInt, k: Int): UInt = {
-		val n = x.getWidth
-		if (k == 0) x
-		else x(n-k-1, 0) ## x(n-1, n-k)
-	}
-	def shift_sub_n(x: UInt, k: Int): UInt = {
-		val n = x.getWidth
-		if (k == 0) x
-		else x(k-1, 0) ## x(n-1, k)
-	}
-}
 // is_flst: The FIFO is a free list for reg rename
-class FIFO_IO[T <: Data](gen: T, n: Int, is_flst: Boolean) extends Bundle {
+class FIFO_IO[T <: Data](gen: T, n: Int, preg: Boolean) extends Bundle {
     val enq 	= Flipped(Decoupled(gen))
     val deq 	= Decoupled(gen)
 	val flush 	= Input(Bool())
-	val hptr 	= if(is_flst) Some(Input(UInt(n.W))) else None
+	val hptr 	= if(preg) Some(Input(UInt(n.W))) else None
 }
 
-class FIFO[T <: Data](gen: T, n: Int, is_flst: Boolean) extends Module {
-	val io = IO(new FIFO_IO(gen, n, is_flst))
+class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int = 0) extends Module {
+	val io = IO(new FIFO_IO(gen, n, preg))
 
 	val q = RegInit(
-		if(!is_flst) VecInit.fill(n)(0.U.asTypeOf(gen))
-		else VecInit.tabulate(n)(i => (i+1).U.asTypeOf(gen))
+		if(!preg && !iq) VecInit.fill(n)(0.U.asTypeOf(gen))
+		else VecInit.tabulate(n)(i => (start_num+i).U.asTypeOf(gen))
 	)
-
 	// full and empty flags
-	val fulln = RegInit(if(is_flst) false.B else true.B)
-	val eptyn = RegInit(if(is_flst) true.B else false.B)
+	val fulln = RegInit(if(preg || iq) false.B else true.B)
+	val eptyn = RegInit(if(preg || iq) true.B else false.B)
 
 	// pointers
 	val hptr = RegInit(1.U(n.W))
 	val tptr = RegInit(1.U(n.W))
 
 	// pointer update logic
-	import FIFO_Utils._
 	val hptr_nxt = Mux(io.deq.ready && eptyn, shift_add_1(hptr), hptr)
 	val tptr_nxt = Mux(io.enq.valid && fulln, shift_add_1(tptr), tptr)
 
-	hptr := Mux(io.flush, if(is_flst) io.hptr.get else hptr, hptr_nxt)
-	tptr := Mux(io.flush, if(is_flst) tptr_nxt else hptr, tptr_nxt)
+	hptr := Mux(io.flush, if(preg) io.hptr.get else 1.U, hptr_nxt)
+	tptr := Mux(io.flush, if(preg) tptr_nxt else 1.U, tptr_nxt)
 
 	// full and empty flag update logic
-	when(io.flush){ fulln := (if(is_flst) false.B else true.B) }
-	.elsewhen(io.enq.valid) { fulln := !(hptr_nxt & tptr_nxt) }
-	.elsewhen(io.deq.ready) { fulln := true.B }
+	if(!preg && !iq){
+		when(io.flush){ fulln := true.B }
+		.elsewhen(io.enq.valid) { fulln := !(hptr_nxt & tptr_nxt) }
+		.elsewhen(io.deq.ready) { fulln := true.B }
+	} 
 
-	when(io.flush){ eptyn := (if(is_flst) true.B else false.B) }
+	when(io.flush){ eptyn := (if(preg || iq) true.B else false.B) }
 	.elsewhen(io.deq.ready) { eptyn := !(hptr_nxt & tptr_nxt) }
 	.elsewhen(io.enq.valid) { eptyn := true.B }
+
+	if(iq){
+		when(io.flush){ q.zipWithIndex.foreach{ case (qq, i) => qq := (start_num+i).U.asTypeOf(gen) } }
+	}
 
 	// write logic
 	q.zipWithIndex.foreach{ case (qq, i) => 

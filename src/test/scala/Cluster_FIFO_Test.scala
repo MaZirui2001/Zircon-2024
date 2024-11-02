@@ -3,10 +3,10 @@ import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util._
 import Adder._
-import ALU_Op._
+import ALU_BR_Op._
 
 object FIFO_Dut{
-    def ALU(src1: Int, src2: Int, op: ALU_Op.Type): Int = {
+    def ALU(src1: Int, src2: Int, op: ALU_BR_Op.Type): Int = {
         // 用case语句在软件层面模拟一个ALU
         op match{
             case ADD => src1 + src2
@@ -51,7 +51,7 @@ class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
         test(new Cluster_FIFO(UInt(32.W), 16, 4, 3, false))
         .withAnnotations(Seq(WriteVcdAnnotation))
         { c =>
-            val values = ALU_Op.all
+            val values = ALU_BR_Op.all
             val fifo = new FIFO_Dut(8)
             // push 6 data for both dut and ref
             var data = 1;

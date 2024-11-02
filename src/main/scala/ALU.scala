@@ -1,6 +1,6 @@
 import chisel3._
 import chisel3.util._
-import ALU_Op._
+import ALU_BR_Op._
 import Adder._
 import Shifter._
 
@@ -8,7 +8,7 @@ import Shifter._
 class ALU_IO extends Bundle {
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
-    val op = Input(ALU_Op())
+    val op = Input(ALU_BR_Op())
     val res = Output(UInt(32.W))
 }
 
