@@ -53,12 +53,11 @@ class SRat(rn_w: Int) extends Module {
     // rw_w: Read/Write Width
     val rw_w                = 3 * rn_w
     val rdrct_cnt_max       = ((31 + rw_w) / rw_w)
-    // val rdrct_cnt           = RegInit((-1L).U((log2Ceil(rdrct_cnt_max)+1).W))
     val rdrct_cnt           = RegInit(Fill(log2Ceil(rdrct_cnt_max)+1, true.B).asUInt)
     val free                = rdrct_cnt(log2Ceil(rdrct_cnt_max))
     val rdrct_wr_idx_1h     = RegInit(VecInit.tabulate(rw_w)(i => (1 << i).U(32.W)))
     val rdrct_wdata_init    = MixedVecInit(Seq.tabulate(rw_w)(i => 
-                                           VecInit.tabulate((31+rw_w-i)/rw_w)(j => io.arat(j * rw_w + i))))
+                              VecInit.tabulate((31+rw_w-i)/rw_w)(j => io.arat(j * rw_w + i))))
     val rdrct_wdata         = RegInit(rdrct_wdata_init)
 
     when(!rdrct_cnt(log2Ceil(rdrct_cnt_max))){

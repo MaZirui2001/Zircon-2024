@@ -5,7 +5,7 @@ import CPU_Config.ReserveQueue._
 import CPU_Config.Issue._
 import Zircon_Util._
 
-class Flist_Entry(n1: Int, n2: Int) extends Bundle {
+class Cluster_Entry(n1: Int, n2: Int) extends Bundle {
     val qidx = UInt(n2.W)
     val offset = UInt(n1.W)
 }
@@ -58,13 +58,13 @@ class IQ_FList(ew: Int, dw: Int, num: Int) extends Module{
     val n = dw
     val len = num / n
     val io = IO(new Bundle{
-        val enq     = Vec(ew, Flipped(DecoupledIO(new Flist_Entry(log2Ceil(len), log2Ceil(n)))))
-        val deq     = Vec(dw, DecoupledIO(new Flist_Entry(log2Ceil(len), log2Ceil(n))))
+        val enq     = Vec(ew, Flipped(DecoupledIO(new Cluster_Entry(log2Ceil(len), log2Ceil(n)))))
+        val deq     = Vec(dw, DecoupledIO(new Cluster_Entry(log2Ceil(len), log2Ceil(n))))
         val flush   = Input(Bool())
     })
     
     val flst = VecInit.tabulate(n)(i =>
-        Module(new FIFO(new Flist_Entry(log2Ceil(len), log2Ceil(n)), len, false, true, (i << log2Ceil(len)))).io)
+        Module(new FIFO(new Cluster_Entry(log2Ceil(len), log2Ceil(n)), len, false, true, (i << log2Ceil(len)))).io)
 
     // deq
     val deq_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(n.W)))

@@ -48,8 +48,8 @@ class FIFO_Dut(n: Int = 8) {
 class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
     behavior of "FIFO"
     it should "pass" in {
-        test(new Cluster_FIFO(UInt(32.W), 16, 4, 3, false))
-        .withAnnotations(Seq(WriteVcdAnnotation))
+        test(new Cluster_Index_FIFO(UInt(32.W), 16, 3, 4, 1, 1))
+        .withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation))
         { c =>
             val values = ALU_BR_Op.all
             val fifo = new FIFO_Dut(8)
@@ -66,17 +66,17 @@ class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
                     c.io.enq(2).valid.poke(true.B)
                     c.io.enq(2).bits.poke(data.U)
                     data += 1
-                    c.io.enq(3).valid.poke(Random.nextBoolean().B)
-                    c.io.enq(3).bits.poke(data.U)
-                    if(c.io.enq(3).valid.peek().litToBoolean){
-                    data += 1
-                    }
+                    // c.io.enq(3).valid.poke(Random.nextBoolean().B)
+                    // c.io.enq(3).bits.poke(data.U)
+                    // if(c.io.enq(3).valid.peek().litToBoolean){
+                    // data += 1
+                    // }
                 }
                 else if(i >= 10){
                     c.io.enq(0).valid.poke(false.B)
                     c.io.enq(1).valid.poke(false.B)
                     c.io.enq(2).valid.poke(false.B)
-                    c.io.enq(3).valid.poke(false.B)
+                    // c.io.enq(3).valid.poke(false.B)
                 }
                 c.io.deq(0).ready.poke(true.B)
                 c.io.deq(1).ready.poke(Random.nextBoolean().B)
@@ -84,6 +84,12 @@ class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
                     c.io.deq(2).ready.poke(Random.nextBoolean().B)
                 }else{
                     c.io.deq(2).ready.poke(false.B)
+                }
+                if(c.io.deq(2).ready.peek().litToBoolean){
+                    c.io.deq(3).ready.poke(Random.nextBoolean().B)
+                }
+                else{
+                    c.io.deq(3).ready.poke(false.B)
                 }
                 c.clock.step(1)
 
