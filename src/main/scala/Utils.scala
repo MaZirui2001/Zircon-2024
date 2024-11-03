@@ -33,12 +33,17 @@ object Zircon_Util{
     def slt_1H(src1: UInt, src2: UInt): Bool = {
         val n = src1.getWidth
         assert(n == src2.getWidth, "src1 and src2 must have the same width")
-        // val shift = VecInit.tabulate(n-1)(i => src1(n-i-2, 0) ## 0.U(i.W))
-        // shift.map(_ & src2).reduce(_ | _).asBool
         val src1_acc = VecInit.tabulate(n)(i => src1.take(i).orR)
         val src2_acc = VecInit.tabulate(n)(i => src2.take(i).orR)
         val diff = src1_acc.zip(src2_acc).map{ case (s1, s2) => s1 & !s2 }
         diff.reduce(_ | _)
+    }
+    // write-first read
+    def wfirst_read[T <: Data](rdata: T, ridx: UInt, widx: Vec[UInt], wdata: Vec[T], wen: Vec[Bool]): T = {
+        assert(widx.size == wdata.size && widx.size == wen.size, "widx, wdata and wen must have the same size")
+        val n = wdata.size
+        val whit = VecInit.tabulate(n)(i => (ridx === widx(i)) && wen(i))
+        Mux(whit.asUInt.orR, Mux1H(whit, wdata), rdata)
     }
 
 }
