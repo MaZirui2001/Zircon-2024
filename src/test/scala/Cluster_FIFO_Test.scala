@@ -60,12 +60,18 @@ class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
                     c.io.enq(0).valid.poke(true.B)
                     c.io.enq(0).bits.poke(data.U)
                     data += 1
-                    c.io.enq(1).valid.poke(true.B)
+                    c.io.enq(1).valid.poke(Random.nextBoolean().B)
                     c.io.enq(1).bits.poke(data.U)
-                    data += 1
-                    c.io.enq(2).valid.poke(true.B)
-                    c.io.enq(2).bits.poke(data.U)
-                    data += 1
+                    if(c.io.enq(1).valid.peek().litToBoolean){
+                        data += 1
+                        c.io.enq(2).valid.poke(Random.nextBoolean().B)
+                        c.io.enq(2).bits.poke(data.U)
+                    }else{
+                        c.io.enq(2).valid.poke(false.B)
+                    }
+                    if(c.io.enq(2).valid.peek().litToBoolean){
+                        data += 1
+                    }
                     // c.io.enq(3).valid.poke(Random.nextBoolean().B)
                     // c.io.enq(3).bits.poke(data.U)
                     // if(c.io.enq(3).valid.peek().litToBoolean){
