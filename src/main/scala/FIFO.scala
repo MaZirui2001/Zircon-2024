@@ -18,7 +18,7 @@ class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int
 		else VecInit.tabulate(n)(i => (start_num+i).U.asTypeOf(gen))
 	)
 	// full and empty flags
-	val fulln = RegInit(if(preg || iq) false.B else true.B)
+	val fulln = RegInit(true.B)
 	val eptyn = RegInit(if(preg || iq) true.B else false.B)
 
 	// pointers
@@ -43,13 +43,13 @@ class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int
 	.elsewhen(io.deq.ready) { eptyn := !(hptr_nxt & tptr_nxt) }
 	.elsewhen(io.enq.valid) { eptyn := true.B }
 
-	if(iq){
-		when(io.flush){ q.zipWithIndex.foreach{ case (qq, i) => qq := (start_num+i).U.asTypeOf(gen) } }
-	}
-
 	// write logic
 	q.zipWithIndex.foreach{ case (qq, i) => 
 		when(tptr(i) && io.enq.valid && fulln) { qq := io.enq.bits }
+	}
+
+	if(iq){
+		when(io.flush){ q.zipWithIndex.foreach{ case (qq, i) => qq := (start_num+i).U.asTypeOf(gen) } }
 	}
 
 	// read logic 
