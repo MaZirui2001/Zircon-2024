@@ -37,12 +37,6 @@ class ALU extends Module {
     io.res := adder_res
     // result select
     switch(io.op){
-        is(ADD){
-            io.res := adder_res
-        }
-        is(SUB){
-            io.res := adder_res
-        }
         is(SLTU){
             io.res := !adder_cout
         }
