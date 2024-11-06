@@ -45,5 +45,14 @@ object Zircon_Util{
         val whit = VecInit.tabulate(n)(i => (ridx === widx(i)) && wen(i))
         Mux(whit.asUInt.orR, Mux1H(whit, wdata), rdata)
     }
-
+    // memtype decode
+    def mtype_decode(mtype: UInt, n: Int): UInt = {
+        val res = Wire(UInt(n.W))
+        res := MuxLookup(mtype, 1.U(n.W))(Seq(
+            0.U -> 0x1.U(n.W),
+            1.U -> 0x3.U(n.W),
+            2.U -> 0xf.U(n.W),
+        ))
+        res
+    }
 }
