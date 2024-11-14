@@ -8,8 +8,8 @@ class xilinx_true_dual_port_read_first_byte_write_1_clock_ram(NB_COL: Int, COL_W
         val dina = Input(UInt((NB_COL*COL_WIDTH).W))
         val dinb = Input(UInt((NB_COL*COL_WIDTH).W))
         val clka = Input(Clock())
-        val wea = Input(Bool())
-        val web = Input(Bool())
+        val wea = Input(UInt(NB_COL.W))
+        val web = Input(UInt(NB_COL.W))
         val ena = Input(Bool())
         val enb = Input(Bool())
         val douta = Output(UInt((NB_COL*COL_WIDTH).W))
@@ -21,7 +21,7 @@ class xilinx_true_dual_port_read_first_byte_write_1_clock_ram(NB_COL: Int, COL_W
 |module xilinx_true_dual_port_read_first_byte_write_1_clock_ram #(
 |  parameter NB_COL = 4,                           // Specify number of columns (number of bytes)
 |  parameter COL_WIDTH = 9,                        // Specify column width (byte width, typically 8 or 9)
-|  parameter RAM_DEPTH = 1024,                     // Specify RAM depth (number of entries)
+|  parameter RAM_DEPTH = 1024                     // Specify RAM depth (number of entries)
 |) (
 |  input [clogb2(RAM_DEPTH-1)-1:0] addra,   // Port A address bus, width determined from RAM_DEPTH
 |  input [clogb2(RAM_DEPTH-1)-1:0] addrb,   // Port B address bus, width determined from RAM_DEPTH
@@ -76,7 +76,6 @@ class xilinx_true_dual_port_read_first_byte_write_1_clock_ram(NB_COL: Int, COL_W
 |      // The following is a 1 clock cycle read latency at the cost of a longer clock-to-out timing
 |       assign douta = ram_data_a;
 |       assign doutb = ram_data_b;
-|    end 
 |  endgenerate
 |
 |  //  The following function calculates the address width based on specified RAM depth
