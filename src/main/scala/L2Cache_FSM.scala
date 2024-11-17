@@ -2,10 +2,10 @@ import chisel3._
 import chisel3.util._
 import CPU_Config.Cache._
 
-class L2Cache_FSM_Cache_IO extends Bundle {
+class L2Cache_FSM_Cache_IO(ic: Boolean = false) extends Bundle {
     val rreq    = Input(Bool())
     val rrsp    = Output(Bool())
-    val wreq    = Input(Bool())
+    val wreq    = if(ic) None else Some(Input(Bool()))
     val wrsp    = Output(Bool())
     val uc_in   = Input(Bool())
     val hit     = Input(UInt(l2_way.W))
@@ -34,15 +34,16 @@ class L2Cache_FSM_MEM_IO extends Bundle {
     val wlast   = Output(Bool())
 }
 
-class L2Cache_FSM_IO extends Bundle {
-    val cache   = new L2Cache_FSM_Cache_IO
+class L2Cache_FSM_IO(ic: Boolean = false) extends Bundle {
+    val cache   = new L2Cache_FSM_Cache_IO(ic)
     val mem     = new L2Cache_FSM_MEM_IO
 }
 
 class L2Cache_FSM(ic: Boolean = false) extends Module{
-    val io = IO(new L2Cache_FSM_IO)
+    val io = IO(new L2Cache_FSM_IO(ic))
     val ioc = io.cache
     val iom = io.mem
+    val ioc_wreq = ioc.wreq.getOrElse(false.B)
     // main fsm: for read
     val m_idle :: m_miss :: m_refill :: m_wait :: m_pause :: Nil = Enum(5)
     val m_state     = RegInit(m_idle)
@@ -66,9 +67,9 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     io.mem.rreq     := false.B
     switch(m_state){
         is(m_idle){
-            when(if(ic) ioc.rreq else ioc.rreq || ioc.wreq){
+            when(ioc.rreq || ioc_wreq){
                 when(ioc.uc_in){ // uncache
-                    m_state := (if(ic) m_miss else Mux(ioc.wreq, m_wait, m_miss))
+                    m_state := Mux(ioc_wreq, m_wait, m_miss)
                     wfsm_en := true.B
                     wbuf_we := true.B
                 }.elsewhen(!ioc.hit.orR){ // cache but !hit
@@ -80,11 +81,9 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
                     rrsp    := true.B
                     wrsp    := true.B
                     lru_upd := ioc.hit.asBools
-                    if(!ic){
-                        mem_we  := ioc.hit.asBools.map(_ && ioc.wreq)
-                        drty_d  := VecInit.fill(l2_way)(true.B)
-                        drty_we := VecInit.tabulate(l2_way)(i => ioc.hit(i) && ioc.wreq)
-                    }
+                    mem_we  := ioc.hit.asBools.map(_ && ioc_wreq)
+                    drty_d  := VecInit.fill(l2_way)(true.B)
+                    drty_we := VecInit.tabulate(l2_way)(i => ioc.hit(i) && ioc_wreq)
                 }
             }
         }
@@ -100,10 +99,8 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
             mem_we  := ioc.lru
             addr_1H := 4.U // choose s3 addr
             lru_upd := (~ioc.lru.asUInt).asBools
-            if(!ic){
-                drty_d  := VecInit.fill(l2_way)(ioc.wreq)
-                drty_we := VecInit.fill(l2_way)(ioc.wreq || ioc.rreq)
-            }
+            drty_d  := VecInit.fill(l2_way)(ioc_wreq)
+            drty_we := ioc.lru
         }
         is(m_wait){
             wfsm_rst := true.B
@@ -150,11 +147,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
         is(w_idle){
             when(wfsm_en){
                 when(ioc.uc_in){
-                    if(ic){
-                        w_state :=(if(ic) w_finish else Mux(ioc.wreq, w_write, w_finish))
-                    }else{
-                        w_state := Mux(ioc.wreq, w_write, w_finish)
-                    }
+                    w_state := Mux(ioc_wreq, w_write, w_finish)
                 }.otherwise{
                     w_state := Mux(Mux1H(ioc.lru, ioc.drty), w_write, w_finish)
                 }

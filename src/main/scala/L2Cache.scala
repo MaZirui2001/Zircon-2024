@@ -77,6 +77,10 @@ object Channel2_Stage2_Signal {
         c
     }
 }
+class Write_Buffer extends Bundle {
+    val paddr  = UInt(32.W)
+    val wdata  = UInt(l2_line_bits.W)
+}
 class ICache_IO extends Bundle{
     val rreq        = Input(Bool())
     val rrsp        = Output(Bool())
@@ -126,13 +130,10 @@ class Mem_IO extends Bundle {
 class L2Cache_IO extends Bundle {
     val ic      = new ICache_IO
     val dc      = new DCache_IO
-    val mem     = Vec(l2_way, new Mem_IO)
+    val mem     = Vec(2, new Mem_IO)
 }
 
-class Write_Buffer extends Bundle {
-    val paddr  = UInt(32.W)
-    val wdata  = UInt(l2_line_bits.W)
-}
+
 
 
 class L2Cache extends Module {
@@ -149,7 +150,7 @@ class L2Cache extends Module {
     // data
     val data_tab    = VecInit.fill(l2_way)(Module(new xilinx_true_dual_port_read_first_byte_write_1_clock_ram(l2_line, 8, l2_index_num)).io)
     // dirty
-    val dirty_tab   = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 1, 2)).io)
+    val dirty_tab   = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2)).io)
     // lru
     val lru_tab     = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2)).io)
 
@@ -188,10 +189,12 @@ class L2Cache extends Module {
     /* stage 3: fsm */
     dirty_tab.zipWithIndex.foreach{ case (dirtyt, i) =>
         dirtyt.raddr(0) := index(c1s3.paddr)
+        dirtyt.wen(0)   := fsm_c1.io.cache.drty_we(i)
+        dirtyt.waddr(0) := index(c1s3.paddr)
+        dirtyt.wdata(0) := fsm_c1.io.cache.drty_d(i)
     }
     // fsm
     fsm_c1.io.cache.rreq    := c1s3.rreq
-    fsm_c1.io.cache.wreq    := DontCare
     fsm_c1.io.cache.uc_in   := c1s3.uc_in
     fsm_c1.io.cache.hit     := c1s3.hit
     fsm_c1.io.cache.lru     := c1s3.lru
@@ -242,7 +245,7 @@ class L2Cache extends Module {
     io.ic.rrsp      := fsm_c1.io.cache.rrsp
     io.ic.rline     := (Mux1H(fsm_c1.io.cache.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf_c1)).asTypeOf(Vec(l2_line_bits / ic_line_bits, UInt(ic_line_bits.W))))(c1s3.paddr(l2_offset-1, ic_offset))
     io.ic.uc_out    := c1s3.uc_in
-    io.ic.miss      := miss_c1
+    // io.ic.miss      := miss_c1
     io.mem(0).rreq  := fsm_c1.io.mem.rreq
     io.mem(0).raddr := tag(c1s3.paddr) ## index(c1s3.paddr) ## Mux(c1s3.uc_in, offset(c1s3.paddr), 0.U(l2_offset.W))
     io.mem(0).rlen  := Mux(c1s3.uc_in, 0.U, (l2_line_bits / 32 - 1).U)
@@ -283,7 +286,7 @@ class L2Cache extends Module {
     /* stage 3: read the data from the line */
     // fsm
     fsm_c2.io.cache.rreq        := c2s3.rreq
-    fsm_c2.io.cache.wreq        := c2s3.wreq
+    fsm_c2.io.cache.wreq.get    := c2s3.wreq
     fsm_c2.io.cache.uc_in       := c2s3.uc_in
     fsm_c2.io.cache.hit         := c2s3.hit
     fsm_c2.io.cache.lru         := c2s3.lru
@@ -313,9 +316,9 @@ class L2Cache extends Module {
     // dirty
     dirty_tab.zipWithIndex.foreach{ case (dirtyt, i) =>
         dirtyt.raddr(1) := index(c2s3.paddr)
-        dirtyt.wen(0)   := fsm_c2.io.cache.drty_we(i)
-        dirtyt.waddr(0) := index(c2s3.paddr)
-        dirtyt.wdata(0) := fsm_c2.io.cache.drty_d(i)
+        dirtyt.wen(1)   := fsm_c2.io.cache.drty_we(i)
+        dirtyt.waddr(1) := index(c2s3.paddr)
+        dirtyt.wdata(1) := fsm_c2.io.cache.drty_d(i)
     }
     // tag and mem
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
@@ -341,7 +344,7 @@ class L2Cache extends Module {
     io.dc.rrsp      := fsm_c2.io.cache.rrsp
     io.dc.rline     := (Mux1H(fsm_c2.io.cache.r1H, VecInit(Mux1H(c2s3.hit, c2s3.rdata), rbuf_c2)).asTypeOf(Vec(l2_line_bits / dc_line_bits, UInt(dc_line_bits.W))))(c2s3.paddr(l2_offset-1, dc_offset))
     io.dc.uc_out    := c2s3.uc_in
-    io.dc.miss      := miss_c2
+    // io.dc.miss      := miss_c2
     io.dc.paddr_out := c2s3.paddr
     io.dc.wrsp      := fsm_c2.io.cache.wrsp
     io.mem(1).rreq  := fsm_c2.io.mem.rreq
@@ -355,4 +358,21 @@ class L2Cache extends Module {
     io.mem(1).wlen  := Mux(c2s3.uc_in, 0.U, (l2_line_bits / 32 - 1).U)
     io.mem(1).wsize := 2.U
     io.mem(1).wstrb := Mux(c2s3.uc_in, mtype_decode(c2s3.mtype, 4), 0xf.U)
+
+    /* related check: 
+        reason:     1) The icache may replace a line that the dcache is writing through.
+                    2) When the icache is writing back a line, the dcache may write the line.
+                    Both of the above two cases will make the data that will be write into the replaced line to be lost.
+        
+        solution:   1) If the icache addr in stage 1 is same as the dcache addr whether in any stage, the icache should wait.
+                    2) If the dcache addr in stage 1 is same as the icache addr in stage 2 or 3, the dcache should wait.
+                       (The reason why I don't compare the icache addr in stage 1 is to avoid the deadlock.)
+        result:     Using combinational logic to make signal 'miss' to be true. 
+                    It seems that the l2 cache is missing from the l1 caches.
+    */
+    val ic_hazard = index(c1s1.paddr) === index(c2s1.paddr) || index(c1s1.paddr) === index(c2s2.paddr) || index(c1s1.paddr) === index(c2s3.paddr)
+    val dc_hazard = index(c2s1.paddr) === index(c1s2.paddr) || index(c2s1.paddr) === index(c1s3.paddr)
+
+    io.ic.miss := miss_c1 || ic_hazard
+    io.dc.miss := miss_c2 || dc_hazard
 }
