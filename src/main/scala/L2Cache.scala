@@ -146,13 +146,17 @@ class L2Cache extends Module {
     /* memory, now the l2_way is 2 */
     // tag
     val tag_tab     = VecInit.fill(l2_way)(Module(new xilinx_true_dual_port_read_first_1_clock_ram(l2_tag, l2_index_num)).io)
-    val vld_tab     = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2)).io)
+    val vld_tab     = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2, false.B)).io)
     // data
     val data_tab    = VecInit.fill(l2_way)(Module(new xilinx_true_dual_port_read_first_byte_write_1_clock_ram(l2_line, 8, l2_index_num)).io)
     // dirty
-    val dirty_tab   = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2)).io)
+    val dirty_tab   = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2, false.B)).io)
     // lru
-    val lru_tab     = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2)).io)
+    val lru_tab     = VecInit.tabulate(l2_way)(i => Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2, if(i == 0) true.B else false.B)).io)
+
+    /* hazard */
+    val ic_hazard   = Wire(Bool())
+    val dc_hazard   = Wire(Bool())
 
     /* utils */
     def index(paddr: UInt) = paddr(l2_index+l2_offset-1, l2_offset)
@@ -173,13 +177,13 @@ class L2Cache extends Module {
     val rbuf_c1     = RegInit(0.U(l2_line_bits.W))
 
     /* stage 1: receive the write through request */
-    val c1s1        = Channel1_Stage1_Signal(io.ic.rreq, io.ic.paddr, io.ic.uc_in)
+    val c1s1        = Channel1_Stage1_Signal(Mux(ic_hazard, false.B, io.ic.rreq), io.ic.paddr, io.ic.uc_in)
     // Segreg1-2
     val c1s2        = ShiftRegister(c1s1, 1, 0.U.asTypeOf(new Channel1_Stage1_Signal), !miss_c1)
     /* stage 2: search the tag to determine which line to write */
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val hit_c1s2    = VecInit(tag_tab.zip(vld_c1s2).map{ case (tagt, vld) => vld && tagt.douta === tag(c1s2.paddr)}).asUInt
-    assert(PopCount(hit_c1s2) <= 1.U, "icache visit hit more than one lin")
+    assert(PopCount(hit_c1s2) <= 1.U, "icache visit hit more than one line")
 
     val c1s3_in     = Channel1_Stage2_Signal(c1s2, VecInit(tag_tab.map(_.douta)), VecInit(data_tab.map(_.douta)), hit_c1s2, VecInit(lru_tab.map(_.rdata(0))))
     // miss update logic
@@ -216,22 +220,24 @@ class L2Cache extends Module {
     // lru
     lru_tab.zipWithIndex.foreach{ case (lrut, i) =>
         lrut.raddr(0)   := index(c1s2.paddr)
-        lrut.wen(0)     := fsm_c1.io.cache.lru_upd(i).orR
+        lrut.wen(0)     := fsm_c1.io.cache.lru_upd.asUInt.orR
         lrut.waddr(0)   := index(c1s3.paddr)
         lrut.wdata(0)   := fsm_c1.io.cache.lru_upd(i)
     }
     // tag and mem 
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
         tagt.clka   := clock
-        tagt.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)).asUInt)
-        tagt.ena    := c1s1.rreq || tagt.wea
+        tagt.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
+        // tagt.ena    := c1s1.rreq || tagt.wea
+        tagt.ena    := true.B
         tagt.dina   := tag(c1s3.paddr)
         tagt.wea    := fsm_c1.io.cache.tagv_we(i)
     }
     data_tab.zipWithIndex.foreach{ case (datat, i) =>
         datat.clka   := clock
-        datat.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)).asUInt)
-        datat.ena    := c1s1.rreq || datat.wea.orR
+        datat.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
+        // datat.ena    := c1s1.rreq || datat.wea.orR
+        datat.ena    := true.B
         datat.dina   := rbuf_c1
         datat.wea    := Fill(l2_line, fsm_c1.io.cache.mem_we(i))
     }
@@ -242,7 +248,8 @@ class L2Cache extends Module {
         vldt.wdata(0)   := true.B
     }
 
-    io.ic.rrsp      := fsm_c1.io.cache.rrsp
+    // io.ic.rrsp      := fsm_c1.io.cache.rrsp
+    io.ic.rrsp      := !miss_c1 && c1s3.rreq
     io.ic.rline     := (Mux1H(fsm_c1.io.cache.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf_c1)).asTypeOf(Vec(l2_line_bits / ic_line_bits, UInt(ic_line_bits.W))))(c1s3.paddr(l2_offset-1, ic_offset))
     io.ic.uc_out    := c1s3.uc_in
     // io.ic.miss      := miss_c1
@@ -271,7 +278,7 @@ class L2Cache extends Module {
     val wbuf_c2     = RegInit(0.U.asTypeOf(new Write_Buffer))
     val rbuf_c2     = RegInit(0.U(l2_line_bits.W))
     /* stage 1: receive the request, and arbitrate the request */
-    val c2s1        = Channel2_Stage1_Signal(io.dc.rreq, io.dc.wreq, io.dc.uc_in, io.dc.paddr_in, io.dc.mtype, io.dc.wdata)
+    val c2s1        = Channel2_Stage1_Signal(Mux(dc_hazard, false.B, io.dc.rreq), Mux(dc_hazard, false.B, io.dc.wreq), io.dc.uc_in, io.dc.paddr_in, io.dc.mtype, io.dc.wdata)
     // Segreg1-2
     val c2s2        = ShiftRegister(c2s1, 1, 0.U.asTypeOf(new Channel2_Stage1_Signal), !miss_c2)
     /* stage 2: search the tag to determine hit or miss, as well as read the data from the line */
@@ -305,10 +312,16 @@ class L2Cache extends Module {
     when(io.mem(1).rreq && io.mem(1).rrsp){
         rbuf_c2 := io.mem(1).rdata ## rbuf_c2(l2_line_bits-1, 32)
     }
+    val mtype = mtype_decode(c2s3.mtype, 4)
+    val wmask = Mux(!c2s3.wreq, 0.U, VecInit.tabulate(32)(i => mtype(i / 8)).asUInt)
+    val wmask_shift = (0.U((l2_line_bits-32).W) ## wmask) << (offset(c2s3.paddr) << 3)
+    val wdata_shift = (0.U((l2_line_bits-32).W) ## c2s3.wdata) << (offset(c2s3.paddr) << 3)
+    val wdata_rbuf = rbuf_c2 & ~wmask_shift | wdata_shift & wmask_shift
+    val rdata_mem = Mux1H(c2s3.hit, c2s3.rdata) & ~wmask_shift |  wdata_shift & wmask_shift
     // lru
     lru_tab.zipWithIndex.foreach{ case (lrut, i) =>
         lrut.raddr(1) := index(c2s2.paddr)
-        lrut.wen(1) := fsm_c2.io.cache.lru_upd(i).orR
+        lrut.wen(1) := fsm_c2.io.cache.lru_upd.asUInt.orR
         lrut.waddr(1) := index(c2s3.paddr)
         lrut.wdata(1) := fsm_c2.io.cache.lru_upd(i)
     }
@@ -322,17 +335,18 @@ class L2Cache extends Module {
     }
     // tag and mem
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
-        tagt.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)).asUInt)
-        tagt.enb    := c2s1.rreq || c2s1.wreq || tagt.web
+        tagt.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
+        // tagt.enb    := c2s1.rreq || c2s1.wreq || tagt.web
+        tagt.enb    := true.B
         tagt.dinb   := tag(c2s3.paddr)
         tagt.web    := fsm_c2.io.cache.tagv_we(i)
     }
     data_tab.zipWithIndex.foreach{ case (datat, i) =>
-        datat.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)).asUInt)
-        datat.enb    := c2s1.rreq || c2s1.wreq || datat.web.orR
-        datat.dinb   := Mux(fsm_c2.io.cache.addr_1H(2), rbuf_c2, (0.U((l2_line_bits-32).W) ## c2s3.wdata) << (offset(c2s3.paddr) << 3))
-        datat.web    := Fill(l2_line, fsm_c2.io.cache.mem_we(i)) & Mux(fsm_c2.io.cache.addr_1H(2), Fill(l2_line, fsm_c2.io.cache.mem_we(i)), 
-                                                                                                   mtype_decode(c2s3.mtype, l2_line) << (offset(c2s3.paddr) << 3))
+        datat.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
+        // datat.enb    := c2s1.rreq || c2s1.wreq || datat.web.orR
+        datat.enb    := true.B
+        datat.dinb   := Mux(!c2s3.hit.orR, wdata_rbuf, (0.U((l2_line_bits-32).W) ## c2s3.wdata) << (offset(c2s3.paddr) << 3))
+        datat.web    := Fill(l2_line, fsm_c2.io.cache.mem_we(i)) & Mux(!c2s3.hit.orR, Fill(l2_line, fsm_c2.io.cache.mem_we(i)), mtype_decode(c2s3.mtype, l2_line) << (offset(c2s3.paddr)))
     }
     vld_tab.zipWithIndex.foreach{ case (vldt, i) =>
         vldt.raddr(1)   := index(c2s2.paddr)
@@ -341,12 +355,14 @@ class L2Cache extends Module {
         vldt.wdata(1)   := true.B
     }
 
-    io.dc.rrsp      := fsm_c2.io.cache.rrsp
-    io.dc.rline     := (Mux1H(fsm_c2.io.cache.r1H, VecInit(Mux1H(c2s3.hit, c2s3.rdata), rbuf_c2)).asTypeOf(Vec(l2_line_bits / dc_line_bits, UInt(dc_line_bits.W))))(c2s3.paddr(l2_offset-1, dc_offset))
+    // io.dc.rrsp      := fsm_c2.io.cache.rrsp
+    io.dc.rrsp      := !miss_c2 && c2s3.rreq
+    io.dc.rline     := (Mux1H(fsm_c2.io.cache.r1H, VecInit(rdata_mem, wdata_rbuf)).asTypeOf(Vec(l2_line_bits / dc_line_bits, UInt(dc_line_bits.W))))(c2s3.paddr(l2_offset-1, dc_offset))
     io.dc.uc_out    := c2s3.uc_in
     // io.dc.miss      := miss_c2
     io.dc.paddr_out := c2s3.paddr
-    io.dc.wrsp      := fsm_c2.io.cache.wrsp
+    // io.dc.wrsp      := fsm_c2.io.cache.wrsp
+    io.dc.wrsp      := !miss_c2 && c2s3.wreq
     io.mem(1).rreq  := fsm_c2.io.mem.rreq
     io.mem(1).raddr := tag(c2s3.paddr) ## index(c2s3.paddr) ## Mux(c2s3.uc_in, offset(c2s3.paddr), 0.U(l2_offset.W))
     io.mem(1).rlen  := Mux(c2s3.uc_in, 0.U, (l2_line_bits / 32 - 1).U)
@@ -370,8 +386,12 @@ class L2Cache extends Module {
         result:     Using combinational logic to make signal 'miss' to be true. 
                     It seems that the l2 cache is missing from the l1 caches.
     */
-    val ic_hazard = index(c1s1.paddr) === index(c2s1.paddr) || index(c1s1.paddr) === index(c2s2.paddr) || index(c1s1.paddr) === index(c2s3.paddr)
-    val dc_hazard = index(c2s1.paddr) === index(c1s2.paddr) || index(c2s1.paddr) === index(c1s3.paddr)
+    ic_hazard := (index(c1s1.paddr) === index(c2s1.paddr) && io.dc.wreq && io.ic.rreq
+               || index(c1s1.paddr) === index(c2s2.paddr) && c2s2.wreq && io.ic.rreq
+               || index(c1s1.paddr) === index(c2s3.paddr) && c2s3.wreq && io.ic.rreq)
+    dc_hazard := (index(c2s1.paddr) === index(c1s2.paddr) && io.dc.wreq && c1s2.rreq
+               || index(c2s1.paddr) === index(c1s3.paddr) && io.dc.wreq && c1s3.rreq
+               || c2s2.wreq || c2s3.wreq)
 
     io.ic.miss := miss_c1 || ic_hazard
     io.dc.miss := miss_c2 || dc_hazard

@@ -9,17 +9,18 @@ object WriteState extends Enumeration {
     val IDLE, AW, W, B = Value
 }
 
-case class Memory_Item(data: UInt, last_write: Array[Int])
-case class AXI_Read_Config(araddr: Int, arlen: Int, arsize: Int, arburst: Int, state: ReadState.Value)
-case class AXI_Read_Item(arready: Bool, rdata: UInt, rvalid: Bool, rlast: Bool)
-case class AXI_Write_Config(awaddr: Int, awlen: Int, awsize: Int, awburst: Int, wstrb: Int, wlast: Boolean, state: WriteState.Value)
-case class AXI_Write_Item(awready: Bool, wready: Bool, bvalid: Bool)
+class Memory_Item(var data: Int, var last_write: Array[Int])
+class AXI_Read_Config(var araddr: Int, var arlen: Int, var arsize: Int, var arburst: Int, var state: ReadState.Value)
+class AXI_Read_Item(var arready: Bool, var rdata: UInt, var rvalid: Bool, var rlast: Bool)
+class AXI_Write_Config(var awaddr: Int, var awlen: Int, var awsize: Int, var awburst: Int, var wstrb: Int, var wlast: Boolean, var state: WriteState.Value)
+class AXI_Write_Item(var awready: Bool, var wready: Bool, var bvalid: Bool)
 
 
 class AXI_Memory(rand_delay: Boolean){
-    private val mem: mutable.Map[Int, Memory_Item] = mutable.Map()
-    var readConfig: AXI_Read_Config = AXI_Read_Config(0, 0, 0, 0, ReadState.IDLE)
-    var writeConfig: AXI_Write_Config = AXI_Write_Config(0, 0, 0, 0, 0, false, WriteState.IDLE)
+    private var mem: mutable.Map[Int, Memory_Item] = mutable.Map()
+    private var mem_ref: mutable.Map[Int, Memory_Item] = mutable.Map()
+    var readConfig: AXI_Read_Config = new AXI_Read_Config(0, 0, 0, 0, ReadState.IDLE)
+    var writeConfig: AXI_Write_Config = new AXI_Write_Config(0, 0, 0, 0, 0, false, WriteState.IDLE)
 
     // read from the memory
     def read(
@@ -30,13 +31,13 @@ class AXI_Memory(rand_delay: Boolean){
         arvalid: Bool,
         rready: Bool
     ): AXI_Read_Item = {
-        var readItem = AXI_Read_Item(false.B, 0.U, false.B, false.B)
+        var readItem = new AXI_Read_Item(false.B, 0.U, false.B, false.B)
         readConfig.state match {
             // record the read configuration
             case ReadState.IDLE => {
                 assert(arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
                 if(arvalid.litToBoolean){
-                    readConfig = AXI_Read_Config(
+                    readConfig = new AXI_Read_Config(
                         araddr.litValue.toInt,
                         arlen.litValue.toInt, 
                         1 << arsize.litValue.toInt, 
@@ -48,36 +49,32 @@ class AXI_Memory(rand_delay: Boolean){
             // address handshaking
             case ReadState.AR => {
                 // random delay
-                
-                readItem = readItem.copy(arready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
+                readItem.arready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
                 // println("arready: " + readItem.arready.litToBoolean + " arvalid: " + arvalid.litToBoolean)
                 if(readItem.arready.litToBoolean && arvalid.litToBoolean){
-                    readConfig = readConfig.copy(state = ReadState.R)
+                    readConfig.state = ReadState.R
                 }
             }
             case ReadState.R => {
                 // random delay
-                readItem = readItem.copy(rvalid = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
-                // println("rvalid: " + readItem.rvalid.litToBoolean + " rready: " + rready.litToBoolean)
+                readItem.rvalid = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
                 // if random delay is not enabled, the read data is ready
                 if(readItem.rvalid.litToBoolean){
                     val word_addr = readConfig.araddr / 4
                     val word_offset = readConfig.araddr % 4
                     // assert the address is in the memory
                     assert(mem.contains(word_addr), f"Address ${readConfig.araddr}%x is not in the memory")
-                    readItem = readItem.copy(rdata = (mem(word_addr).data.litValue.toInt >> (word_offset * 8)).U)
-                    println(f"Read address: ${readConfig.araddr}%x")
-                    println(f"Read data: ${readItem.rdata.litValue.toInt}%x")
+                    readItem.rdata = ((mem(word_addr).data >> (word_offset * 8) ) & 0xFFFFFFFFL).U
                     // check if the last read
                     if(readConfig.arlen == 0){
-                        readItem = readItem.copy(rlast = true.B)
+                        readItem.rlast = true.B
                         if(rready.litToBoolean){
-                            readConfig = readConfig.copy(state = ReadState.IDLE)
+                            readConfig.state = ReadState.IDLE
                         }
                     }else{
                         if(rready.litToBoolean){
-                            readConfig = readConfig.copy(arlen = readConfig.arlen - 1)
-                            readConfig = readConfig.copy(araddr = readConfig.araddr + readConfig.arsize)
+                            readConfig.arlen = readConfig.arlen - 1
+                            readConfig.araddr = readConfig.araddr + readConfig.arsize
                         }
                     }
                 }
@@ -85,7 +82,6 @@ class AXI_Memory(rand_delay: Boolean){
         }
         readItem
     }
-
     // write to the memory
     def write(
         awaddr: UInt, 
@@ -100,13 +96,13 @@ class AXI_Memory(rand_delay: Boolean){
         bready: Bool,
         cycle: Int
     ): AXI_Write_Item = {
-        var writeItem = AXI_Write_Item(false.B, false.B, false.B)
+        var writeItem = new AXI_Write_Item(false.B, false.B, false.B)
         writeConfig.state match {
             // record the write configuration
             case WriteState.IDLE => {
                 assert(awsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
                 if(awvalid.litToBoolean){
-                    writeConfig = AXI_Write_Config(
+                    writeConfig = new AXI_Write_Config(
                         awaddr.litValue.toInt,
                         awlen.litValue.toInt, 
                         1 << awsize.litValue.toInt, 
@@ -120,68 +116,73 @@ class AXI_Memory(rand_delay: Boolean){
             // address handshaking
             case WriteState.AW => {
                 // random delay
-                writeItem = writeItem.copy(awready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
+                writeItem.awready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
                 if(writeItem.awready.litToBoolean && awvalid.litToBoolean){
-                    writeConfig = writeConfig.copy(state = WriteState.W)
+                    writeConfig.state = WriteState.W
                 }
             }
             case WriteState.W => {
                 // random delay
-                writeItem = writeItem.copy(wready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
+                writeItem.wready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
                 if(writeItem.wready.litToBoolean){
                     val word_addr = writeConfig.awaddr / 4
                     val word_offset = writeConfig.awaddr % 4
                     if(!mem.contains(word_addr)){
-                        mem(word_addr) = Memory_Item(0.U, Array.fill(4)(0))
+                        mem(word_addr) = new Memory_Item(0, Array.fill(4)(0))
                     }
                     if(wlast.litToBoolean){
-                        writeConfig = writeConfig.copy(state = WriteState.B)
+                        writeConfig.state = WriteState.B
                     }
                     // write into the memory
-                    var wmask = 0xff.U << (word_offset * 8).U
-                    var wdata_shift = wdata << (word_offset * 8).U
+                    var wmask = (0xff << (word_offset * 8))
+                    var wdata_shift = (wdata.litValue.toInt << (word_offset * 8))
                     (0 until writeConfig.awsize).foreach{ i =>
                         if((writeConfig.wstrb & (1 << i)) != 0){
-                            mem(word_addr).data := mem(word_addr).data & ~wmask | wdata_shift & wmask
+                            mem(word_addr).data = (mem(word_addr).data & ~wmask | wdata_shift & wmask)
                             mem(word_addr).last_write(word_offset+i) = cycle
                         }
-                        wmask = wmask << 8.U
+                        wmask = wmask << 8
                     }
-                    writeConfig = writeConfig.copy(awaddr = writeConfig.awaddr + writeConfig.awsize)
+                    writeConfig.awaddr = writeConfig.awaddr + writeConfig.awsize
                 }
             }
             case WriteState.B => {
                 // random delay
-                // writeItem.bvalid := (if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B })
-                writeItem = writeItem.copy(bvalid = if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                writeItem.bvalid = if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B }
                 if(writeItem.bvalid.litToBoolean && bready.litToBoolean){
-                    writeConfig = writeConfig.copy(state = WriteState.IDLE)
+                    writeConfig.state = WriteState.IDLE
                 }
             }
         }
         writeItem
     }
 
-    def debug_read(addr: Int): UInt = {
+    def debug_read(addr: Int): (Int, Int) = {
         val word_addr = addr / 4
         val word_offset = addr % 4
-        assert(mem.contains(word_addr), f"Address ${addr}%x is not in the memory")
-        mem(word_addr).data >> (word_offset * 8)
+        assert(mem_ref.contains(word_addr), f"Address ${addr}%x is not in the memory")
+        ((mem_ref(word_addr).data >> (word_offset * 8)), mem_ref(word_addr).last_write(word_offset))
     }
-    def debug_write(addr: Int, wdata: UInt): Unit = {
+    def debug_write(addr: Int, wdata: Int, wstrb: Int, cycle: Int): Unit = {
         assert(addr % 4 == 0, "The address must be aligned to 4 bytes")
         val word_addr = addr / 4
+        val word_offset = addr % 4
         if(!mem.contains(word_addr)){
-            mem(word_addr) = Memory_Item(0.U, Array.fill(4)(0))
+            mem_ref(word_addr) = new Memory_Item(0, Array.fill(4)(0))
         }
-        mem(word_addr).data := wdata
+        // println(f"addr: ${addr}%x, data: ${wdata}%x, strb: ${wstrb}%x")
         (0 until 4).foreach{ i =>
-            mem(word_addr).last_write(i) = 0
+            if((wstrb & (1 << i)) != 0){
+                mem_ref(word_addr).data = (mem_ref(word_addr).data & ~(0xff << (i * 8)) | wdata.toInt & (0xff << (i * 8)))
+                mem_ref(word_addr).last_write(i) = cycle
+                // if(word_addr == 0x58c >> 2) println(cycle)
+            }
         }
     }
     def initialize(size: Int, load: Boolean): Unit = {
         for(i <- 0 until size){
-            mem(i) = Memory_Item((i*4).U, Array.fill(4)(0))
+            mem(i) = new Memory_Item((i*4), Array.fill(4)(0))
+            mem_ref(i) = new Memory_Item((i*4), Array.fill(4)(0))
         }
     }
 }

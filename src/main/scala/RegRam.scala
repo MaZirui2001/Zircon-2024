@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
 
-class AsyncRegRam[T <: Data](gen: T, depth: Int, wport: Int, rport: Int) extends Module {
+class AsyncRegRam[T <: Data](gen: T, depth: Int, wport: Int, rport: Int, resetVal: T) extends Module {
     val io = IO(new Bundle{
         val wen = Input(Vec(wport, Bool()))
         val waddr = Input(Vec(wport, UInt(log2Ceil(depth).W)))
@@ -9,7 +9,7 @@ class AsyncRegRam[T <: Data](gen: T, depth: Int, wport: Int, rport: Int) extends
         val raddr = Input(Vec(rport, UInt(log2Ceil(depth).W)))
         val rdata = Output(Vec(rport, gen))
     })
-    val ram = RegInit(VecInit.fill(depth)(0.U.asTypeOf(gen)))
+    val ram = RegInit(VecInit.fill(depth)(resetVal))
     for (i <- 0 until wport) {
         when(io.wen(i)) {
             ram(io.waddr(i)) := io.wdata(i)

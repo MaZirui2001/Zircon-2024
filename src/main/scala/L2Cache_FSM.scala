@@ -84,6 +84,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
                     mem_we  := ioc.hit.asBools.map(_ && ioc_wreq)
                     drty_d  := VecInit.fill(l2_way)(true.B)
                     drty_we := VecInit.tabulate(l2_way)(i => ioc.hit(i) && ioc_wreq)
+                    addr_1H := Mux(ioc_wreq, 4.U, 1.U) // choose s3 addr when write
                 }
             }
         }
@@ -137,7 +138,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     val w_cnt = RegInit(0.U((w_cnt_bits.W)))
     when(wfsm_en){
         w_cnt := Mux(ioc.uc_in, Fill(w_cnt_bits, 1.U), (l2_line_bits / 32 - 2).U)
-    }.elsewhen(!w_cnt(w_cnt_bits-1)){
+    }.elsewhen(!w_cnt(w_cnt_bits-1) && iom.wreq && iom.wrsp){
         w_cnt := w_cnt - 1.U
     }
 
