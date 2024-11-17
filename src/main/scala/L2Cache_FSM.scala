@@ -94,7 +94,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
             }
         }
         is(m_refill){
-            m_state := m_pause
+            m_state := m_wait
             tagv_we := ioc.lru
             mem_we  := ioc.lru
             addr_1H := 4.U // choose s3 addr
