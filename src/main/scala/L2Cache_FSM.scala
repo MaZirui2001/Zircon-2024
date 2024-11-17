@@ -4,9 +4,7 @@ import CPU_Config.Cache._
 
 class L2Cache_FSM_Cache_IO(ic: Boolean = false) extends Bundle {
     val rreq    = Input(Bool())
-    val rrsp    = Output(Bool())
     val wreq    = if(ic) None else Some(Input(Bool()))
-    val wrsp    = Output(Bool())
     val uc_in   = Input(Bool())
     val hit     = Input(UInt(l2_way.W))
     val cmiss   = Output(Bool())
@@ -64,6 +62,8 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     val wfsm_ok     = WireDefault(false.B)
     val wbuf_we     = WireDefault(false.B)
 
+    val lru         = RegInit(VecInit.fill(l2_way)(false.B))
+
     io.mem.rreq     := false.B
     switch(m_state){
         is(m_idle){
@@ -76,11 +76,12 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
                     m_state := m_miss
                     wfsm_en := true.B
                     wbuf_we := true.B
+                    lru     := ioc.lru
                 }.otherwise{ // cache and hit
                     m_state := m_idle
                     rrsp    := true.B
                     wrsp    := true.B
-                    lru_upd := ioc.hit.asBools
+                    lru_upd := (~ioc.hit).asBools
                     mem_we  := ioc.hit.asBools.map(_ && ioc_wreq)
                     drty_d  := VecInit.fill(l2_way)(true.B)
                     drty_we := VecInit.tabulate(l2_way)(i => ioc.hit(i) && ioc_wreq)
@@ -96,12 +97,12 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
         }
         is(m_refill){
             m_state := m_wait
-            tagv_we := ioc.lru
-            mem_we  := ioc.lru
+            tagv_we := lru
+            mem_we  := lru
             addr_1H := 4.U // choose s3 addr
-            lru_upd := (~ioc.lru.asUInt).asBools
+            lru_upd := (~lru.asUInt).asBools
             drty_d  := VecInit.fill(l2_way)(ioc_wreq)
-            drty_we := ioc.lru
+            drty_we := lru
         }
         is(m_wait){
             wfsm_rst := true.B
@@ -118,8 +119,6 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
             r1H     := 2.U // choose rbuf
         }
     }
-    io.cache.rrsp       := rrsp
-    io.cache.wrsp       := wrsp
     io.cache.cmiss      := cmiss
     io.cache.tagv_we    := tagv_we
     io.cache.mem_we     := mem_we

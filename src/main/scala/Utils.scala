@@ -46,7 +46,7 @@ object Zircon_Util{
         Mux(whit.asUInt.orR, Mux1H(whit, wdata), rdata)
     }
     // memtype decode
-    def mtype_decode(mtype: UInt, n: Int): UInt = {
+    def mtype_decode(mtype: UInt, n: Int = 4): UInt = {
         val res = Wire(UInt(n.W))
         res := MuxLookup(mtype, 1.U(n.W))(Seq(
             0.U -> 0x1.U(n.W),

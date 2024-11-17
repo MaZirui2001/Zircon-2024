@@ -15,14 +15,14 @@ class Test_Generator{
     // 将测试写入文件
     def generate_tests(n: Int): Unit = {
         val writer = new java.io.PrintWriter("test.txt")
-        // 生成icache访问有效性，范围1
-        val icache_valid = List.fill(n)(1)
+        // 生成icache访问有效性，间隔有效性为1
+        val icache_valid = List.tabulate(n)(i => if(i % 2 == 0) 1 else 0)
         // 生成icache的访问地址，范围0-1023
         val icache_addr = gen_addr(n, 0, 1024)
         // 生成icache的uncache信号，目前暂时全为0
         val icache_uncache = List.fill(n)(0)
-        // 生成dcache的读有效性，范围1
-        val dcache_read_valid = List.fill(n)(1)
+        // 生成dcache的读有效性，间隔有效性为1
+        val dcache_read_valid = List.tabulate(n)(i => if(i % 2 == 0) 1 else 0)
         // 生成dcache的写有效性，注意只有在读有效性为1的时候才能写，范围0-1
         val dcache_write_valid = List.tabulate(n)(i => if(dcache_read_valid(i) == 1) Random.nextInt(2) else 0)
         // 生成dcache的地址，范围1024-2047
@@ -61,7 +61,7 @@ class Test_Generator{
 
 
 class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
-    val test_num = 8192
+    val test_num = 16384
     val memory = new AXI_Memory(true)
     val test_gen = new Test_Generator
 
@@ -75,10 +75,10 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
         { c =>
             var i_test_index = 0
             var d_test_index = 0
-            var i = 1
+            var i = 0
             val icache_req_q = Queue[Int]()
             val dcache_rreq_q = Queue[Int]()
-            val dcache_wreq_q = Queue[(Int, Int, Int)]()
+            val dcache_wreq_q = Queue[(Int, Int, Int, Int)]()
             while((i_test_index < test_num || d_test_index < test_num) && i < 50000){ 
                 
                 val w = memory.write(
@@ -140,8 +140,9 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                         dcache_wreq_q.enqueue((
                             (c.io.dc.paddr_in.peek().litValue.toInt >> 2) << 2,
                             (c.io.dc.wdata.peek().litValue.toInt << ((c.io.dc.paddr_in.peek().litValue.toInt & 3) * 8)),
-                            ((1 << (1 << c.io.dc.mtype.peek().litValue.toInt)) - 1) << ((c.io.dc.paddr_in.peek().litValue.toInt & 3))))
-                        // println(f"addr: ${c.io.dc.paddr_in.peek().litValue.toInt}%x, data: ${c.io.dc.wdata.peek().litValue.toInt}%x")
+                            ((1 << (1 << c.io.dc.mtype.peek().litValue.toInt)) - 1) << ((c.io.dc.paddr_in.peek().litValue.toInt & 3)),
+                            d_test_index
+                        ))
                     }
                     if(d_test_index < test_num){
                         d_test_index += 1
@@ -151,7 +152,6 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                 // step
                 if(c.io.ic.rrsp.peek().litToBoolean){
                     val addr = icache_req_q.dequeue()
-                    // println(addr)
                     var data = BigInt(0)
                     for(j <- 0 until ic_offset - 1){
                         data = (data << 32) | memory.debug_read(addr + 4 * j)._1
@@ -160,7 +160,7 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                 }
                 if(c.io.dc.wrsp.peek().litToBoolean){
                     val item = dcache_wreq_q.dequeue()
-                    memory.debug_write(item._1, item._2, item._3, i)
+                    memory.debug_write(item._1, item._2, item._3, item._4)
                     // println(f"addr: ${item._1}%x, data: ${item._2}%x, mask: ${item._3}%x")
                 }
                 if(c.io.dc.rrsp.peek().litToBoolean){
@@ -168,9 +168,11 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                     var data = BigInt(0)
                     for(j <- 0 until dc_offset - 1){
                         data = (data << 32) | memory.debug_read(addr + 4 * j)._1
-                        // println(f"addr: ${addr + 4 * j}%x, data: ${memory.debug_read(addr + 4 * j)._1}%x")
                     }
-                    c.io.dc.rline.expect(data & 0xFFFFFFFFL, f"addr: ${addr}%x, last write: ${memory.debug_read(addr)._2}")
+                    c.io.dc.rline.expect(data & 0xFFFFFFFFL, f"addr: ${addr}%x, last write:  1. ${memory.debug_read(addr)._2}, " +
+                                                                                           f"2. ${memory.debug_read(addr + 1)._2}, " +
+                                                                                           f"3. ${memory.debug_read(addr + 2)._2}, "  +
+                                                                                           f"4. ${memory.debug_read(addr + 3)._2}")
                 }
 
                 c.clock.step(1)
