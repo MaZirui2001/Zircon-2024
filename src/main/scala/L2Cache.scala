@@ -103,10 +103,10 @@ class DCache_IO extends Bundle {
     val wrsp        = Output(Bool())
 
     // shared port
-    val uc_in       = Input(Bool())
     val paddr_in    = Input(UInt(32.W))
-    val mtype       = Input(UInt(2.W))
+    val uc_in       = Input(Bool())
     val wdata       = Input(UInt(32.W))
+    val mtype       = Input(UInt(2.W))
     val miss        = Output(Bool())
 }
 class Mem_IO extends Bundle {
@@ -353,11 +353,11 @@ class L2Cache extends Module {
     io.mem(1).rsize := Mux(c2s3.uc_in, c2s3.mtype, 2.U)
     io.mem(1).wreq  := fsm_c2.io.mem.wreq
     io.mem(1).wlast := fsm_c2.io.mem.wlast
-    io.mem(1).waddr := wbuf_c2.paddr
-    io.mem(1).wdata := wbuf_c2.wdata(31, 0)
+    io.mem(1).waddr := wbuf_c2.paddr(31, 2) ## 0.U(2.W)
+    io.mem(1).wdata := (wbuf_c2.wdata(31, 0) << (wbuf_c2.paddr(1, 0) << 3))(31, 0)
     io.mem(1).wlen  := Mux(c2s3.uc_in, 0.U, (l2_line_bits / 32 - 1).U)
     io.mem(1).wsize := 2.U
-    io.mem(1).wstrb := Mux(c2s3.uc_in, mtype_decode(c2s3.mtype, 4), 0xf.U)
+    io.mem(1).wstrb := Mux(c2s3.uc_in, (mtype_decode(c2s3.mtype, 4) << wbuf_c2.paddr(1, 0))(3, 0), 0xf.U)
 
     /* related check: 
         reason:     1) The icache may replace a line that the dcache is writing through.

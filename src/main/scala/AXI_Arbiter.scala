@@ -1,9 +1,7 @@
 import chisel3._
 import chisel3.util._
 
-class AXI_Arbiter_IO extends Bundle {
-    val l2              = Vec(2, Flipped(new Mem_IO))
-    // for Main Memory
+class AXI_IO extends Bundle {
     val araddr          = Output(UInt(32.W))
     val arburst         = Output(UInt(2.W))
     val arid            = Output(UInt(4.W))
@@ -39,6 +37,12 @@ class AXI_Arbiter_IO extends Bundle {
     val wvalid          = Output(Bool())
 }
 
+class AXI_Arbiter_IO extends Bundle {
+    val l2  = Vec(2, Flipped(new Mem_IO))
+    // for Main Memory
+    val axi = new AXI_IO
+}
+
 class AXI_Arbiter extends Module{
     val io = IO(new AXI_Arbiter_IO)
 
@@ -46,16 +50,16 @@ class AXI_Arbiter extends Module{
     io.l2.foreach{ l2 =>
         l2.rrsp     := false.B
         l2.rlast    := false.B
-        l2.rdata    := io.rdata
+        l2.rdata    := io.axi.rdata
     }
 
-    io.araddr   := io.l2(0).raddr
-    io.arburst  := 1.U
-    io.arid     := 0.U
-    io.arlen    := io.l2(0).rlen
-    io.arsize   := io.l2(0).rsize
-    io.arvalid  := false.B
-    io.rready   := false.B
+    io.axi.araddr   := io.l2(0).raddr
+    io.axi.arburst  := 1.U
+    io.axi.arid     := 0.U
+    io.axi.arlen    := io.l2(0).rlen
+    io.axi.arsize   := io.l2(0).rsize
+    io.axi.arvalid  := false.B
+    io.axi.rready   := false.B
 
     // read FSM
     val r_idle :: r_iar :: r_ir :: r_dar :: r_dr :: Nil = Enum(5)
@@ -68,33 +72,33 @@ class AXI_Arbiter extends Module{
         }
         is(r_iar){
             // icache ar shake hand state
-            io.arvalid  := true.B
-            io.araddr   := io.l2(0).raddr
-            io.arsize   := io.l2(0).rsize
-            io.arlen    := io.l2(0).rlen
-            r_state     := Mux(io.arready, r_ir, r_iar)
+            io.axi.arvalid  := true.B
+            io.axi.araddr   := io.l2(0).raddr
+            io.axi.arsize   := io.l2(0).rsize
+            io.axi.arlen    := io.l2(0).rlen
+            r_state         := Mux(io.axi.arready, r_ir, r_iar)
         }
         is(r_ir){
             // icache read data state
-            io.l2(0).rrsp   := io.rvalid
-            io.l2(0).rlast  := io.rlast
-            io.rready       := true.B
-            r_state         := Mux(io.rvalid && io.rlast && io.rready, r_idle, r_ir)
+            io.l2(0).rrsp   := io.axi.rvalid
+            io.l2(0).rlast  := io.axi.rlast
+            io.axi.rready   := true.B
+            r_state         := Mux(io.axi.rvalid && io.axi.rlast && io.axi.rready, r_idle, r_ir)
         }
         is(r_dar){
             // dcache ar shake hand state
-            io.arvalid  := true.B
-            io.araddr   := io.l2(1).raddr
-            io.arsize   := io.l2(1).rsize
-            io.arlen    := io.l2(1).rlen
-            r_state     := Mux(io.arready, r_dr, r_dar)
+            io.axi.arvalid  := true.B
+            io.axi.araddr   := io.l2(1).raddr
+            io.axi.arsize   := io.l2(1).rsize
+            io.axi.arlen    := io.l2(1).rlen
+            r_state         := Mux(io.axi.arready, r_dr, r_dar)
         }
         is(r_dr){
             // dcache read data state
-            io.l2(1).rrsp   := io.rvalid
-            io.l2(1).rlast  := io.rlast
-            io.rready       := true.B
-            r_state         := Mux(io.rvalid && io.rlast && io.rready, r_idle, r_dr)
+            io.l2(1).rrsp   := io.axi.rvalid
+            io.l2(1).rlast  := io.axi.rlast
+            io.axi.rready   := true.B
+            r_state         := Mux(io.axi.rvalid && io.axi.rlast && io.axi.rready, r_idle, r_dr)
         }
     }
 
@@ -103,17 +107,17 @@ class AXI_Arbiter extends Module{
     val w_state = RegInit(w_idle)
 
     io.l2.foreach{ l2 => l2.wrsp := false.B }
-    io.awaddr   := io.l2(0).waddr
-    io.awburst  := 1.U
-    io.awid     := 0.U
-    io.awlen    := io.l2(0).wlen
-    io.awsize   := io.l2(0).wsize
-    io.awvalid  := false.B
-    io.wdata    := io.l2(0).wdata
-    io.wlast    := false.B
-    io.wstrb    := io.l2(0).wstrb
-    io.wvalid   := false.B
-    io.bready   := false.B
+    io.axi.awaddr   := io.l2(0).waddr
+    io.axi.awburst  := 1.U
+    io.axi.awid     := 0.U
+    io.axi.awlen    := io.l2(0).wlen
+    io.axi.awsize   := io.l2(0).wsize
+    io.axi.awvalid  := false.B
+    io.axi.wdata    := io.l2(0).wdata
+    io.axi.wlast    := false.B
+    io.axi.wstrb    := io.l2(0).wstrb
+    io.axi.wvalid   := false.B
+    io.axi.bready   := false.B
 
     switch(w_state){
         is(w_idle){
@@ -122,47 +126,47 @@ class AXI_Arbiter extends Module{
         }
         is(w_iaw){
             // icache aw shake hand state
-            io.awvalid  := true.B
-            io.awaddr   := io.l2(0).waddr
-            io.awsize   := io.l2(0).wsize
-            io.awlen    := io.l2(0).wlen
-            w_state     := Mux(io.awready, w_iw, w_iaw)
+            io.axi.awvalid  := true.B
+            io.axi.awaddr   := io.l2(0).waddr
+            io.axi.awsize   := io.l2(0).wsize
+            io.axi.awlen    := io.l2(0).wlen
+            w_state         := Mux(io.axi.awready, w_iw, w_iaw)
         }
         is(w_iw){
             // icache write data state
-            io.l2(0).wrsp   := io.wready
-            io.wvalid       := io.l2(0).wreq
-            io.wdata        := io.l2(0).wdata
-            io.wstrb        := io.l2(0).wstrb
-            io.wlast        := io.l2(0).wlast
-            w_state         := Mux(io.wready && io.wlast && io.wvalid, w_ib, w_iw)
+            io.l2(0).wrsp   := io.axi.wready
+            io.axi.wvalid   := io.l2(0).wreq
+            io.axi.wdata    := io.l2(0).wdata
+            io.axi.wstrb    := io.l2(0).wstrb
+            io.axi.wlast    := io.l2(0).wlast
+            w_state         := Mux(io.axi.wready && io.axi.wlast && io.axi.wvalid, w_ib, w_iw)
         }
         is(w_ib){
             // icache write response state
-            io.bready   := true.B
-            w_state     := Mux(io.bvalid, w_idle, w_ib)
+            io.axi.bready   := true.B
+            w_state         := Mux(io.axi.bvalid, w_idle, w_ib)
         }
         is(w_daw){
             // dcache aw shake hand state
-            io.awvalid  := true.B
-            io.awaddr   := io.l2(1).waddr
-            io.awsize   := io.l2(1).wsize
-            io.awlen    := io.l2(1).wlen
-            w_state     := Mux(io.awready, w_dw, w_daw)
+            io.axi.awvalid  := true.B
+            io.axi.awaddr   := io.l2(1).waddr
+            io.axi.awsize   := io.l2(1).wsize
+            io.axi.awlen    := io.l2(1).wlen
+            w_state         := Mux(io.axi.awready, w_dw, w_daw)
         }
         is(w_dw){
             // dcache write data state
-            io.l2(1).wrsp   := io.wready
-            io.wvalid       := io.l2(1).wreq
-            io.wdata        := io.l2(1).wdata
-            io.wstrb        := io.l2(1).wstrb
-            io.wlast        := io.l2(1).wlast
-            w_state         := Mux(io.wready && io.wlast && io.wvalid, w_db, w_dw)
+            io.l2(1).wrsp   := io.axi.wready
+            io.axi.wvalid   := io.l2(1).wreq
+            io.axi.wdata    := io.l2(1).wdata
+            io.axi.wstrb    := io.l2(1).wstrb
+            io.axi.wlast    := io.l2(1).wlast
+            w_state         := Mux(io.axi.wready && io.axi.wlast && io.axi.wvalid, w_db, w_dw)
         }
         is(w_db){
             // dcache write response state
-            io.bready   := true.B
-            w_state     := Mux(io.bready && io.bvalid, w_idle, w_db)
+            io.axi.bready   := true.B
+            w_state         := Mux(io.axi.bready && io.axi.bvalid, w_idle, w_db)
         }
     }
 }
