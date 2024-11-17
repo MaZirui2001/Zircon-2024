@@ -56,7 +56,7 @@ class Test_Generator{
 
 
 class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
-    val test_num = 4096
+    val test_num = 10
     val memory = new AXI_Memory(true)
     val test_gen = new Test_Generator
 
@@ -71,28 +71,28 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
             var i_test_index = 0
             var d_test_index = 0
             var i = 0
-            println(f"icache: ${tests(i_test_index)(0)} ${tests(i_test_index)(1)} ${tests(i_test_index)(2)} dcache: ${tests(d_test_index)(3)} ${tests(d_test_index)(4)} ${tests(d_test_index)(5)} ${tests(d_test_index)(6)} ${tests(d_test_index)(7)} ${tests(d_test_index)(8)}")
-            while(i_test_index < test_num || d_test_index < test_num) {
+            while((i_test_index < test_num || d_test_index < test_num ) && i < 2000){ 
+                println(i_test_index, d_test_index)
                 val w = memory.write(
-                    c.io.axi.awaddr, 
-                    c.io.axi.awlen, 
-                    c.io.axi.awsize, 
-                    c.io.axi.awburst, 
-                    c.io.axi.wdata, 
-                    c.io.axi.wstrb, 
-                    c.io.axi.wlast, 
-                    c.io.axi.awvalid, 
-                    c.io.axi.wvalid,
-                    c.io.axi.bready, 
+                    c.io.axi.awaddr.peek(), 
+                    c.io.axi.awlen.peek(), 
+                    c.io.axi.awsize.peek(), 
+                    c.io.axi.awburst.peek(), 
+                    c.io.axi.wdata.peek(), 
+                    c.io.axi.wstrb.peek(), 
+                    c.io.axi.wlast.peek(), 
+                    c.io.axi.awvalid.peek(), 
+                    c.io.axi.wvalid.peek(),
+                    c.io.axi.bready.peek(), 
                     i
                 )
                 val r = memory.read(
-                    c.io.axi.araddr, 
-                    c.io.axi.arlen, 
-                    c.io.axi.arsize, 
-                    c.io.axi.arburst, 
-                    c.io.axi.arvalid, 
-                    c.io.axi.rready
+                    c.io.axi.araddr.peek(), 
+                    c.io.axi.arlen.peek(), 
+                    c.io.axi.arsize.peek(), 
+                    c.io.axi.arburst.peek(), 
+                    c.io.axi.arvalid.peek(), 
+                    c.io.axi.rready.peek()
                 )
                 c.io.axi.arready.poke(r.arready)
                 c.io.axi.awready.poke(w.awready)

@@ -48,24 +48,29 @@ class AXI_Memory(rand_delay: Boolean){
             // address handshaking
             case ReadState.AR => {
                 // random delay
-                readItem.arready := (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                
+                readItem = readItem.copy(arready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
+                // println("arready: " + readItem.arready.litToBoolean + " arvalid: " + arvalid.litToBoolean)
                 if(readItem.arready.litToBoolean && arvalid.litToBoolean){
                     readConfig = readConfig.copy(state = ReadState.R)
                 }
             }
             case ReadState.R => {
                 // random delay
-                readItem.rvalid := (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                readItem = readItem.copy(rvalid = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
+                // println("rvalid: " + readItem.rvalid.litToBoolean + " rready: " + rready.litToBoolean)
                 // if random delay is not enabled, the read data is ready
                 if(readItem.rvalid.litToBoolean){
                     val word_addr = readConfig.araddr / 4
                     val word_offset = readConfig.araddr % 4
                     // assert the address is in the memory
                     assert(mem.contains(word_addr), f"Address ${readConfig.araddr}%x is not in the memory")
-                    readItem.rdata := mem(word_addr).data >> (word_offset * 8)
+                    readItem = readItem.copy(rdata = (mem(word_addr).data.litValue.toInt >> (word_offset * 8)).U)
+                    println(f"Read address: ${readConfig.araddr}%x")
+                    println(f"Read data: ${readItem.rdata.litValue.toInt}%x")
                     // check if the last read
                     if(readConfig.arlen == 0){
-                        readItem.rlast := true.B
+                        readItem = readItem.copy(rlast = true.B)
                         if(rready.litToBoolean){
                             readConfig = readConfig.copy(state = ReadState.IDLE)
                         }
@@ -115,14 +120,14 @@ class AXI_Memory(rand_delay: Boolean){
             // address handshaking
             case WriteState.AW => {
                 // random delay
-                writeItem.awready := (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                writeItem = writeItem.copy(awready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
                 if(writeItem.awready.litToBoolean && awvalid.litToBoolean){
                     writeConfig = writeConfig.copy(state = WriteState.W)
                 }
             }
             case WriteState.W => {
                 // random delay
-                writeItem.wready := (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                writeItem = writeItem.copy(wready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B }))
                 if(writeItem.wready.litToBoolean){
                     val word_addr = writeConfig.awaddr / 4
                     val word_offset = writeConfig.awaddr % 4
@@ -147,7 +152,8 @@ class AXI_Memory(rand_delay: Boolean){
             }
             case WriteState.B => {
                 // random delay
-                writeItem.bvalid := (if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                // writeItem.bvalid := (if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                writeItem = writeItem.copy(bvalid = if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B })
                 if(writeItem.bvalid.litToBoolean && bready.litToBoolean){
                     writeConfig = writeConfig.copy(state = WriteState.IDLE)
                 }
@@ -174,22 +180,8 @@ class AXI_Memory(rand_delay: Boolean){
         }
     }
     def initialize(size: Int, load: Boolean): Unit = {
-        if(load){
-            // 从文件里读取数据
-            val source = scala.io.Source.fromFile("memory.txt")
-            val lines = source.getLines().toArray
-            for(i <- 0 until size){
-                mem(i) = Memory_Item(lines(i).toInt.U, Array.fill(4)(0))
-            }
-        }else{
-            for(i <- 0 until size){
-                mem(i) = Memory_Item(i.U, Array.fill(4)(0))
-            }
-            // 将这些数据保存到文件里
-            val writer = new java.io.PrintWriter("memory.txt")
-            for(i <- 0 until size){
-                writer.println(mem(i).data.litValue.toString(16))
-            }
+        for(i <- 0 until size){
+            mem(i) = Memory_Item((i*4).U, Array.fill(4)(0))
         }
     }
 }
