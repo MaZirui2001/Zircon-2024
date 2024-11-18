@@ -35,22 +35,22 @@ object CPU_Config{
         val wissue = 5
     }
     object Cache{
-        val ic_offset       = 2
-        val ic_index        = 2
+        val ic_offset       = 3
+        val ic_index        = 3
         val ic_tag          = 32 - ic_offset - ic_index
         val ic_way          = 2
         val ic_line         = (1 << ic_offset)
         val ic_line_bits    = ic_line * 8
 
-        val dc_offset       = 2
-        val dc_index        = 2
+        val dc_offset       = 3
+        val dc_index        = 3
         val dc_tag          = 32 - dc_offset - dc_index
         val dc_way          = 2
         val dc_line         = (1 << dc_offset)
         val dc_line_bits    = dc_line * 8
 
-        val l2_offset       = 3
-        val l2_index        = 3
+        val l2_offset       = 5
+        val l2_index        = 5
         val l2_index_num    = 1 << l2_index
         val l2_tag          = 32 - l2_offset - l2_index
         val l2_way          = 2

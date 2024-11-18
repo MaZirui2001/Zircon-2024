@@ -230,7 +230,6 @@ class L2Cache extends Module {
         tagt.clka   := clock
         tagt.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
         tagt.ena    := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
-        // tagt.ena    := true.B
         tagt.dina   := tag(c1s3.paddr)
         tagt.wea    := fsm_c1.io.cache.tagv_we(i)
     }
@@ -238,7 +237,6 @@ class L2Cache extends Module {
         datat.clka   := clock
         datat.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
         datat.ena    := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
-        // datat.ena    := true.B
         datat.dina   := rbuf_c1
         datat.wea    := Fill(l2_line, fsm_c1.io.cache.mem_we(i))
     }
@@ -337,14 +335,12 @@ class L2Cache extends Module {
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
         tagt.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
         tagt.enb    := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
-        // tagt.enb    := true.B
         tagt.dinb   := tag(c2s3.paddr)
         tagt.web    := fsm_c2.io.cache.tagv_we(i)
     }
     data_tab.zipWithIndex.foreach{ case (datat, i) =>
         datat.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
         datat.enb    := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
-        // datat.enb    := true.B
         datat.dinb   := Mux(!c2s3.hit.orR, wdata_rbuf, c2s3.wdata << (offset(c2s3.paddr) << 3))
         datat.web    := Fill(l2_line, fsm_c2.io.cache.mem_we(i)) & Mux(!c2s3.hit.orR, Fill(l2_line, fsm_c2.io.cache.mem_we(i)), mtype << offset(c2s3.paddr))
     }

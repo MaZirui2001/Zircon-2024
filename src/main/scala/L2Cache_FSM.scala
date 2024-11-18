@@ -46,8 +46,6 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     val m_idle :: m_miss :: m_refill :: m_wait :: m_pause :: Nil = Enum(5)
     val m_state     = RegInit(m_idle)
 
-    val rrsp        = WireDefault(false.B)
-    val wrsp        = WireDefault(false.B)
     val cmiss       = WireDefault(false.B)
     val tagv_we     = WireDefault(VecInit.fill(l2_way)(false.B))
     val mem_we      = WireDefault(VecInit.fill(l2_way)(false.B))
@@ -79,8 +77,6 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
                     lru     := ioc.lru
                 }.otherwise{ // cache and hit
                     m_state := m_idle
-                    rrsp    := true.B
-                    wrsp    := true.B
                     lru_upd := (~ioc.hit).asBools
                     mem_we  := ioc.hit.asBools.map(_ && ioc_wreq)
                     drty_d  := VecInit.fill(l2_way)(true.B)
@@ -113,8 +109,6 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
             }
         }
         is(m_pause){
-            rrsp    := true.B
-            wrsp    := true.B
             m_state := m_idle
             r1H     := 2.U // choose rbuf
         }
