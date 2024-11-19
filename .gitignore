@@ -345,3 +345,4 @@ hs_err_pid*
 .metals/
 .bloop/
 project/
+testbench/
