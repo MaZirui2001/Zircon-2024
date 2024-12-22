@@ -58,4 +58,7 @@ object CPU_Config{
         val l2_line_bits    = l2_line * 8
 
     }
+    object TLB{
+        val ENTRY_NUM = 16
+    }
 }

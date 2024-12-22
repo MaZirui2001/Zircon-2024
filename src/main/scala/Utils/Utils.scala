@@ -38,6 +38,13 @@ object Zircon_Util{
         val diff = src1_acc.zip(src2_acc).map{ case (s1, s2) => s1 & !s2 }
         diff.reduce(_ | _)
     }
+    def MuxOH[T <: Data](sel: Seq[Bool], in: Seq[T]): T = {
+        val n = in.size
+        assert(n > 0, "in must have at least one element")
+        VecInit(in.zip(sel).map{
+            case(i, s) => i.asUInt & Fill(i.getWidth, s)
+        }).reduceTree((a: UInt, b: UInt) => (a | b)).asTypeOf(in(0))
+    }
     // write-first read
     def wfirst_read[T <: Data](rdata: T, ridx: UInt, widx: Vec[UInt], wdata: Vec[T], wen: Vec[Bool]): T = {
         assert(widx.size == wdata.size && widx.size == wen.size, "widx, wdata and wen must have the same size")
