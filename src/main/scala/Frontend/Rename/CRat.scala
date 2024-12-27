@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import CPU_Config.RegisterFile._
 import RegFile_Utils.WF_Read
+import Zircon_Util._
 
 class Rat_T extends Bundle{
     val lr          = UInt(log2Ceil(nlreg).W)
@@ -21,7 +22,7 @@ object RegFile_Utils{
     def WF_Read[T <: Data](rdata: T, ridx: UInt, widx: Vec[UInt], wdata: Vec[T], wen: Vec[Bool]): T = {
         val n = wdata.size
         val whit = VecInit.tabulate(n)(i => ridx === widx(i) && wen(i))
-        Mux(whit.asUInt.orR, Mux1H(whit, wdata), rdata)
+        Mux(whit.asUInt.orR, MuxOH(whit, wdata), rdata)
     }
 }
 // dn: decode width, iw: issue width
@@ -76,8 +77,8 @@ class CRat(dw: Int, iw: Int) extends Module {
         io.prj(i) := OHToUInt(rj_hit_1h)
         io.prk(i) := OHToUInt(rk_hit_1h)
         io.pprd(i) := OHToUInt(rd_hit_1h)
-        io.prj_free(i) := WF_Read(Mux1H(rj_hit_1h, rat.map(_.free)), io.prj(i), io.wk_preg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
-        io.prk_free(i) := WF_Read(Mux1H(rk_hit_1h, rat.map(_.free)), io.prk(i), io.wk_preg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
+        io.prj_free(i) := WF_Read(MuxOH(rj_hit_1h, rat.map(_.free)), io.prj(i), io.wk_preg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
+        io.prk_free(i) := WF_Read(MuxOH(rk_hit_1h, rat.map(_.free)), io.prk(i), io.wk_preg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
     }
 
 }

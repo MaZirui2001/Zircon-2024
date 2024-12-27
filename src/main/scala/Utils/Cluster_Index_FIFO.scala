@@ -28,27 +28,27 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
     val enq_ptr = RegInit(VecInit.tabulate(ew)(i => (1 << i).U(n.W)))
     val enq_ptr_trn = VecInit.tabulate(n)(i => VecInit.tabulate(ew)(j => enq_ptr(j)(i)).asUInt)
     fifos.zipWithIndex.foreach{ case (fifo, i) => 
-        fifo.enq.valid := (Mux1H(enq_ptr_trn(i), io.enq.map(_.valid)) 
+        fifo.enq.valid := (MuxOH(enq_ptr_trn(i), io.enq.map(_.valid)) 
                        && all_enq_ready
                        && (if(dw > ew) enq_ptr_trn(i).orR else true.B))
-        fifo.enq.bits := Mux1H(enq_ptr_trn(i), io.enq.map(_.bits))
+        fifo.enq.bits := MuxOH(enq_ptr_trn(i), io.enq.map(_.bits))
     }
     // the enq ready is 1 only when all the fifos are ready
     io.enq.foreach{_.ready := all_enq_ready}
     io.enq_idx.zipWithIndex.foreach{ case(idx, i) => 
         idx.qidx := enq_ptr(i)
-        idx.offset := Mux1H(enq_ptr(i), fifos.map(_.enq_idx))
+        idx.offset := MuxOH(enq_ptr(i), fifos.map(_.enq_idx))
     }
 
     val deq_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(n.W)))
     val deq_ptr_trn = VecInit.tabulate(n)(i => VecInit.tabulate(dw)(j => deq_ptr(j)(i)).asUInt)
     io.deq.zipWithIndex.foreach{ case (deq, i) => 
-        deq.valid := Mux1H(deq_ptr(i), fifos.map(_.deq.valid))
-        deq.bits := Mux1H(deq_ptr(i), fifos.map(_.deq.bits))
+        deq.valid := MuxOH(deq_ptr(i), fifos.map(_.deq.valid))
+        deq.bits := MuxOH(deq_ptr(i), fifos.map(_.deq.bits))
     }
 
     fifos.zipWithIndex.foreach{ case (fifo, i) => 
-        fifo.deq.ready := (Mux1H(deq_ptr_trn(i), io.deq.map(_.ready)) 
+        fifo.deq.ready := (MuxOH(deq_ptr_trn(i), io.deq.map(_.ready)) 
                        && (if(dw > ew) true.B else deq_ptr_trn(i).orR))
     }
 
@@ -73,7 +73,7 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
     // random read logic
     fifos.map(_.ridx := io.ridx.map(_.offset))
     io.rdata.zipWithIndex.foreach{ case (rdata, i) => 
-        rdata := Mux1H(io.ridx(i).qidx, fifos.map(_.rdata(i)))
+        rdata := MuxOH(io.ridx(i).qidx, fifos.map(_.rdata(i)))
     }
 
     // random write logic

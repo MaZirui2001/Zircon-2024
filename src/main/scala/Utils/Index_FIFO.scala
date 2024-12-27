@@ -55,7 +55,7 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int) extends Module {
 
 	// random access logic
 	for(i <- 0 until rw){
-		io.rdata(i) := Mux1H(io.ridx(i), q)
+		io.rdata(i) := MuxOH(io.ridx(i), q)
 	}
 	for(i <- 0 until ww){
 		when(io.wen(i)){
@@ -66,7 +66,7 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int) extends Module {
 	}
 
 	// read logic 
-	io.deq.bits := Mux1H(hptr, q)
+	io.deq.bits := MuxOH(hptr, q)
 
 	io.enq.ready := fulln
 	io.deq.valid := eptyn

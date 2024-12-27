@@ -45,12 +45,15 @@ object Zircon_Util{
             case(i, s) => i.asUInt & Fill(i.getWidth, s)
         }).reduceTree((a: UInt, b: UInt) => (a | b)).asTypeOf(in(0))
     }
+    def MuxOH[T <: Data](sel: UInt, in:Seq[T]): T = {
+        MuxOH(sel.asBools, in)
+    }
     // write-first read
     def wfirst_read[T <: Data](rdata: T, ridx: UInt, widx: Vec[UInt], wdata: Vec[T], wen: Vec[Bool]): T = {
         assert(widx.size == wdata.size && widx.size == wen.size, "widx, wdata and wen must have the same size")
         val n = wdata.size
         val whit = VecInit.tabulate(n)(i => (ridx === widx(i)) && wen(i))
-        Mux(whit.asUInt.orR, Mux1H(whit, wdata), rdata)
+        Mux(whit.asUInt.orR, MuxOH(whit, wdata), rdata)
     }
     // memtype decode
     def mtype_decode(mtype: UInt, n: Int = 4): UInt = {
@@ -61,5 +64,12 @@ object Zircon_Util{
             2.U -> 0xf.U(n.W),
         ))
         res
+    }
+    def inheritFields[T <: Bundle, P <: Bundle](child: T, parent: P): Unit = {
+        parent.elements.foreach { case (name, data) =>
+            if (child.elements.contains(name)) {
+                child.elements(name) := data
+            }
+        }
     }
 }

@@ -17,7 +17,7 @@ object FIFOMain extends App {
         "-split-verilog",
                                 )
     ChiselStage.emitSystemVerilogFile(
-        new MMU(true),
+        new L2Cache,
         Array("-td", "build/"),
         firtoolOpts = firtool_options,
     )

@@ -33,7 +33,7 @@ class TLB_Mem_T extends TLB_Entry_T {
     val hit_valid   =     Bool() // previous caculate hit check result
     def apply(tlb_entry: TLB_Entry_T): TLB_Mem_T = {
         val r = Wire(new TLB_Mem_T)
-        r := tlb_entry.asTypeOf(new TLB_Mem_T)
+        inheritFields(r, tlb_entry)
         r.hit_valid := tlb_entry.e
         r
     }
@@ -229,10 +229,6 @@ class TLB(is_dtlb: Boolean) extends Module{
     
     // tlb trans
     val tlb_hit       = WireDefault(VecInit.fill(ENTRY_NUM)(false.B))
-    // val tlb_entry     = Mux1H(tlb_hit, tlb)
-    // val tlb_entry     = VecInit(tlb.zip(tlb_hit).map{
-    //     case(entry, hit) => entry.asUInt & Fill(entry.getWidth, hit)
-    // }).reduceTree(_|_).asTypeOf(new TLB_Mem_T)
     val tlb_entry = MuxOH(tlb_hit, tlb)
     val tlb_hit_entry = (new TLB_Hit_T)(tlb_entry, Mux(tlb_entry.ps(3), tr.vaddr(12), tr.vaddr(21)))
 

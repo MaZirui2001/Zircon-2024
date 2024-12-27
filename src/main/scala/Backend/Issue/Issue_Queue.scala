@@ -71,11 +71,11 @@ class IQ_FList(ew: Int, dw: Int, num: Int) extends Module{
     val deq_ptr_trn = VecInit.tabulate(n)(i => VecInit.tabulate(dw)(j => deq_ptr(j)(i)).asUInt)
     val all_deq_valid = flst.map(_.deq.valid).reduce(_ && _)
     io.deq.zipWithIndex.foreach{ case (deq, i) => 
-        deq.valid := Mux1H(deq_ptr(i), flst.map(_.deq.valid)) && all_deq_valid
-        deq.bits := Mux1H(deq_ptr(i), flst.map(_.deq.bits))
+        deq.valid := MuxOH(deq_ptr(i), flst.map(_.deq.valid)) && all_deq_valid
+        deq.bits := MuxOH(deq_ptr(i), flst.map(_.deq.bits))
     }
     flst.zipWithIndex.foreach{ case (fifo, i) => 
-        fifo.deq.ready := Mux1H(deq_ptr_trn(i), io.deq.map(_.ready))
+        fifo.deq.ready := MuxOH(deq_ptr_trn(i), io.deq.map(_.ready))
     }
     when(io.flush){
         deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
@@ -87,8 +87,8 @@ class IQ_FList(ew: Int, dw: Int, num: Int) extends Module{
     // enq
     val enq_ptr = RegInit(VecInit.tabulate(ew)(i => (1 << i).U(n.W)))
     flst.zipWithIndex.foreach{ case (fifo, i) => 
-        fifo.enq.valid := Mux1H(enq_ptr(i), io.enq.map(_.valid))
-        fifo.enq.bits := Mux1H(enq_ptr(i), io.enq.map(_.bits))
+        fifo.enq.valid := MuxOH(enq_ptr(i), io.enq.map(_.valid))
+        fifo.enq.bits := MuxOH(enq_ptr(i), io.enq.map(_.bits))
     }
     io.enq.foreach(_.ready := true.B)
 
@@ -161,7 +161,7 @@ class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
         )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(esltu(a.age, b.age), a, b), a), b))
         
         io.deq(i).valid := select_item.vld
-        io.deq(i).bits := Mux1H(select_item.idx_1h, iq(i))
+        io.deq(i).bits := MuxOH(select_item.idx_1h, iq(i))
         flst.io.enq.zipWithIndex.foreach{ case (enq, j) => 
             when(flst_insert_ptr(j)){
                 enq.valid := select_item.vld

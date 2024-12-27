@@ -1,6 +1,7 @@
 import chisel3._
 import chisel3.util._
 import CPU_Config.Cache._
+import Zircon_Util._
 
 class L2Cache_FSM_Cache_IO(ic: Boolean = false) extends Bundle {
     val rreq    = Input(Bool())
@@ -143,7 +144,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
                 when(ioc.uc_in){
                     w_state := Mux(ioc_wreq, w_write, w_finish)
                 }.otherwise{
-                    w_state := Mux(Mux1H(ioc.lru, ioc.drty), w_write, w_finish)
+                    w_state := Mux(MuxOH(ioc.lru, ioc.drty), w_write, w_finish)
                 }
             }
         }

@@ -53,7 +53,7 @@ class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int
 	}
 
 	// read logic 
-	io.deq.bits := Mux1H(hptr, q)
+	io.deq.bits := MuxOH(hptr, q)
 
 	io.enq.ready := fulln
 	io.deq.valid := eptyn
