@@ -7,6 +7,10 @@ object Zircon_Util{
         val n = x.getWidth
         x(n-2, 0) ## x(n-1)
     }
+    def shift_1(x: UInt): UInt = {
+        val n = x.getWidth
+        x(n-2, 0) ## 0.U(1.W)
+    }
     def shift_sub_1(x: UInt): UInt = {
         val n = x.getWidth
         x(0) ## x(n-1, 1)
@@ -47,13 +51,14 @@ object Zircon_Util{
     }
     def MuxOH[T <: Data](sel: UInt, in:Seq[T]): T = {
         MuxOH(sel.asBools, in)
+        // Mux1H
     }
     // write-first read
     def wfirst_read[T <: Data](rdata: T, ridx: UInt, widx: Vec[UInt], wdata: Vec[T], wen: Vec[Bool]): T = {
         assert(widx.size == wdata.size && widx.size == wen.size, "widx, wdata and wen must have the same size")
         val n = wdata.size
         val whit = VecInit.tabulate(n)(i => (ridx === widx(i)) && wen(i))
-        Mux(whit.asUInt.orR, MuxOH(whit, wdata), rdata)
+        Mux(whit.asUInt.orR, Mux1H(whit, wdata), rdata)
     }
     // memtype decode
     def mtype_decode(mtype: UInt, n: Int = 4): UInt = {

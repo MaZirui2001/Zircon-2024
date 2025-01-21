@@ -229,7 +229,7 @@ class TLB(is_dtlb: Boolean) extends Module{
     
     // tlb trans
     val tlb_hit       = WireDefault(VecInit.fill(ENTRY_NUM)(false.B))
-    val tlb_entry = MuxOH(tlb_hit, tlb)
+    val tlb_entry = Mux1H(tlb_hit, tlb)
     val tlb_hit_entry = (new TLB_Hit_T)(tlb_entry, Mux(tlb_entry.ps(3), tr.vaddr(12), tr.vaddr(21)))
 
     for(i <- 0 until ENTRY_NUM){

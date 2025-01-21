@@ -197,8 +197,8 @@ class L2Cache extends Module {
     fsm_c1.io.mem.wrsp      := io.mem(0).wrsp
     // wbuf
     when(fsm_c1.io.cache.wbuf_we){
-        wbuf_c1.paddr := MuxOH(c1_lru, c1s3.rtag) ## index(c1s3.paddr) ## 0.U(l2_offset.W)
-        wbuf_c1.wdata := MuxOH(c1_lru, c1s3.rdata)
+        wbuf_c1.paddr := Mux1H(c1_lru, c1s3.rtag) ## index(c1s3.paddr) ## 0.U(l2_offset.W)
+        wbuf_c1.wdata := Mux1H(c1_lru, c1s3.rdata)
     }.elsewhen(io.mem(0).wreq && io.mem(0).wrsp){
         wbuf_c1.wdata := wbuf_c1.wdata >> 32
     }
@@ -216,15 +216,15 @@ class L2Cache extends Module {
     // tag and mem 
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
         tagt.clka   := clock
-        tagt.addra  := MuxOH(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
-        tagt.ena    := MuxOH(fsm_c1.io.cache.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
+        tagt.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
+        tagt.ena    := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
         tagt.dina   := tag(c1s3.paddr)
         tagt.wea    := fsm_c1.io.cache.tagv_we(i)
     }
     data_tab.zipWithIndex.foreach{ case (datat, i) =>
         datat.clka   := clock
-        datat.addra  := MuxOH(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
-        datat.ena    := MuxOH(fsm_c1.io.cache.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
+        datat.addra  := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
+        datat.ena    := Mux1H(fsm_c1.io.cache.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
         datat.dina   := rbuf_c1
         datat.wea    := Fill(l2_line, fsm_c1.io.cache.mem_we(i))
     }
@@ -236,7 +236,7 @@ class L2Cache extends Module {
     }
 
     io.ic.rrsp      := !miss_c1 && c1s3.rreq
-    io.ic.rline     := (MuxOH(fsm_c1.io.cache.r1H, VecInit(MuxOH(c1s3.hit, c1s3.rdata), rbuf_c1)).asTypeOf(Vec(l2_line_bits / ic_line_bits, UInt(ic_line_bits.W))))(c1s3.paddr(l2_offset-1, ic_offset))
+    io.ic.rline     := (Mux1H(fsm_c1.io.cache.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf_c1)).asTypeOf(Vec(l2_line_bits / ic_line_bits, UInt(ic_line_bits.W))))(c1s3.paddr(l2_offset-1, ic_offset))
     io.ic.uc_out    := c1s3.uc_in
     io.mem(0).rreq  := fsm_c1.io.mem.rreq
     io.mem(0).raddr := tag(c1s3.paddr) ## index(c1s3.paddr) ## Mux(c1s3.uc_in, offset(c1s3.paddr), 0.U(l2_offset.W))
@@ -289,8 +289,8 @@ class L2Cache extends Module {
     fsm_c2.io.mem.wrsp          := io.mem(1).wrsp
     // wbuf
     when(fsm_c2.io.cache.wbuf_we){
-        wbuf_c2.paddr := Mux(c2s3.uc_in, c2s3.paddr, MuxOH(c2_lru, c2s3.rtag) ## index(c2s3.paddr) ## 0.U(l2_offset.W))
-        wbuf_c2.wdata := Mux(c2s3.uc_in, 0.U((l2_line_bits-32).W) ## c2s3.wdata, MuxOH(c2_lru, c2s3.rdata))
+        wbuf_c2.paddr := Mux(c2s3.uc_in, c2s3.paddr, Mux1H(c2_lru, c2s3.rtag) ## index(c2s3.paddr) ## 0.U(l2_offset.W))
+        wbuf_c2.wdata := Mux(c2s3.uc_in, 0.U((l2_line_bits-32).W) ## c2s3.wdata, Mux1H(c2_lru, c2s3.rdata))
     }.elsewhen(io.mem(1).wreq && io.mem(1).wrsp){
         wbuf_c2.wdata := wbuf_c2.wdata >> 32
     }
@@ -303,7 +303,7 @@ class L2Cache extends Module {
     val wmask_shift = wmask << (offset(c2s3.paddr) << 3)
     val wdata_shift = c2s3.wdata << (offset(c2s3.paddr) << 3)
     val wdata_rbuf = rbuf_c2 & ~wmask_shift | wdata_shift & wmask_shift
-    val rdata_mem = MuxOH(c2s3.hit, c2s3.rdata) & ~wmask_shift |  wdata_shift & wmask_shift
+    val rdata_mem = Mux1H(c2s3.hit, c2s3.rdata) & ~wmask_shift |  wdata_shift & wmask_shift
     // lru
     lru_tab.zipWithIndex.foreach{ case (lrut, i) =>
         lrut.raddr(1) := index(c2s3.paddr)
@@ -321,14 +321,14 @@ class L2Cache extends Module {
     }
     // tag and mem
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
-        tagt.addrb  := MuxOH(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
-        tagt.enb    := MuxOH(fsm_c2.io.cache.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
+        tagt.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
+        tagt.enb    := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
         tagt.dinb   := tag(c2s3.paddr)
         tagt.web    := fsm_c2.io.cache.tagv_we(i)
     }
     data_tab.zipWithIndex.foreach{ case (datat, i) =>
-        datat.addrb  := MuxOH(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
-        datat.enb    := MuxOH(fsm_c2.io.cache.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
+        datat.addrb  := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
+        datat.enb    := Mux1H(fsm_c2.io.cache.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
         datat.dinb   := Mux(!c2s3.hit.orR, wdata_rbuf, c2s3.wdata << (offset(c2s3.paddr) << 3))
         datat.web    := Fill(l2_line, fsm_c2.io.cache.mem_we(i)) & Mux(!c2s3.hit.orR, Fill(l2_line, fsm_c2.io.cache.mem_we(i)), mtype << offset(c2s3.paddr))
     }
@@ -340,7 +340,7 @@ class L2Cache extends Module {
     }
 
     io.dc.rrsp      := !miss_c2 && c2s3.rreq
-    io.dc.rline     := (MuxOH(fsm_c2.io.cache.r1H, VecInit(rdata_mem, wdata_rbuf)).asTypeOf(Vec(l2_line_bits / dc_line_bits, UInt(dc_line_bits.W))))(c2s3.paddr(l2_offset-1, dc_offset))
+    io.dc.rline     := (Mux1H(fsm_c2.io.cache.r1H, VecInit(rdata_mem, wdata_rbuf)).asTypeOf(Vec(l2_line_bits / dc_line_bits, UInt(dc_line_bits.W))))(c2s3.paddr(l2_offset-1, dc_offset))
     io.dc.uc_out    := c2s3.uc_in
     io.dc.paddr_out := c2s3.paddr
     io.dc.wrsp      := !miss_c2 && c2s3.wreq

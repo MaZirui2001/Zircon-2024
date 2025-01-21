@@ -23,7 +23,7 @@ class SRat_RAM(rn_w: Int) extends Module {
         // io.rdata(i) := VecInit(ram.zip(io.addr(i).asBools).zipWithIndex.map({case ((r, a), j) => 
         //     r & Fill(npreg, a)
         // })).reduceTree(_ | _)
-        io.rdata(i) := MuxOH(io.addr(i), ram)
+        io.rdata(i) := Mux1H(io.addr(i), ram)
     }
     io.dbg := ram
 }
