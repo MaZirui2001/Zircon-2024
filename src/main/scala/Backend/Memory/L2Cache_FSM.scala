@@ -16,10 +16,10 @@ class L2Cache_FSM_Cache_IO(ic: Boolean = false) extends Bundle {
     // write buffer
     val wbuf_we = Output(Bool())
     // lru
-    val lru     = Input(Vec(l2_way, Bool()))
-    val lru_upd = Output(Vec(l2_way, Bool()))
+    val lru     = Input(UInt(2.W))
+    val lru_upd = Output(UInt(2.W))
     // dirty
-    val drty    = Input(Vec(l2_way, Bool()))
+    val drty    = Input(Vec(l1_way, Bool()))
     val drty_we = Output(Vec(l2_way, Bool()))
     val drty_d  = Output(Vec(l2_way, Bool()))
 }
@@ -50,7 +50,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     val cmiss       = WireDefault(false.B)
     val tagv_we     = WireDefault(VecInit.fill(l2_way)(false.B))
     val mem_we      = WireDefault(VecInit.fill(l2_way)(false.B))
-    val lru_upd     = WireDefault(VecInit.fill(l2_way)(false.B))
+    val lru_upd     = WireDefault(0.U(2.W))
     val drty_we     = WireDefault(VecInit.fill(l2_way)(false.B))
     val drty_d      = WireDefault(VecInit.fill(l2_way)(false.B))
     val addr_1H     = WireDefault(1.U(3.W)) // choose s1 addr
@@ -61,7 +61,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     val wfsm_ok     = WireDefault(false.B)
     val wbuf_we     = WireDefault(false.B)
 
-    val lru         = RegInit(VecInit.fill(l2_way)(false.B))
+    val lru         = RegInit(0.U(2.W))
 
     io.mem.rreq     := false.B
     switch(m_state){
@@ -78,7 +78,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
                     lru     := ioc.lru
                 }.otherwise{ // cache and hit
                     m_state := m_idle
-                    lru_upd := (~ioc.hit).asBools
+                    lru_upd := (if(ic) ~ioc.hit else (~ioc.hit)(3, 2))
                     mem_we  := ioc.hit.asBools.map(_ && ioc_wreq)
                     drty_d  := VecInit.fill(l2_way)(true.B)
                     drty_we := VecInit.tabulate(l2_way)(i => ioc.hit(i) && ioc_wreq)
@@ -94,12 +94,12 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
         }
         is(m_refill){
             m_state := m_wait
-            tagv_we := lru
-            mem_we  := lru
+            tagv_we := (if(ic) (0.U(2.W) ## lru).asBools else (lru ## 0.U(2.W)).asBools)
+            mem_we  := (if(ic) (0.U(2.W) ## lru).asBools else (lru ## 0.U(2.W)).asBools)
             addr_1H := 4.U // choose s3 addr
-            lru_upd := (~lru.asUInt).asBools
+            lru_upd := ~lru
             drty_d  := VecInit.fill(l2_way)(ioc_wreq)
-            drty_we := lru
+            drty_we := (if(ic) VecInit.fill(l2_way)(false.B) else (lru ## 0.U(2.W)).asBools)
         }
         is(m_wait){
             wfsm_rst := true.B
@@ -122,7 +122,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     io.cache.drty_d     := drty_d
     io.cache.addr_1H    := addr_1H
     io.cache.r1H        := r1H
-    io.cache.wbuf_we    := wbuf_we
+    io.cache.wbuf_we    := (if(ic) false.B else wbuf_we)
 
     // write fsm 
     val w_idle :: w_write :: w_finish :: Nil = Enum(3)
