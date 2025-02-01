@@ -6,7 +6,7 @@ import Zircon_Util._
 class L2Cache_FSM_Cache_IO(ic: Boolean = false) extends Bundle {
     val rreq    = Input(Bool())
     val wreq    = if(ic) None else Some(Input(Bool()))
-    val uc_in   = Input(Bool())
+    val uncache = Input(Bool())
     val hit     = Input(UInt(l2_way.W))
     val cmiss   = Output(Bool())
     val tagv_we = Output(Vec(l2_way, Bool()))
@@ -20,8 +20,8 @@ class L2Cache_FSM_Cache_IO(ic: Boolean = false) extends Bundle {
     val lru_upd = Output(UInt(2.W))
     // dirty
     val drty    = Input(Vec(l1_way, Bool()))
-    val drty_we = Output(Vec(l2_way, Bool()))
-    val drty_d  = Output(Vec(l2_way, Bool()))
+    val drty_we = if(ic) None else Some(Output(Vec(l2_way, Bool())))
+    val drty_d  = if(ic) None else Some(Output(Vec(l2_way, Bool())))
 }
 class L2Cache_FSM_MEM_IO extends Bundle {
     val rreq    = Output(Bool())
@@ -67,7 +67,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     switch(m_state){
         is(m_idle){
             when(ioc.rreq || ioc_wreq){
-                when(ioc.uc_in){ // uncache
+                when(ioc.uncache){ // uncache
                     m_state := Mux(ioc_wreq, m_wait, m_miss)
                     wfsm_en := true.B
                     wbuf_we := true.B
@@ -78,11 +78,15 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
                     lru     := ioc.lru
                 }.otherwise{ // cache and hit
                     m_state := m_idle
-                    lru_upd := (if(ic) ~ioc.hit else (~ioc.hit)(3, 2))
                     mem_we  := ioc.hit.asBools.map(_ && ioc_wreq)
-                    drty_d  := VecInit.fill(l2_way)(true.B)
-                    drty_we := VecInit.tabulate(l2_way)(i => ioc.hit(i) && ioc_wreq)
                     addr_1H := Mux(ioc_wreq, 4.U, 1.U) // choose s3 addr when write
+                    if(ic){
+                        lru_upd := (~ioc.hit)(1, 0)
+                    } else {
+                        lru_upd := (~ioc.hit)(3, 2)
+                        drty_d  := VecInit.fill(l2_way)(true.B)
+                        drty_we := mem_we
+                    }
                 }
             }
         }
@@ -94,12 +98,17 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
         }
         is(m_refill){
             m_state := m_wait
-            tagv_we := (if(ic) (0.U(2.W) ## lru).asBools else (lru ## 0.U(2.W)).asBools)
-            mem_we  := (if(ic) (0.U(2.W) ## lru).asBools else (lru ## 0.U(2.W)).asBools)
             addr_1H := 4.U // choose s3 addr
             lru_upd := ~lru
-            drty_d  := VecInit.fill(l2_way)(ioc_wreq)
-            drty_we := (if(ic) VecInit.fill(l2_way)(false.B) else (lru ## 0.U(2.W)).asBools)
+            if(ic){
+                tagv_we := (0.U(2.W) ## lru).asBools
+                mem_we  := tagv_we
+            } else {
+                tagv_we := (lru ## 0.U(2.W)).asBools
+                mem_we  := tagv_we
+                drty_we := tagv_we
+                drty_d  := VecInit.fill(l2_way)(ioc_wreq)
+            }
         }
         is(m_wait){
             wfsm_rst := true.B
@@ -118,11 +127,13 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     io.cache.tagv_we    := tagv_we
     io.cache.mem_we     := mem_we
     io.cache.lru_upd    := lru_upd
-    io.cache.drty_we    := drty_we
-    io.cache.drty_d     := drty_d
     io.cache.addr_1H    := addr_1H
     io.cache.r1H        := r1H
-    io.cache.wbuf_we    := (if(ic) false.B else wbuf_we)
+    io.cache.wbuf_we    := wbuf_we
+    if(!ic){
+        io.cache.drty_we.get    := drty_we
+        io.cache.drty_d.get     := drty_d
+    }
 
     // write fsm 
     val w_idle :: w_write :: w_finish :: Nil = Enum(3)
@@ -131,7 +142,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     val w_cnt_bits = log2Ceil(l2_line_bits / 32) + 1
     val w_cnt = RegInit(0.U((w_cnt_bits.W)))
     when(wfsm_en){
-        w_cnt := Mux(ioc.uc_in, Fill(w_cnt_bits, 1.U), (l2_line_bits / 32 - 2).U)
+        w_cnt := Mux(ioc.uncache, Fill(w_cnt_bits, 1.U), (l2_line_bits / 32 - 2).U)
     }.elsewhen(!w_cnt(w_cnt_bits-1) && iom.wreq && iom.wrsp){
         w_cnt := w_cnt - 1.U
     }
@@ -141,7 +152,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
     switch(w_state){
         is(w_idle){
             when(wfsm_en){
-                when(ioc.uc_in){
+                when(ioc.uncache){
                     w_state := Mux(ioc_wreq, w_write, w_finish)
                 }.otherwise{
                     w_state := Mux(Mux1H(ioc.lru, ioc.drty), w_write, w_finish)
