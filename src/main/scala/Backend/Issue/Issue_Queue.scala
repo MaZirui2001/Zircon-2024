@@ -5,10 +5,17 @@ import CPU_Config.ReserveQueue._
 import CPU_Config.Issue._
 import Zircon_Util._
 
-class Cluster_Entry(n1: Int, n2: Int) extends Bundle {
-    val qidx = UInt(n2.W)
-    val offset = UInt(n1.W)
+class Replay_Bus_Pkg extends Bundle {
+    // val prd = UInt(wpreg.W)
+    // val confirm = Bool()
+    val replay = Bool()
 }
+class Wakeup_Bus_Pkg extends Bundle {
+    val prd = UInt(wpreg.W)
+    val lpv = UInt(3.W)
+}
+
+
 class Select_Item(len: Int, age_len: Int) extends Bundle {
     val idx_1h = UInt(len.W)
     val vld = Bool()
@@ -27,6 +34,7 @@ object Select_Item{
 
 class IQ_Entry extends Bundle {
     val inst_vld    = Bool()
+    val inst_exi    = Bool()
     val prj         = UInt(wpreg.W)
     val prj_wk      = Bool()
     val prk         = UInt(wpreg.W)
@@ -35,95 +43,60 @@ class IQ_Entry extends Bundle {
     val rd_vld      = Bool()
     val op          = ALU_BR_Op()
 
-    val pcq_idx     = UInt(wpcq.W)
-    val imq_idx     = UInt(wimq.W)
+    // val pcq_idx     = UInt(wpcq.W)
+    // val imq_idx     = UInt(wimq.W)
     val rob_idx     = UInt(wrob.W)
-
+    // for oldest-first select
     val age         = UInt((wrob+1).W)
+    // for inferred wakeup
+    val prj_lpv     = UInt(2.W)
+    val prk_lpv     = UInt(2.W)
+    
+
+    def lpv_update(dcache_miss: Bool) = {
+        this.prj_lpv := this.prj_lpv << 1.U
+        this.prk_lpv := this.prk_lpv << 1.U
+    }
 }
 
 object IQ_Entry{
-    def apply(inst_vld: Bool, prj: UInt, prj_wk: Bool, prk: UInt, prk_wk: Bool, prd: UInt, rd_vld: Bool, op: ALU_BR_Op.Type, pcq_idx: UInt, imq_idx: UInt, rob_idx: UInt, age: UInt): IQ_Entry = {
+    def apply(inst_vld: Bool, inst_exi: Bool, prj: UInt, prj_wk: Bool, prk: UInt, prk_wk: Bool, prd: UInt, rd_vld: Bool, 
+              op: ALU_BR_Op.Type, rob_idx: UInt, age: UInt, prj_lpv: UInt, prk_lpv: UInt): IQ_Entry = {
         val ie = Wire(new IQ_Entry)
-        ie.inst_vld := inst_vld; ie.prj := prj; ie.prj_wk := prj_wk; ie.prk := prk; ie.prk_wk := prk_wk; ie.prd := prd; ie.rd_vld := rd_vld; ie.op := op
+        ie.inst_vld := inst_vld; ie.inst_exi := inst_exi; ie.prj := prj; ie.prj_wk := prj_wk
+        ie.prk := prk; ie.prk_wk := prk_wk; ie.prd := prd; ie.rd_vld := rd_vld; ie.op := op
+        ie.rob_idx := rob_idx; ie.age := age; ie.prj_lpv := prj_lpv; ie.prk_lpv := prk_lpv
         ie
     }
     def apply(): IQ_Entry = {
-        IQ_Entry(false.B, 0.U, false.B, 0.U, false.B, 0.U, false.B, ALU_BR_Op.ADD, 0.U, 0.U, 0.U, 0.U)
+        IQ_Entry(false.B, false.B, 0.U, false.B, 0.U, false.B, 0.U, false.B, ALU_BR_Op.ADD, 0.U, 0.U, 0.U, 0.U)
     }
 }
 
-class IQ_FList(ew: Int, dw: Int, num: Int) extends Module{
-    assert(ew <= dw, "enq width must be smaller than or equal to deq width")
-    val n = dw
-    val len = num / n
-    val io = IO(new Bundle{
-        val enq     = Vec(ew, Flipped(DecoupledIO(new Cluster_Entry(log2Ceil(len), log2Ceil(n)))))
-        val deq     = Vec(dw, DecoupledIO(new Cluster_Entry(log2Ceil(len), log2Ceil(n))))
-        val flush   = Input(Bool())
-    })
-    
-    val flst = VecInit.tabulate(n)(i =>
-        Module(new FIFO(new Cluster_Entry(log2Ceil(len), log2Ceil(n)), len, false, true, (i << log2Ceil(len)))).io)
 
-    // deq
-    val deq_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(n.W)))
-    val deq_ptr_trn = VecInit.tabulate(n)(i => VecInit.tabulate(dw)(j => deq_ptr(j)(i)).asUInt)
-    val all_deq_valid = flst.map(_.deq.valid).reduce(_ && _)
-    io.deq.zipWithIndex.foreach{ case (deq, i) => 
-        deq.valid := MuxOH(deq_ptr(i), flst.map(_.deq.valid)) && all_deq_valid
-        deq.bits := MuxOH(deq_ptr(i), flst.map(_.deq.bits))
-    }
-    flst.zipWithIndex.foreach{ case (fifo, i) => 
-        fifo.deq.ready := MuxOH(deq_ptr_trn(i), io.deq.map(_.ready))
-    }
-    when(io.flush){
-        deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
-    }.otherwise{
-        val counter = PopCount(io.deq.map(_.valid).zip(io.deq.map(_.ready)).map{ case (v, r) => v && r}).take(log2Ceil(n))
-        deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
-    }
-
-    // enq
-    val enq_ptr = RegInit(VecInit.tabulate(ew)(i => (1 << i).U(n.W)))
-    flst.zipWithIndex.foreach{ case (fifo, i) => 
-        fifo.enq.valid := MuxOH(enq_ptr(i), io.enq.map(_.valid))
-        fifo.enq.bits := MuxOH(enq_ptr(i), io.enq.map(_.bits))
-    }
-    io.enq.foreach(_.ready := true.B)
-
-    when(io.flush){
-        enq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
-    }.otherwise{
-        val counter = PopCount(io.enq.map(_.valid)).take(log2Ceil(n))
-        enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_sub_n(ptr, i))(counter)}
-    }
-
-    flst.foreach(_.flush := io.flush)
-}
-object IQ_FList{
-    def apply(ew: Int, dw: Int, num: Int): IQ_FList = Module(new IQ_FList(ew, dw, num))
-}
 class Issue_Queue_IO(ew: Int, dw: Int) extends Bundle {
     val enq         = Vec(ew, Flipped(DecoupledIO(new IQ_Entry)))
     val deq         = Vec(dw, DecoupledIO(new IQ_Entry))
-    val wake_bus    = Input(Vec(wissue, UInt(wpreg.W)))
+    // val wake_bus    = Input(Vec(wissue, UInt(wpreg.W)))
+    val wake_bus    = Input(Vec(wissue, new Wakeup_Bus_Pkg))
+    val rply_bus    = Input(new Replay_Bus_Pkg)
+    val dcache_miss = Input(Bool())
     val flush       = Input(Bool())
 }
 
 class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
     val io = IO(new Issue_Queue_IO(ew, dw))
     assert(ew >= dw, "enq width must be greater than or equal to deq width")
+    assert(num % dw == 0, "Issue Queue length must be a multiple of deq width")
     assert(num % ew == 0, "Issue Queue length must be a multiple of enq width")
 
-    val len = num / ew
-    val n = ew
+    val len = num / dw
+    val n = dw
 
     val iq = RegInit(
         VecInit.fill(n)(VecInit.fill(len)(0.U.asTypeOf(new IQ_Entry)))
     )
-    val flst = IQ_FList(dw, ew, num)
-
+    val flst = Module(new Cluster_Index_FIFO(new Cluster_Entry(log2Ceil(len), log2Ceil(n)), num, dw, ew, 0, 0))
     /* insert into iq */
     // allocate free item in iq
     flst.io.deq.zipWithIndex.foreach{ case (deq, i) => 
@@ -142,8 +115,23 @@ class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
     /* wake up */
     iq.foreach{case (qq) =>
         qq.foreach{case (e) =>
-            e.prj_wk := io.wake_bus.map(_ === e.prd).reduce(_ || _)
-            e.prk_wk := io.wake_bus.map(_ === e.prd).reduce(_ || _)
+            e.prj_wk := io.wake_bus.map(_.prd === e.prj).reduce(_ || _)
+            e.prk_wk := io.wake_bus.map(_.prd === e.prk).reduce(_ || _)
+            e.prj_lpv := Mux(e.prj_lpv.orR || e.prj === 0.U, e.prj_lpv << 1.U, Mux1H(io.wake_bus.map(_.prd === e.prj), io.wake_bus.map(_.lpv)))
+            e.prk_lpv := Mux(e.prk_lpv.orR || e.prk === 0.U, e.prk_lpv << 1.U, Mux1H(io.wake_bus.map(_.prd === e.prk), io.wake_bus.map(_.lpv)))
+        }
+    }
+    /* replay */
+    iq.foreach{case (qq) =>
+        qq.foreach{case (e) =>
+            when(e.prj_lpv.orR && e.prj =/= 0.U && io.rply_bus.replay){
+                e.inst_exi := true.B
+                e.prj_wk := false.B
+            }
+            when(e.prk_lpv.orR && e.prk =/= 0.U && io.rply_bus.replay){
+                e.inst_exi := true.B
+                e.prk_wk := false.B
+            }
         }
     }
 
@@ -152,7 +140,8 @@ class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
     flst.io.enq.foreach(_.valid := false.B)
     flst.io.enq.foreach(_.bits := DontCare)
     for(i <- 0 until dw){
-        val issue_valid = iq(i).map{ case (e) => e.prj_wk && e.prk_wk && e.inst_vld}
+        // get the oldest valid existing instruction
+        val issue_valid = iq(i).map{ case (e) => e.prj_wk && e.prk_wk && e.inst_vld && e.inst_exi}
         val issue_age = iq(i).map(_.age)
         val select_item = VecInit.tabulate(len)(j => Select_Item(
             idx_1h = (1 << j).U(len.W),
@@ -161,15 +150,25 @@ class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
         )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(esltu(a.age, b.age), a, b), a), b))
         
         io.deq(i).valid := select_item.vld
-        io.deq(i).bits := MuxOH(select_item.idx_1h, iq(i))
-        flst.io.enq.zipWithIndex.foreach{ case (enq, j) => 
-            when(flst_insert_ptr(j)){
-                enq.valid := select_item.vld
-                enq.bits.offset := OHToUInt(select_item.idx_1h)
-                enq.bits.qidx := i.U
+        io.deq(i).bits := Mux1H(select_item.idx_1h, iq(i))
+        // make the selected instruction not exist
+        iq(i).zipWithIndex.foreach{ case (e, j) =>
+            when(select_item.idx_1h(j)){ 
+                e.inst_exi := false.B 
+                e.prj_wk := false.B
+                e.prk_wk := false.B
             }
         }
-        flst_insert_ptr = Mux(select_item.vld, shift_add_1(flst_insert_ptr), flst_insert_ptr)
+        // recycle the issued instruction
+        val ready_to_recycle = iq(i).map{ case (e) => !e.inst_exi && !e.prj_lpv.orR && !e.prk_lpv.orR && e.inst_vld }
+        val select_recycle_idx = VecInit(PriorityEncoderOH(ready_to_recycle)).asUInt
+        when(flst_insert_ptr(i) && select_recycle_idx(i)){
+            flst.io.enq(i).valid := true.B
+            flst.io.enq(i).bits.offset := OHToUInt(select_recycle_idx)
+            flst.io.enq(i).bits.qidx := i.U(log2Ceil(n).W)
+        }
+        flst_insert_ptr = Mux(select_recycle_idx.orR, shift_add_1(flst_insert_ptr), flst_insert_ptr)
     }
+    
     io.enq.foreach(_.ready := flst.io.deq.map(_.valid).reduce(_ && _))
 }
