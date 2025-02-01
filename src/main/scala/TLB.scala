@@ -31,10 +31,10 @@ class TLB_Entry_T extends Bundle {
 }
 class TLB_Mem_T extends TLB_Entry_T {
     val hit_valid   =     Bool() // previous caculate hit check result
-    def apply(tlb_entry: TLB_Entry_T): TLB_Mem_T = {
+    def apply(tlb_entry: TLB_Entry_T, asid: UInt): TLB_Mem_T = {
         val r = Wire(new TLB_Mem_T)
         inheritFields(r, tlb_entry)
-        r.hit_valid := tlb_entry.e
+        r.hit_valid := tlb_entry.e && (tlb_entry.g || tlb_entry.asid === asid)
         r
     }
     def process_update(asid: UInt) = {
@@ -153,7 +153,7 @@ class TLB(is_dtlb: Boolean) extends Module{
     // for tlbwr and tlbfill
     when(rwf.tlbwr_en || rwf.tlbfill_en){
         val tlb_idx           = Mux(rwf.tlbwr_en, rwf.csr.tlbidx, rwf.tlbfill_idx)
-        tlb(tlb_idx)          := (new TLB_Mem_T)(rwf.csr.tlbwr_entry)
+        tlb(tlb_idx)          := (new TLB_Mem_T)(rwf.csr.tlbwr_entry, tr.csr.asid)
     }
 
     // for invtlb
