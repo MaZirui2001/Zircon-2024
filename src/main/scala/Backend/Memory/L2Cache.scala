@@ -2,27 +2,28 @@ import chisel3._
 import chisel3.util._
 import CPU_Config.Cache._
 import Zircon_Util._
-class Channel1_Stage1_Signal extends Bundle {
+
+class L2_Channel1_Stage1_Signal extends Bundle {
     val rreq        = Bool()
     val paddr       = UInt(32.W)
-    val uc_in       = Bool()
+    val uncache       = Bool()
 
-    def apply(rreq: Bool, paddr: UInt, uc_in: Bool): Channel1_Stage1_Signal = {
-        val c = Wire(new Channel1_Stage1_Signal)
-        c.rreq  := rreq
-        c.paddr := paddr
-        c.uc_in := uc_in
+    def apply(rreq: Bool, paddr: UInt, uncache: Bool): L2_Channel1_Stage1_Signal = {
+        val c = Wire(new L2_Channel1_Stage1_Signal)
+        c.rreq      := rreq
+        c.paddr     := paddr
+        c.uncache   := uncache
         c
     }
 }
-class Channel1_Stage2_Signal extends Channel1_Stage1_Signal{
+class L2_Channel1_Stage2_Signal extends L2_Channel1_Stage1_Signal{
     val rtag        = Vec(l2_way, UInt(l2_tag.W))
     val rdata       = Vec(l2_way, UInt(l2_line_bits.W))
     val hit         = UInt(l2_way.W)
     val lru         = UInt(2.W)
 
-    def apply(_c: Channel1_Stage1_Signal, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): Channel1_Stage2_Signal = {
-        val c = Wire(new Channel1_Stage2_Signal)
+    def apply(_c: L2_Channel1_Stage1_Signal, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): L2_Channel1_Stage2_Signal = {
+        val c = Wire(new L2_Channel1_Stage2_Signal)
         inheritFields(c, _c)
         c.rtag := rtag
         c.rdata := rdata
@@ -31,33 +32,33 @@ class Channel1_Stage2_Signal extends Channel1_Stage1_Signal{
         c
     }
 }
-class Channel2_Stage1_Signal extends Bundle {
+class L2_Channel2_Stage1_Signal extends Bundle {
     val rreq        = Bool()
     val wreq        = Bool()
-    val uc_in       = Bool()
+    val uncache       = Bool()
     val paddr       = UInt(32.W)
     val mtype       = UInt(2.W)
     val wdata       = UInt(32.W)
 
-    def apply(rreq: Bool, wreq: Bool, uc_in: Bool, paddr: UInt, mtype: UInt, wdata: UInt): Channel2_Stage1_Signal = {
-        val c = Wire(new Channel2_Stage1_Signal)
+    def apply(rreq: Bool, wreq: Bool, uncache: Bool, paddr: UInt, mtype: UInt, wdata: UInt): L2_Channel2_Stage1_Signal = {
+        val c = Wire(new L2_Channel2_Stage1_Signal)
         c.rreq  := rreq
         c.wreq  := wreq
-        c.uc_in := uc_in
+        c.uncache := uncache
         c.paddr := paddr
         c.mtype := mtype
         c.wdata := wdata
         c
     }
 }
-class Channel2_Stage2_Signal extends Channel2_Stage1_Signal{
+class L2_Channel2_Stage2_Signal extends L2_Channel2_Stage1_Signal{
     val rtag        = Vec(l2_way, UInt(l2_tag.W))
     val rdata       = Vec(l2_way, UInt(l2_line_bits.W))
     val hit         = UInt(l2_way.W)
     val lru         = UInt(2.W)
 
-    def apply(_c: Channel2_Stage1_Signal, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): Channel2_Stage2_Signal = {
-        val c = Wire(new Channel2_Stage2_Signal)
+    def apply(_c: L2_Channel2_Stage1_Signal, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): L2_Channel2_Stage2_Signal = {
+        val c = Wire(new L2_Channel2_Stage2_Signal)
         inheritFields(c, _c)
         c.rtag := rtag
         c.rdata := rdata
@@ -70,30 +71,27 @@ class Write_Buffer extends Bundle {
     val paddr  = UInt(32.W)
     val wdata  = UInt(l2_line_bits.W)
 }
-class ICache_IO extends Bundle{
+class L2_ICache_IO extends Bundle{
     val rreq        = Input(Bool())
     val rrsp        = Output(Bool())
     val paddr       = Input(UInt(32.W))
-    val uc_in       = Input(Bool())
+    val uncache     = Input(Bool())
     val rline       = Output(UInt(ic_line_bits.W))
-    // val uc_out      = Output(Bool())
     val miss        = Output(Bool())
 }
-class DCache_IO extends Bundle {
+class L2_DCache_IO extends Bundle {
     // replace port
     val rreq        = Input(Bool())
     val rrsp        = Output(Bool())
     val rline       = Output(UInt(dc_line_bits.W))
-    // val uc_out      = Output(Bool())
-    // val paddr_out   = Output(UInt(32.W))
 
     // write through port
     val wreq        = Input(Bool())
     val wrsp        = Output(Bool())
 
     // shared port
-    val paddr_in    = Input(UInt(32.W))
-    val uc_in       = Input(Bool())
+    val paddr       = Input(UInt(32.W))
+    val uncache     = Input(Bool())
     val wdata       = Input(UInt(32.W))
     val mtype       = Input(UInt(2.W))
     val miss        = Output(Bool())
@@ -117,8 +115,8 @@ class Mem_IO extends Bundle {
     val wstrb       = Output(UInt(4.W))
 }
 class L2Cache_IO extends Bundle {
-    val ic      = new ICache_IO
-    val dc      = new DCache_IO
+    val ic      = new L2_ICache_IO
+    val dc      = new L2_DCache_IO
     val mem     = Vec(2, new Mem_IO)
 }
 
@@ -131,6 +129,8 @@ class L2Cache extends Module {
     This Cache has two channels:
         1. for dcache write through, it can't be blocked, because all the write through data will hit
         2. for icache and dcache miss, it use a fsm to handle the miss
+    ICache: Read Operation can see all the way, but can only refill in way0-1
+    Dcache: Read Operation can see all the way, but can only refill in way2-3
     */
     /* 
         memory, now the l2_way is 4 
@@ -143,7 +143,7 @@ class L2Cache extends Module {
     val vld_tab     = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2, false.B)).io)
     // data
     val data_tab    = VecInit.fill(l2_way)(Module(new xilinx_true_dual_port_read_first_byte_write_1_clock_ram(l2_line, 8, l2_index_num)).io)
-    // dirty
+    // dirty table, read port: 0-1 for icache, 2-3 for dcache; write port: all for dcache
     val dirty_tab   = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 1, 1, false.B)).io)
     // lru, 0 for icache, 1 for dcache, if the kth-bit is 1, the kth-way is the one to be replaced
     val lru_tab     = VecInit.fill(2)(Module(new AsyncRegRam(UInt(2.W), l2_index_num, 1, 1, 1.U(2.W))).io)
@@ -170,19 +170,19 @@ class L2Cache extends Module {
     val wbuf_c1     = RegInit(0.U.asTypeOf(new Write_Buffer))
     val rbuf_c1     = RegInit(0.U(l2_line_bits.W))
     /* stage 1: receive the write through request */
-    val c1s1        = (new Channel1_Stage1_Signal)(Mux(ic_hazard, false.B, io.ic.rreq), io.ic.paddr, io.ic.uc_in)
+    val c1s1        = (new L2_Channel1_Stage1_Signal)(Mux(ic_hazard, false.B, io.ic.rreq), io.ic.paddr, io.ic.uncache)
     // Segreg1-2
-    val c1s2        = ShiftRegister(c1s1, 1, 0.U.asTypeOf(new Channel1_Stage1_Signal), !miss_c1)
+    val c1s2        = ShiftRegister(c1s1, 1, 0.U.asTypeOf(new L2_Channel1_Stage1_Signal), !miss_c1)
     /* stage 2: search the tag to determine which line to write */
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val hit_c1s2    = VecInit(tag_tab.zip(vld_c1s2).map{ case (tagt, vld) => vld && tagt.douta === tag(c1s2.paddr)}).asUInt
     assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "icache visit hit more than one line")
 
-    val c1s3_in     = (new Channel1_Stage2_Signal)(c1s2, VecInit(tag_tab.map(_.douta)), VecInit(data_tab.map(_.douta)), hit_c1s2, lru_tab(0).rdata(0))
+    val c1s3_in     = (new L2_Channel1_Stage2_Signal)(c1s2, VecInit(tag_tab.map(_.douta)), VecInit(data_tab.map(_.douta)), hit_c1s2, lru_tab(0).rdata(0))
     // miss update logic
-    miss_c1         := Mux(fsm_c1.io.cache.cmiss, false.B, Mux(miss_c1, miss_c1, c1s2.rreq && (c1s2.uc_in || !hit_c1s2.orR)))
+    miss_c1         := Mux(fsm_c1.io.cache.cmiss, false.B, Mux(miss_c1, miss_c1, c1s2.rreq && (c1s2.uncache || !hit_c1s2.orR)))
     // Segreg2-3
-    val c1s3        = ShiftRegister(c1s3_in, 1, 0.U.asTypeOf(new Channel1_Stage2_Signal), !miss_c1)
+    val c1s3        = ShiftRegister(c1s3_in, 1, 0.U.asTypeOf(new L2_Channel1_Stage2_Signal), !miss_c1)
     val c1_lru      = lru_tab(0).rdata(0)
     
     /* stage 3: fsm */
@@ -193,7 +193,7 @@ class L2Cache extends Module {
     }
     // fsm
     fsm_c1.io.cache.rreq    := c1s3.rreq
-    fsm_c1.io.cache.uc_in   := c1s3.uc_in
+    fsm_c1.io.cache.uncache := c1s3.uncache
     fsm_c1.io.cache.hit     := c1s3.hit
     fsm_c1.io.cache.lru     := c1_lru
     fsm_c1.io.cache.drty    := dirty_tab.map(_.rdata(0)).take(2)
@@ -240,10 +240,10 @@ class L2Cache extends Module {
 
     io.ic.rrsp      := !miss_c1 && c1s3.rreq
     io.ic.rline     := (Mux1H(fsm_c1.io.cache.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf_c1)).asTypeOf(Vec(l2_line_bits / ic_line_bits, UInt(ic_line_bits.W))))(c1s3.paddr(l2_offset-1, ic_offset))
-    // io.ic.uc_out    := c1s3.uc_in
+    // io.ic.uc_out    := c1s3.uncache
     io.mem(0).rreq  := fsm_c1.io.mem.rreq
-    io.mem(0).raddr := tag(c1s3.paddr) ## index(c1s3.paddr) ## Mux(c1s3.uc_in, offset(c1s3.paddr), 0.U(l2_offset.W))
-    io.mem(0).rlen  := Mux(c1s3.uc_in, 0.U, (l2_line_bits / 32 - 1).U)
+    io.mem(0).raddr := tag(c1s3.paddr) ## index(c1s3.paddr) ## Mux(c1s3.uncache, offset(c1s3.paddr), 0.U(l2_offset.W))
+    io.mem(0).rlen  := Mux(c1s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
     io.mem(0).rsize := 2.U
     io.mem(0).wreq  := fsm_c1.io.mem.wreq
     io.mem(0).wlast := fsm_c1.io.mem.wlast
@@ -266,24 +266,24 @@ class L2Cache extends Module {
     val wbuf_c2     = RegInit(0.U.asTypeOf(new Write_Buffer))
     val rbuf_c2     = RegInit(0.U(l2_line_bits.W))
     /* stage 1: receive the request, and arbitrate the request */
-    val c2s1        = (new Channel2_Stage1_Signal)(Mux(dc_hazard, false.B, io.dc.rreq), Mux(dc_hazard, false.B, io.dc.wreq), io.dc.uc_in, io.dc.paddr_in, io.dc.mtype, io.dc.wdata)
+    val c2s1        = (new L2_Channel2_Stage1_Signal)(Mux(dc_hazard, false.B, io.dc.rreq), Mux(dc_hazard, false.B, io.dc.wreq), io.dc.uncache, io.dc.paddr, io.dc.mtype, io.dc.wdata)
     // Segreg1-2
-    val c2s2        = ShiftRegister(c2s1, 1, 0.U.asTypeOf(new Channel2_Stage1_Signal), !miss_c2)
+    val c2s2        = ShiftRegister(c2s1, 1, 0.U.asTypeOf(new L2_Channel2_Stage1_Signal), !miss_c2)
     /* stage 2: search the tag to determine hit or miss, as well as read the data from the line */
     val vld_c2s2    = vld_tab.map(_.rdata(1))
     val hit_c2s2    = VecInit(tag_tab.zip(vld_c2s2).map{ case (tagt, vld) => vld && tagt.doutb === tag(c2s2.paddr)}).asUInt
     assert(!(c2s2.rreq || c2s2.wreq) || PopCount(hit_c2s2) <= 1.U, "dcache miss hit more than one line")
     // miss update logic
-    miss_c2         := Mux(fsm_c2.io.cache.cmiss, false.B, Mux(miss_c2, miss_c2, (c2s2.rreq || c2s2.wreq) && (c2s2.uc_in || !hit_c2s2.orR)))    
-    val c2s3_in     = (new Channel2_Stage2_Signal)(c2s2, VecInit(tag_tab.map(_.doutb)), VecInit(data_tab.map(_.doutb)), hit_c2s2, lru_tab(1).rdata(0))
+    miss_c2         := Mux(fsm_c2.io.cache.cmiss, false.B, Mux(miss_c2, miss_c2, (c2s2.rreq || c2s2.wreq) && (c2s2.uncache || !hit_c2s2.orR)))    
+    val c2s3_in     = (new L2_Channel2_Stage2_Signal)(c2s2, VecInit(tag_tab.map(_.doutb)), VecInit(data_tab.map(_.doutb)), hit_c2s2, lru_tab(1).rdata(0))
     // Segreg2-3
-    val c2s3        = ShiftRegister(c2s3_in, 1, 0.U.asTypeOf(new Channel2_Stage2_Signal), !miss_c2)
+    val c2s3        = ShiftRegister(c2s3_in, 1, 0.U.asTypeOf(new L2_Channel2_Stage2_Signal), !miss_c2)
     /* stage 3: read the data from the line */
     val c2_lru      = lru_tab(1).rdata(0)
     // fsm
     fsm_c2.io.cache.rreq        := c2s3.rreq
     fsm_c2.io.cache.wreq.get    := c2s3.wreq
-    fsm_c2.io.cache.uc_in       := c2s3.uc_in
+    fsm_c2.io.cache.uncache       := c2s3.uncache
     fsm_c2.io.cache.hit         := c2s3.hit
     fsm_c2.io.cache.lru         := c2_lru
     fsm_c2.io.cache.drty        := dirty_tab.map(_.rdata(0)).drop(2)
@@ -292,8 +292,8 @@ class L2Cache extends Module {
     fsm_c2.io.mem.wrsp          := io.mem(1).wrsp
     // wbuf
     when(fsm_c2.io.cache.wbuf_we){
-        wbuf_c2.paddr := Mux(c2s3.uc_in, c2s3.paddr, Mux1H(c2_lru, c2s3.rtag.drop(2)) ## index(c2s3.paddr) ## 0.U(l2_offset.W))
-        wbuf_c2.wdata := Mux(c2s3.uc_in, 0.U((l2_line_bits-32).W) ## c2s3.wdata, Mux1H(c2_lru, c2s3.rdata.drop(2)))
+        wbuf_c2.paddr := Mux(c2s3.uncache, c2s3.paddr, Mux1H(c2_lru, c2s3.rtag.drop(2)) ## index(c2s3.paddr) ## 0.U(l2_offset.W))
+        wbuf_c2.wdata := Mux(c2s3.uncache, 0.U((l2_line_bits-32).W) ## c2s3.wdata, Mux1H(c2_lru, c2s3.rdata.drop(2)))
     }.elsewhen(io.mem(1).wreq && io.mem(1).wrsp){
         wbuf_c2.wdata := wbuf_c2.wdata >> 32
     }
@@ -318,9 +318,9 @@ class L2Cache extends Module {
         if(i >= 2){
             dirtyt.raddr(0) := index(c2s3.paddr)
         }
-        dirtyt.wen(0)   := fsm_c2.io.cache.drty_we(i)
+        dirtyt.wen(0)   := fsm_c2.io.cache.drty_we.get(i)
         dirtyt.waddr(0) := index(c2s3.paddr)
-        dirtyt.wdata(0) := fsm_c2.io.cache.drty_d(i)
+        dirtyt.wdata(0) := fsm_c2.io.cache.drty_d.get(i)
     }
     // tag and mem
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
@@ -344,20 +344,20 @@ class L2Cache extends Module {
 
     io.dc.rrsp      := !miss_c2 && c2s3.rreq
     io.dc.rline     := (Mux1H(fsm_c2.io.cache.r1H, VecInit(rdata_mem, wdata_rbuf)).asTypeOf(Vec(l2_line_bits / dc_line_bits, UInt(dc_line_bits.W))))(c2s3.paddr(l2_offset-1, dc_offset))
-    // io.dc.uc_out    := c2s3.uc_in
+    // io.dc.uc_out    := c2s3.uncache
     // io.dc.paddr_out := c2s3.paddr
     io.dc.wrsp      := !miss_c2 && c2s3.wreq
     io.mem(1).rreq  := fsm_c2.io.mem.rreq
-    io.mem(1).raddr := tag(c2s3.paddr) ## index(c2s3.paddr) ## Mux(c2s3.uc_in, offset(c2s3.paddr), 0.U(l2_offset.W))
-    io.mem(1).rlen  := Mux(c2s3.uc_in, 0.U, (l2_line_bits / 32 - 1).U)
-    io.mem(1).rsize := Mux(c2s3.uc_in, c2s3.mtype, 2.U)
+    io.mem(1).raddr := tag(c2s3.paddr) ## index(c2s3.paddr) ## Mux(c2s3.uncache, offset(c2s3.paddr), 0.U(l2_offset.W))
+    io.mem(1).rlen  := Mux(c2s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
+    io.mem(1).rsize := Mux(c2s3.uncache, c2s3.mtype, 2.U)
     io.mem(1).wreq  := fsm_c2.io.mem.wreq
     io.mem(1).wlast := fsm_c2.io.mem.wlast
     io.mem(1).waddr := wbuf_c2.paddr(31, 2) ## 0.U(2.W)
     io.mem(1).wdata := (wbuf_c2.wdata(31, 0) << (wbuf_c2.paddr(1, 0) << 3))
-    io.mem(1).wlen  := Mux(c2s3.uc_in, 0.U, (l2_line_bits / 32 - 1).U)
+    io.mem(1).wlen  := Mux(c2s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
     io.mem(1).wsize := 2.U
-    io.mem(1).wstrb := Mux(c2s3.uc_in, mtype << wbuf_c2.paddr(1, 0), 0xf.U)
+    io.mem(1).wstrb := Mux(c2s3.uncache, mtype << wbuf_c2.paddr(1, 0), 0xf.U)
 
     /* related check: 
         reason:     1) The icache may replace a line that the dcache is writing through.
