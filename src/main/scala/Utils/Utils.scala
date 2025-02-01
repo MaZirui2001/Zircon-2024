@@ -77,4 +77,16 @@ object Zircon_Util{
             }
         }
     }
+    def rotateRightOH(x: UInt, nOH: UInt): UInt = {
+        val width = x.getWidth
+        assert(width == nOH.getWidth, "two operators must have the same width")
+        val x_shifts = VecInit.tabulate(width)(i => shift_sub_n(x, i))
+        Mux1H(nOH, x_shifts)
+    }
+    def rotateLeftOH(x: UInt, nOH: UInt): UInt = {  
+        val width = x.getWidth
+        assert(width == nOH.getWidth, "two operators must have the same width")
+        val x_shifts = VecInit.tabulate(width)(i => shift_add_n(x, i))
+        Mux1H(nOH, x_shifts)
+    }
 }
