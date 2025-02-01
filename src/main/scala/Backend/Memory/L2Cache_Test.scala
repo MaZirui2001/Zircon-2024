@@ -2,8 +2,8 @@ import chisel3._
 import chisel3.util._
 
 class L2Cache_Test_IO extends Bundle {
-    val ic = new ICache_IO
-    val dc = new DCache_IO
+    val ic = new L2_ICache_IO
+    val dc = new L2_DCache_IO
     val axi = new AXI_IO
 }
 class L2Cache_Test extends Module{
