@@ -40,6 +40,13 @@ object CPU_Config{
     }
     object Cache{
         val l1_way          = 2
+        val l1_offset       = 3
+        val l1_index        = 3
+        val l1_index_num    = 1 << l1_index
+        val l1_tag          = 32 - l1_offset - l1_index
+        val l1_line         = (1 << l1_offset)
+        val l1_line_bits    = l1_line * 8
+        
         val ic_offset       = 3
         val ic_index        = 3
         val ic_tag          = 32 - ic_offset - ic_index
