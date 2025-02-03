@@ -127,8 +127,8 @@ class L2Cache extends Module {
     val io = IO(new L2Cache_IO)
     /* 
     This Cache has two channels:
-        1. for dcache write through, it can't be blocked, because all the write through data will hit
-        2. for icache and dcache miss, it use a fsm to handle the miss
+        1. for dcache 
+        2. for icache
     ICache: Read Operation can see all the way, but can only refill in way0-1
     Dcache: Read Operation can see all the way, but can only refill in way2-3
     */
@@ -159,7 +159,7 @@ class L2Cache extends Module {
 
     /* 
     channel 1: icache visit
-        stage 1: receive the write through request
+        stage 1: receive icache request
         stage 2: search the tag to determine which line to read
         stage 3: fsm
     */
@@ -255,7 +255,7 @@ class L2Cache extends Module {
 
     /*
     channel 2: dcache visit
-        stage 1: receive the request, and arbitrate the request
+        stage 1: receive the dcache request
         stage 2: search the tag to determine hit or miss, as well as read the data from the line
         stage 3: read the data from the line
     */
