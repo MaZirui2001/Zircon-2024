@@ -5,15 +5,15 @@ import CPU_Config.ReserveQueue._
 import Zircon_Util._
 
 class sb_entry extends Bundle{
-    val vaddr = UInt(32.W)
+    val paddr = UInt(32.W)
     val wdata = UInt(32.W)
     val wstrb = UInt(4.W)
 
-    def apply(vaddr: UInt, wdata: UInt, mtype: UInt): sb_entry = {
+    def apply(paddr: UInt, wdata: UInt, mtype: UInt): sb_entry = {
         val entry = Wire(new sb_entry)
-        entry.vaddr := vaddr
-        entry.wdata := (wdata << (vaddr(1, 0) << 3.U))(31, 0)
-        entry.wstrb := (mtype_decode(mtype(1, 0)) << vaddr(1, 0))(3, 0)
+        entry.paddr := paddr
+        entry.wdata := (wdata << (paddr(1, 0) << 3.U))(31, 0)
+        entry.wstrb := (mtype_decode(mtype(1, 0)) << paddr(1, 0))(3, 0)
         entry
     }
 }
@@ -21,9 +21,11 @@ class sb_entry extends Bundle{
 class Store_Buffer_IO extends Bundle {
     // first time: store write itself into sb
     val enq             = Flipped(Decoupled(new sb_entry))
+    val enq_idx         = Output(UInt(wsb.W))
 
     // second time: store commit from sb
     val deq             = Decoupled(new sb_entry)
+    val deq_idx         = Output(UInt(wsb.W))
     val st_cmt          = Input(Bool())
     val st_finish       = Input(Bool())
     
@@ -76,10 +78,11 @@ class Store_Buffer extends Module {
         when(io.flush){ qq.wstrb := 0.U(4.W) }
 		.elsewhen(tptr(i) && io.enq.valid && fulln && !io.stall) { qq := io.enq.bits }
 	}
+    io.enq_idx := OHToUInt(tptr)
 
     // read logic
     io.deq.bits := Mux1H(hptr, q)
-
+    io.deq_idx := OHToUInt(hptr)
     io.enq.ready := fulln
     io.deq.valid := eptyn
     io.all_clear := all_clear
@@ -89,7 +92,7 @@ class Store_Buffer extends Module {
     val load_hit = WireDefault(VecInit.fill(4)(false.B))
     // 1. match the address(31, 2) with store buffer
     val sb_word_addr_match = VecInit.tabulate(nsb){i => 
-        Mux(q(i).vaddr(31, 2) === io.enq.bits.vaddr(31, 2), 1.U(1.W), 0.U(1.W))
+        Mux(q(i).paddr(31, 2) === io.enq.bits.paddr(31, 2), 1.U(1.W), 0.U(1.W))
     }.asUInt
     // 2. for each byte in the word, check each wstrb, get the match item
     for(i <- 0 until 4){
@@ -98,7 +101,7 @@ class Store_Buffer extends Module {
         load_bytes(i) := Mux1H(rotateLeftOH(byte_hit, tptr), q.map(_.wdata(i*8+7, i*8)))
     }
     // 3. shift the result
-    io.ld_sb_hit := load_hit.asUInt >> io.enq.bits.vaddr(1, 0)
-    io.ld_hit_data := load_bytes.asUInt >> (io.enq.bits.vaddr(1, 0) << 3.U)
+    io.ld_sb_hit := load_hit.asUInt >> io.enq.bits.paddr(1, 0)
+    io.ld_hit_data := load_bytes.asUInt >> (io.enq.bits.paddr(1, 0) << 3.U)
     
 }
