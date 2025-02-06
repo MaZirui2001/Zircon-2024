@@ -70,6 +70,17 @@ object Zircon_Util{
         ))
         res
     }
+    // memtype encode
+    def mtype_encode(mtype: UInt, n: Int = 2): UInt = {
+        val res = Wire(UInt(n.W))
+        res := MuxLookup(mtype, 0.U(n.W))(Seq(
+            0x1.U -> 0.U(n.W),
+            0x3.U -> 1.U(n.W),
+            0xf.U -> 2.U(n.W),
+        ))
+        res
+    }
+    // inherit fields
     def inheritFields[T <: Bundle, P <: Bundle](child: T, parent: P): Unit = {
         parent.elements.foreach { case (name, data) =>
             if (child.elements.contains(name)) {
