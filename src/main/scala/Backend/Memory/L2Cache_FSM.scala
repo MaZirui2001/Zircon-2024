@@ -34,13 +34,13 @@ class L2Cache_FSM_MEM_IO extends Bundle {
 }
 
 class L2Cache_FSM_IO(ic: Boolean = false) extends Bundle {
-    val cache   = new L2Cache_FSM_Cache_IO(ic)
+    val cc   = new L2Cache_FSM_Cache_IO(ic)
     val mem     = new L2Cache_FSM_MEM_IO
 }
 
 class L2Cache_FSM(ic: Boolean = false) extends Module{
     val io = IO(new L2Cache_FSM_IO(ic))
-    val ioc = io.cache
+    val ioc = io.cc
     val iom = io.mem
     val ioc_wreq = ioc.wreq.getOrElse(false.B)
     // main fsm: for read
@@ -93,7 +93,7 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
         is(m_miss){
             io.mem.rreq := true.B
             when(iom.rrsp && iom.rlast){
-                m_state := m_refill
+                m_state := Mux(ioc.uncache, m_wait, m_refill)
             }
         }
         is(m_refill){
@@ -123,16 +123,16 @@ class L2Cache_FSM(ic: Boolean = false) extends Module{
             r1H     := 2.U // choose rbuf
         }
     }
-    io.cache.cmiss      := cmiss
-    io.cache.tagv_we    := tagv_we
-    io.cache.mem_we     := mem_we
-    io.cache.lru_upd    := lru_upd
-    io.cache.addr_1H    := addr_1H
-    io.cache.r1H        := r1H
-    io.cache.wbuf_we    := wbuf_we
+    io.cc.cmiss      := cmiss
+    io.cc.tagv_we    := tagv_we
+    io.cc.mem_we     := mem_we
+    io.cc.lru_upd    := lru_upd
+    io.cc.addr_1H    := addr_1H
+    io.cc.r1H        := r1H
+    io.cc.wbuf_we    := wbuf_we
     if(!ic){
-        io.cache.drty_we.get    := drty_we
-        io.cache.drty_d.get     := drty_d
+        io.cc.drty_we.get    := drty_we
+        io.cc.drty_d.get     := drty_d
     }
 
     // write fsm 
