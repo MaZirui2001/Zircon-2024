@@ -8,12 +8,14 @@ class sb_entry extends Bundle{
     val paddr = UInt(32.W)
     val wdata = UInt(32.W)
     val wstrb = UInt(4.W)
+    val uncache = Bool()
 
-    def apply(paddr: UInt, wdata: UInt, mtype: UInt): sb_entry = {
+    def apply(paddr: UInt, wdata: UInt, mtype: UInt, uncache: Bool): sb_entry = {
         val entry = Wire(new sb_entry)
         entry.paddr := paddr
         entry.wdata := (wdata << (paddr(1, 0) << 3.U))(31, 0)
         entry.wstrb := (mtype_decode(mtype(1, 0)) << paddr(1, 0))(3, 0)
+        entry.uncache := uncache
         entry
     }
 }
@@ -34,8 +36,8 @@ class Store_Buffer_IO extends Bundle {
     val ld_hit_data     = Output(UInt(32.W))
 
 	val flush 	        = Input(Bool()) // only when all entries have been committed
-    val stall           = Input(Bool())
-    val all_clear       = Output(Bool())
+    // val stall           = Input(Bool())
+    val clear           = Output(Bool())
 }
 class Store_Buffer extends Module {
     val io = IO(new Store_Buffer_IO)
@@ -71,21 +73,24 @@ class Store_Buffer extends Module {
     when(io.deq.ready){ eptyn := !(hptr_nxt & rptr_nxt) }
     .elsewhen(io.st_cmt) { eptyn := true.B }
 
-    when(io.st_finish || io.st_cmt){ all_clear := (rptr_nxt & cptr_nxt).orR }
+    // when(io.st_finish || io.st_cmt){ all_clear := (tptr_nxt & cptr_nxt).orR }
+    when(io.flush){ all_clear := (rptr_nxt & cptr_nxt).orR }
+    .elsewhen(io.st_finish){ all_clear := (tptr_nxt & cptr_nxt).orR }
+    .elsewhen(io.enq.valid){ all_clear := false.B }
     
     // write logic
     q.zipWithIndex.foreach{ case (qq, i) => 
         when(io.flush){ qq.wstrb := 0.U(4.W) }
-		.elsewhen(tptr(i) && io.enq.valid && fulln && !io.stall) { qq := io.enq.bits }
+		.elsewhen(tptr(i) && io.enq.valid && fulln) { qq := io.enq.bits }
 	}
     io.enq_idx := OHToUInt(tptr)
 
     // read logic
-    io.deq.bits := Mux1H(hptr, q)
-    io.deq_idx := OHToUInt(hptr)
+    io.deq.bits  := Mux1H(hptr, q)
+    io.deq_idx   := OHToUInt(hptr)
     io.enq.ready := fulln
     io.deq.valid := eptyn
-    io.all_clear := all_clear
+    io.clear     := all_clear
 
     // load read: read for each byte
     val load_bytes = WireDefault(VecInit.fill(4)(0.U(8.W)))
