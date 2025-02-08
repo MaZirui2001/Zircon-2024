@@ -76,14 +76,14 @@ class L2_ICache_IO extends Bundle{
     val rrsp        = Output(Bool())
     val paddr       = Input(UInt(32.W))
     val uncache     = Input(Bool())
-    val rline       = Output(UInt(ic_line_bits.W))
+    val rline       = Output(UInt(l1_line_bits.W))
     val miss        = Output(Bool())
 }
 class L2_DCache_IO extends Bundle {
     // replace port
     val rreq        = Input(Bool())
     val rrsp        = Output(Bool())
-    val rline       = Output(UInt(dc_line_bits.W))
+    val rline       = Output(UInt(l1_line_bits.W))
 
     // write through port
     val wreq        = Input(Bool())
@@ -239,8 +239,8 @@ class L2Cache extends Module {
     }
 
     io.ic.rrsp      := !miss_c1 && c1s3.rreq
-    io.ic.rline     := Mux(c1s3.uncache, 0.U((ic_line_bits-32).W) ## rbuf_c1(l2_line_bits-1, l2_line_bits-32), 
-                                        (Mux1H(fsm_c1.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf_c1)).asTypeOf(Vec(l2_line_bits / ic_line_bits, UInt(ic_line_bits.W))))(c1s3.paddr(l2_offset-1, ic_offset)))
+    io.ic.rline     := Mux(c1s3.uncache, 0.U((l1_line_bits-32).W) ## rbuf_c1(l2_line_bits-1, l2_line_bits-32), 
+                                        (Mux1H(fsm_c1.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf_c1)).asTypeOf(Vec(l2_line_bits / l1_line_bits, UInt(l1_line_bits.W))))(c1s3.paddr(l2_offset-1, l1_offset)))
     // io.ic.uc_out    := c1s3.uncache
     io.mem(0).rreq  := fsm_c1.io.mem.rreq
     io.mem(0).raddr := tag(c1s3.paddr) ## index(c1s3.paddr) ## Mux(c1s3.uncache, offset(c1s3.paddr), 0.U(l2_offset.W))
@@ -284,13 +284,13 @@ class L2Cache extends Module {
     // fsm
     fsm_c2.io.cc.rreq        := c2s3.rreq
     fsm_c2.io.cc.wreq.get    := c2s3.wreq
-    fsm_c2.io.cc.uncache       := c2s3.uncache
+    fsm_c2.io.cc.uncache     := c2s3.uncache
     fsm_c2.io.cc.hit         := c2s3.hit
     fsm_c2.io.cc.lru         := c2_lru
     fsm_c2.io.cc.drty        := dirty_tab.map(_.rdata(0)).drop(2)
-    fsm_c2.io.mem.rrsp          := io.mem(1).rrsp
-    fsm_c2.io.mem.rlast         := io.mem(1).rlast
-    fsm_c2.io.mem.wrsp          := io.mem(1).wrsp
+    fsm_c2.io.mem.rrsp       := io.mem(1).rrsp
+    fsm_c2.io.mem.rlast      := io.mem(1).rlast
+    fsm_c2.io.mem.wrsp       := io.mem(1).wrsp
     // wbuf
     when(fsm_c2.io.cc.wbuf_we){
         wbuf_c2.paddr := Mux(c2s3.uncache, c2s3.paddr, Mux1H(c2_lru, c2s3.rtag.drop(2)) ## index(c2s3.paddr) ## 0.U(l2_offset.W))
@@ -344,10 +344,8 @@ class L2Cache extends Module {
     }
 
     io.dc.rrsp      := !miss_c2 && c2s3.rreq
-    io.dc.rline     := Mux(c2s3.uncache, 0.U((dc_line_bits-32).W) ## rbuf_c2(l2_line_bits-1, l2_line_bits-32), 
-                                        (Mux1H(fsm_c2.io.cc.r1H, VecInit(rdata_mem, wdata_rbuf)).asTypeOf(Vec(l2_line_bits / dc_line_bits, UInt(dc_line_bits.W))))(c2s3.paddr(l2_offset-1, dc_offset)))
-    // io.dc.uc_out    := c2s3.uncache
-    // io.dc.paddr_out := c2s3.paddr
+    io.dc.rline     := Mux(c2s3.uncache, 0.U((l1_line_bits-32).W) ## rbuf_c2(l2_line_bits-1, l2_line_bits-32), 
+                                        (Mux1H(fsm_c2.io.cc.r1H, VecInit(rdata_mem, wdata_rbuf)).asTypeOf(Vec(l2_line_bits / l1_line_bits, UInt(l1_line_bits.W))))(c2s3.paddr(l2_offset-1, l1_offset)))
     io.dc.wrsp      := !miss_c2 && c2s3.wreq
     io.mem(1).rreq  := fsm_c2.io.mem.rreq
     io.mem(1).raddr := tag(c2s3.paddr) ## index(c2s3.paddr) ## Mux(c2s3.uncache, offset(c2s3.paddr), 0.U(l2_offset.W))
@@ -380,7 +378,7 @@ class L2Cache extends Module {
     // dc_hazard := (index(c2s1.paddr) === index(c1s2.paddr) && c1s2.rreq
     //            || index(c2s1.paddr) === index(c1s3.paddr) && c1s3.rreq
     //            || io.dc.rreq && c2s3.wreq)
-    dc_hazard := io.dc.rreq && c2s3.wreq
+    dc_hazard := c2s3.wreq
 
     io.ic.miss := miss_c1 || ic_hazard
     io.dc.miss := miss_c2 || dc_hazard
