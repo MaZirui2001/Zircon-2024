@@ -66,14 +66,13 @@ class Store_Buffer extends Module {
     cptr := cptr_nxt
 
     // full and empty flags update logic
-    when(io.flush){ fulln := true.B }
-    .elsewhen(io.enq.valid) { fulln := !(hptr_nxt & tptr_nxt) }
-    .elsewhen(io.deq.ready) { fulln := true.B }
+    when(io.flush){ fulln := !(rptr_nxt & cptr_nxt)}
+    .elsewhen(io.enq.valid) { fulln := !(cptr_nxt & tptr_nxt) }
+    .elsewhen(io.st_finish) { fulln := true.B }
 
     when(io.deq.ready){ eptyn := !(hptr_nxt & rptr_nxt) }
     .elsewhen(io.st_cmt) { eptyn := true.B }
 
-    // when(io.st_finish || io.st_cmt){ all_clear := (tptr_nxt & cptr_nxt).orR }
     when(io.flush){ all_clear := (rptr_nxt & cptr_nxt).orR }
     .elsewhen(io.st_finish){ all_clear := (tptr_nxt & cptr_nxt).orR }
     .elsewhen(io.enq.valid){ all_clear := false.B }
@@ -101,9 +100,9 @@ class Store_Buffer extends Module {
     }.asUInt
     // 2. for each byte in the word, check each wstrb, get the match item
     for(i <- 0 until 4){
-        val byte_hit = PriorityEncoderOH(rotateRightOH(sb_word_addr_match & VecInit(q.map(_.wstrb(i))).asUInt, tptr))
+        val byte_hit = PriorityEncoderOH(Reverse(rotateLeftOH(sb_word_addr_match & VecInit(q.map(_.wstrb(i))).asUInt, Reverse(tptr))))
         load_hit(i) := byte_hit.orR
-        load_bytes(i) := Mux1H(rotateLeftOH(byte_hit, tptr), q.map(_.wdata(i*8+7, i*8)))
+        load_bytes(i) := Mux1H(rotateRightOH(Reverse(byte_hit), Reverse(tptr)), q.map(_.wdata(i*8+7, i*8)))
     }
     // 3. shift the result
     io.ld_sb_hit := load_hit.asUInt >> io.enq.bits.paddr(1, 0)

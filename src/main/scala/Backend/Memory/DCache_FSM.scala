@@ -21,7 +21,9 @@ class DCache_FSM_Cache_IO extends Bundle {
     val lru_upd     = Output(UInt(2.W))
 
     val sb_clear    = Input(Bool())
+    val sb_full     = Input(Bool())
     val flush       = Input(Bool())
+    val wreq_c2     = Input(Bool())
     // val sb_idx      = Input(UInt(wsb.W))
     // val sb_idx_c2   = Input(UInt(wsb.W))
 }
@@ -30,6 +32,7 @@ class DCache_FSM_Cache_IO extends Bundle {
 class DCache_FSM_L2_IO extends Bundle {
     val rreq        = Output(Bool())
     val rrsp        = Input(Bool())
+    val miss        = Input(Bool())
 }
 
 class DCache_FSM_IO extends Bundle {
@@ -41,7 +44,7 @@ class DCache_FSM_IO extends Bundle {
 class DCache_FSM extends Module {
     val io = IO(new DCache_FSM_IO)
 
-    val m_idle :: m_hold :: m_miss :: m_refill :: m_wait :: m_pause :: Nil = Enum(6)
+    val m_idle :: m_hold :: m_miss :: m_rsp :: m_refill :: m_wait :: m_pause :: Nil = Enum(7)
     val m_state = RegInit(m_idle)
 
     // val sb_idx_reg  = RegInit(0.U(wsb.W))
@@ -58,19 +61,21 @@ class DCache_FSM extends Module {
     io.l2.rreq := false.B
     switch(m_state){
         is(m_idle){
+            addr_1H := Mux(io.cc.sb_full, 2.U, 1.U)
             when(io.cc.wreq){
                 m_state := Mux(io.cc.uncache, m_hold, m_idle)
+                // cmiss := true.B
                 // sb_idx_reg := io.cc.sb_idx
             }.elsewhen(io.cc.rreq){
                 when(io.cc.is_latest){
-                    m_state := Mux(io.cc.uncache, m_hold, Mux(io.cc.hit.orR, m_idle, m_miss))
+                    m_state := Mux(io.cc.uncache, m_hold, Mux(io.cc.hit.orR, m_idle, m_hold))
                     lru_reg := io.cc.lru
                     when(!io.cc.uncache && io.cc.hit.orR){
                         lru_upd := ~io.cc.hit
                     }
                 }.otherwise{
                     m_state := m_idle
-                    cmiss := true.B
+                    cmiss := !io.cc.hit.orR
                 }
             }
         }
@@ -85,7 +90,10 @@ class DCache_FSM extends Module {
             }
         }
         is(m_miss){
-            io.l2.rreq := true.B
+            io.l2.rreq := !io.l2.miss && !io.cc.wreq_c2
+            m_state := Mux(io.l2.miss || io.cc.wreq_c2, m_miss, m_rsp)
+        }
+        is(m_rsp){
             when(io.l2.rrsp){
                 m_state := Mux(io.cc.uncache, m_wait, m_refill)
             }

@@ -66,9 +66,9 @@ class D_Channel2_Stage1_Signal extends Bundle {
     def apply(sb_entry: sb_entry, sb_valid: Bool, sb_idx: UInt): D_Channel2_Stage1_Signal = {
         val c = Wire(new D_Channel2_Stage1_Signal)
         c.wreq := sb_valid
-        c.wdata := sb_entry.wdata
+        c.wdata := sb_entry.wdata >> (sb_entry.paddr(1, 0) << 3)
         c.paddr := sb_entry.paddr
-        c.mtype := mtype_encode(sb_entry.wstrb)
+        c.mtype := mtype_encode(sb_entry.wstrb >> sb_entry.paddr(1, 0))
         c.uncache := sb_entry.uncache
         c.sb_idx := sb_idx
         c
@@ -95,8 +95,10 @@ class D_Pipeline_IO extends Bundle {
     val vaddr       = Input(UInt(32.W))
     val rdata       = Output(UInt(32.W))
     val miss        = Output(Bool()) // not latest but uncache
+    val rrsp        = Output(Bool())
     val load_replay = Output(Bool())
     val sb_full     = Output(Bool())
+    val wrsp        = Output(Bool())
 }
 
 class D_Commit_IO extends Bundle {
@@ -148,7 +150,7 @@ class DCache extends Module {
     */
     val fsm         = Module(new DCache_FSM)
     val miss_c1     = RegInit(false.B)
-    val cmiss_c1    = WireDefault(false.B)
+    // val cmiss_c1    = WireDefault(false.B)
     val hit_c1      = RegInit(0.U(l1_way.W))
     val rbuf        = RegInit(0.U(l1_line_bits.W))
     val sb          = Module(new Store_Buffer)
@@ -157,7 +159,7 @@ class DCache extends Module {
     val c1s1 = (new D_Channel1_Stage1_Signal)(io.pp)
     
     // stage 2
-    val c1s2        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), c1s1), 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !miss_c1 || io.cmt.flush)
+    val c1s2        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), c1s1), 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !(miss_c1 || !sb.io.enq.ready) || io.cmt.flush)
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val tag_c1s2    = tag_tab.map(_.douta)
     val data_c1s2   = data_tab.map(_.douta)
@@ -166,10 +168,10 @@ class DCache extends Module {
 
     val c1s3_in = (new D_Channel1_Stage2_Signal)(c1s2, VecInit(tag_c1s2), VecInit(data_c1s2), hit_c1s2, lru_tab.rdata(0), io.mmu.paddr, io.mmu.uncache)
     // miss check
-    miss_c1 := Mux(cmiss_c1, false.B, Mux(miss_c1, miss_c1, (c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR)) || (c1s2.wreq && io.mmu.uncache)))
+    miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || !sb.io.enq.ready, miss_c1, (c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR)) || (c1s2.wreq && io.mmu.uncache)))
 
     // stage 3
-    val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), c1s3_in), 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !miss_c1 || io.cmt.flush)
+    val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), c1s3_in), 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || !sb.io.enq.ready) || io.cmt.flush)
     val lru_c1s3    = lru_tab.rdata(0)
     // store buffer
     val sb_enq = (new sb_entry)(c1s3.paddr, c1s3.wdata, c1s3.mtype, c1s3.uncache)
@@ -188,10 +190,10 @@ class DCache extends Module {
     fsm.io.cc.sb_clear  := sb.io.clear
     fsm.io.cc.flush     := io.cmt.flush
     fsm.io.l2.rrsp      := io.l2.rrsp
-    // fsm.io.cc.sb_idx    := sb.io.enq_idx
-    // fsm.io.cc.sb_idx_c2 := DontCare // TODO: add this
+    fsm.io.l2.miss      := io.l2.miss
+    fsm.io.cc.sb_full   := !sb.io.enq.ready
     // return buffer
-    when(io.l2.rreq && io.l2.rrsp){
+    when(io.l2.rrsp){
         rbuf := io.l2.rline
     }
     // lru
@@ -223,16 +225,18 @@ class DCache extends Module {
     }
     io.pp.miss          := miss_c1
     io.pp.load_replay   := c1s3.uncache && c1s3.rreq && !c1s3.is_latest
-    io.pp.sb_full       := sb.io.enq.ready
-    val mem_data        = Mux(c1s3.uncache, rbuf(31, 0), (Mux1H(fsm.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf)).asTypeOf(Vec(l1_line, UInt(8.W))))(offset(c1s3.vaddr)))
+    io.pp.sb_full       := !sb.io.enq.ready
+    val mem_data        = Mux(c1s3.uncache, rbuf(31, 0), (Mux1H(fsm.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf)).asTypeOf(Vec(l1_line / 4, UInt(32.W))))(offset(c1s3.vaddr) >> 2) >> (offset(c1s3.vaddr)(1, 0) << 3))
     val c1s4_in = (new D_Channel1_Stage3_Signal)(c1s3, sb.io.ld_hit_data, mem_data, sb.io.ld_sb_hit)
-    val c1s4    = ShiftRegister(Mux(miss_c1 || io.cmt.flush || io.pp.load_replay, 0.U.asTypeOf(new D_Channel1_Stage3_Signal), c1s4_in), 1, 0.U.asTypeOf(new D_Channel1_Stage3_Signal), true.B)
+    val c1s4    = ShiftRegister(Mux(miss_c1 || !sb.io.enq.ready || io.cmt.flush || io.pp.load_replay, 0.U.asTypeOf(new D_Channel1_Stage3_Signal), c1s4_in), 1, 0.U.asTypeOf(new D_Channel1_Stage3_Signal), true.B)
     val rdata   = VecInit.tabulate(4)(i => Mux(c1s4.sb_hit(i) && !c1s4.uncache, c1s4.sb_hit_data(i*8+7, i*8), c1s4.mem_data(i*8+7, i*8))).asUInt
     io.pp.rdata := MuxLookup(c1s4.mtype(1, 0), 0.U(32.W))(Seq(
-        0.U(3.W) -> Fill(24, Mux(c1s4.mtype(2), 0.U(1.W), rdata(7))) ## rdata(7, 0),
-        1.U(3.W) -> Fill(16, Mux(c1s4.mtype(2), 0.U(1.W), rdata(15))) ## rdata(15, 0),
-        2.U(3.W) -> rdata,
+        0.U(2.W) -> Fill(24, Mux(c1s4.mtype(2), 0.U(1.W), rdata(7))) ## rdata(7, 0),
+        1.U(2.W) -> Fill(16, Mux(c1s4.mtype(2), 0.U(1.W), rdata(15))) ## rdata(15, 0),
+        2.U(2.W) -> rdata,
     ))
+    io.pp.rrsp := c1s4.rreq 
+    io.pp.wrsp := c1s4.wreq
 
     /* 
         channel 2: commit write
@@ -273,18 +277,13 @@ class DCache extends Module {
     }
     vld_tab.zipWithIndex.foreach{ case (vldt, i) =>
         vldt.raddr(1) := index(c2s2.paddr)
-        // vldt.wen(1)   := false.B
-        // vldt.waddr(1) := DontCare
-        // vldt.wdata(1) := DontCare
     }
-
+    fsm.io.cc.wreq_c2 := c2s3.wreq
     // l2 cache
-    io.l2.rreq      := c1s3.rreq && !c2s3.wreq // wreq first
+    io.l2.rreq      := fsm.io.l2.rreq && !c2s3.wreq // wreq first
     io.l2.wreq      := c2s3.wreq
     io.l2.paddr     := Mux(c2s3.wreq, c2s3.paddr, c1s3.paddr) // wreq first
     io.l2.uncache   := Mux(c2s3.wreq, c2s3.uncache, c1s3.uncache)
     io.l2.wdata     := c2s3.wdata
     io.l2.mtype     := c2s3.mtype
-    
-    
 }
