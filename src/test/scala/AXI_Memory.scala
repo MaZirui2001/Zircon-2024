@@ -24,24 +24,25 @@ class AXI_Memory(rand_delay: Boolean){
 
     // read from the memory
     def read(
-        araddr: UInt, 
-        arlen: UInt, 
-        arsize: UInt, 
-        arburst: UInt,
-        arvalid: Bool,
-        rready: Bool
+        // araddr: UInt, 
+        // arlen: UInt, 
+        // arsize: UInt, 
+        // arburst: UInt,
+        // arvalid: Bool,
+        // rready: Bool
+        axi: AXI_IO
     ): AXI_Read_Item = {
         var readItem = new AXI_Read_Item(false.B, 0.U, false.B, false.B)
         readConfig.state match {
             // record the read configuration
             case ReadState.IDLE => {
-                assert(arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
-                if(arvalid.litToBoolean){
+                assert(axi.arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
+                if(axi.arvalid.litToBoolean){
                     readConfig = new AXI_Read_Config(
-                        araddr.litValue.toInt,
-                        arlen.litValue.toInt, 
-                        1 << arsize.litValue.toInt, 
-                        arburst.litValue.toInt, 
+                        axi.araddr.litValue.toInt,
+                        axi.arlen.litValue.toInt, 
+                        1 << axi.arsize.litValue.toInt, 
+                        axi.arburst.litValue.toInt, 
                         ReadState.AR
                     )
                 }
@@ -51,7 +52,7 @@ class AXI_Memory(rand_delay: Boolean){
                 // random delay
                 readItem.arready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
                 // println("arready: " + readItem.arready.litToBoolean + " arvalid: " + arvalid.litToBoolean)
-                if(readItem.arready.litToBoolean && arvalid.litToBoolean){
+                if(readItem.arready.litToBoolean && axi.arvalid.litToBoolean){
                     readConfig.state = ReadState.R
                 }
             }
@@ -68,11 +69,11 @@ class AXI_Memory(rand_delay: Boolean){
                     // check if the last read
                     if(readConfig.arlen == 0){
                         readItem.rlast = true.B
-                        if(rready.litToBoolean){
+                        if(axi.rready.litToBoolean){
                             readConfig.state = ReadState.IDLE
                         }
                     }else{
-                        if(rready.litToBoolean){
+                        if(axi.rready.litToBoolean){
                             readConfig.arlen = readConfig.arlen - 1
                             readConfig.araddr = readConfig.araddr + readConfig.arsize
                         }
@@ -84,31 +85,32 @@ class AXI_Memory(rand_delay: Boolean){
     }
     // write to the memory
     def write(
-        awaddr: UInt, 
-        awlen: UInt, 
-        awsize: UInt, 
-        awburst: UInt,
-        wdata: UInt,
-        wstrb: UInt,
-        wlast: Bool,
-        awvalid: Bool,
-        wvalid: Bool,
-        bready: Bool,
+        // awaddr: UInt, 
+        // awlen: UInt, 
+        // awsize: UInt, 
+        // awburst: UInt,
+        // wdata: UInt,
+        // wstrb: UInt,
+        // wlast: Bool,
+        // awvalid: Bool,
+        // wvalid: Bool,
+        // bready: Bool,
+        axi: AXI_IO,
         cycle: Int
     ): AXI_Write_Item = {
         var writeItem = new AXI_Write_Item(false.B, false.B, false.B)
         writeConfig.state match {
             // record the write configuration
             case WriteState.IDLE => {
-                assert(awsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
-                if(awvalid.litToBoolean){
+                assert(axi.arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
+                if(axi.awvalid.litToBoolean){
                     writeConfig = new AXI_Write_Config(
-                        awaddr.litValue.toInt,
-                        awlen.litValue.toInt, 
-                        1 << awsize.litValue.toInt, 
-                        awburst.litValue.toInt, 
-                        wstrb.litValue.toInt, 
-                        wlast.litToBoolean, 
+                        axi.awaddr.litValue.toInt,
+                        axi.awlen.litValue.toInt, 
+                        1 << axi.awsize.litValue.toInt, 
+                        axi.awburst.litValue.toInt, 
+                        axi.wstrb.litValue.toInt, 
+                        axi.wlast.litToBoolean, 
                         WriteState.AW
                     )
                 }
@@ -117,7 +119,7 @@ class AXI_Memory(rand_delay: Boolean){
             case WriteState.AW => {
                 // random delay
                 writeItem.awready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
-                if(writeItem.awready.litToBoolean && awvalid.litToBoolean){
+                if(writeItem.awready.litToBoolean && axi.awvalid.litToBoolean){
                     writeConfig.state = WriteState.W
                 }
             }
@@ -130,12 +132,12 @@ class AXI_Memory(rand_delay: Boolean){
                     if(!mem.contains(word_addr)){
                         mem(word_addr) = new Memory_Item(0, Array.fill(4)(0))
                     }
-                    if(wlast.litToBoolean){
+                    if(axi.wlast.litToBoolean){
                         writeConfig.state = WriteState.B
                     }
                     // write into the memory
                     var wmask = (0xff << (word_offset * 8))
-                    var wdata_shift = (wdata.litValue.toInt << (word_offset * 8))
+                    var wdata_shift = (axi.wdata.litValue.toInt << (word_offset * 8))
                     (0 until writeConfig.awsize).foreach{ i =>
                         if((writeConfig.wstrb & (1 << i)) != 0){
                             mem(word_addr).data = (mem(word_addr).data & ~wmask | wdata_shift & wmask)
@@ -149,7 +151,7 @@ class AXI_Memory(rand_delay: Boolean){
             case WriteState.B => {
                 // random delay
                 writeItem.bvalid = if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B }
-                if(writeItem.bvalid.litToBoolean && bready.litToBoolean){
+                if(writeItem.bvalid.litToBoolean && axi.bready.litToBoolean){
                     writeConfig.state = WriteState.IDLE
                 }
             }
