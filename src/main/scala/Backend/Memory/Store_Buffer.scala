@@ -55,10 +55,10 @@ class Store_Buffer extends Module {
     val tptr = RegInit(1.U(nsb.W))
     val cptr = RegInit(1.U(nsb.W)) // commit ptr: points to the latest entry has been committed
 
-    val hptr_nxt = Mux(io.deq.ready && eptyn, shift_add_1(hptr), hptr)
-    val rptr_nxt = Mux(io.st_cmt, shift_add_1(rptr), rptr)
-    val tptr_nxt = Mux(io.enq.valid && fulln, shift_add_1(tptr), tptr)
-    val cptr_nxt = Mux(io.st_finish, shift_add_1(cptr), cptr)
+    val hptr_nxt = Mux(io.deq.ready && eptyn, shift_sub_1(hptr), hptr)
+    val rptr_nxt = Mux(io.st_cmt, shift_sub_1(rptr), rptr)
+    val tptr_nxt = Mux(io.enq.valid && fulln, shift_sub_1(tptr), tptr)
+    val cptr_nxt = Mux(io.st_finish, shift_sub_1(cptr), cptr)
 
     hptr := hptr_nxt
     rptr := rptr_nxt
@@ -100,9 +100,9 @@ class Store_Buffer extends Module {
     }.asUInt
     // 2. for each byte in the word, check each wstrb, get the match item
     for(i <- 0 until 4){
-        val byte_hit = PriorityEncoderOH(Reverse(rotateLeftOH(sb_word_addr_match & VecInit(q.map(_.wstrb(i))).asUInt, Reverse(tptr))))
+        val byte_hit = PriorityEncoderOH(rotateRightOH(sb_word_addr_match & VecInit(q.map(_.wstrb(i))).asUInt, shift_add_1(tptr)))
         load_hit(i) := byte_hit.orR
-        load_bytes(i) := Mux1H(rotateRightOH(Reverse(byte_hit), Reverse(tptr)), q.map(_.wdata(i*8+7, i*8)))
+        load_bytes(i) := Mux1H(rotateLeftOH((byte_hit), shift_add_1(tptr)), q.map(_.wdata(i*8+7, i*8)))
     }
     // 3. shift the result
     io.ld_sb_hit := load_hit.asUInt >> io.enq.bits.paddr(1, 0)

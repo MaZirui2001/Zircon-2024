@@ -278,9 +278,9 @@ class DCache extends Module {
     vld_tab.zipWithIndex.foreach{ case (vldt, i) =>
         vldt.raddr(1) := index(c2s2.paddr)
     }
-    fsm.io.cc.wreq_c2 := c2s3.wreq
     // l2 cache
-    io.l2.rreq      := fsm.io.l2.rreq && !c2s3.wreq // wreq first
+    // rreq: get the posedge of rreq
+    io.l2.rreq      := fsm.io.l2.rreq & !ShiftRegister(fsm.io.l2.rreq, 1, false.B, (!io.l2.miss && sb.io.clear)) 
     io.l2.wreq      := c2s3.wreq
     io.l2.paddr     := Mux(c2s3.wreq, c2s3.paddr, c1s3.paddr) // wreq first
     io.l2.uncache   := Mux(c2s3.wreq, c2s3.uncache, c1s3.uncache)
