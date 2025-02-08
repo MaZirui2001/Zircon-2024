@@ -15,8 +15,8 @@ object L2_Test_Config {
     val dcache_space_end        = total_space
     val test_num                = 32768
 }
-case class L2_ICache_Test_Item(var rreq: Int, var paddr: Int, var uc_in: Int)
-case class L2_DCache_Test_Item(var rreq: Int, var wreq: Int, var paddr: Int, var uc_in: Int, var wdata: BigInt, var mtype: Int)
+case class L2_ICache_Test_Item(var rreq: Int, var paddr: Int, var uncache: Int)
+case class L2_DCache_Test_Item(var rreq: Int, var wreq: Int, var paddr: Int, var uncache: Int, var wdata: BigInt, var mtype: Int)
 case class L2_Test_Item(var ic: L2_ICache_Test_Item, var dc: L2_DCache_Test_Item)
 
 class L2_Test_Generator{
@@ -31,7 +31,7 @@ class L2_Test_Generator{
         // 生成icache的访问地址，范围0-1023
         test_list.zipWithIndex.map{ case (item, i) => item.ic.paddr = Random.nextInt(icache_space_end - icache_space_start) + icache_space_start}
         // 生成icache的uncache信号，目前暂时全为0
-        test_list.zipWithIndex.map{ case (item, i) => item.ic.uc_in = 0}
+        test_list.zipWithIndex.map{ case (item, i) => item.ic.uncache = 0}
         // 生成dcache的读有效性，间隔有效性为1
         test_list.zipWithIndex.map{ case (item, i) => item.dc.rreq = if(i % 2 == 0) 1 else 0}
         // 生成dcache的写有效性，注意只有在读有效性为1的时候才能写，范围0-1
@@ -39,7 +39,7 @@ class L2_Test_Generator{
         // 生成dcache的地址，范围1024-2047
         test_list.zipWithIndex.map{ case (item, i) => item.dc.paddr = Random.nextInt(dcache_space_end - dcache_space_start) + dcache_space_start}
         // 生成dcache的uncache信号，目前暂时全为0
-        test_list.zipWithIndex.map{ case (item, i) => item.dc.uc_in = 0}
+        test_list.zipWithIndex.map{ case (item, i) => item.dc.uncache = 0}
         // 生成dcache的写数据，范围2^31-1
         test_list.zipWithIndex.map{ case (item, i) => item.dc.wdata = BigInt(Random.nextLong(0xFFFFFFFFL + 1) & 0xFFFFFFFFL)}
         // 生成dcache的mtype，范围0-3
@@ -54,11 +54,11 @@ class L2_Test_Generator{
             writer.println(
                 f"${test_list(i).ic.rreq}%x " +
                 f"${test_list(i).ic.paddr}%x " +
-                f"${test_list(i).ic.uc_in}%x " +
+                f"${test_list(i).ic.uncache}%x " +
                 f"${test_list(i).dc.rreq}%x " +
                 f"${test_list(i).dc.wreq}%x " +
                 f"${test_list(i).dc.paddr}%x " +
-                f"${test_list(i).dc.uc_in}%x " +
+                f"${test_list(i).dc.uncache}%x " +
                 f"${test_list(i).dc.wdata}%x " +
                 f"${test_list(i).dc.mtype}%x"
             )
@@ -89,8 +89,9 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
     val test_gen = new L2_Test_Generator
     import L2_Test_Config._
     memory.initialize(total_space, false)
-    test_gen.generate_tests
+    // test_gen.generate_tests
     val tests = test_gen.read_test()
+    println("start")
 
     behavior of "L2Cache"
     it should "pass" in {
@@ -104,25 +105,11 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
             while(i_test_index < test_num || d_test_index < test_num){ 
                 // read and write pacakge get from axi
                 val w = memory.write(
-                    c.io.axi.awaddr.peek(), 
-                    c.io.axi.awlen.peek(), 
-                    c.io.axi.awsize.peek(), 
-                    c.io.axi.awburst.peek(), 
-                    c.io.axi.wdata.peek(), 
-                    c.io.axi.wstrb.peek(), 
-                    c.io.axi.wlast.peek(), 
-                    c.io.axi.awvalid.peek(), 
-                    c.io.axi.wvalid.peek(),
-                    c.io.axi.bready.peek(), 
+                    c.io.axi.peek(),
                     d_test_index
                 )
                 val r = memory.read(
-                    c.io.axi.araddr.peek(), 
-                    c.io.axi.arlen.peek(), 
-                    c.io.axi.arsize.peek(), 
-                    c.io.axi.arburst.peek(), 
-                    c.io.axi.arvalid.peek(), 
-                    c.io.axi.rready.peek()
+                    c.io.axi.peek()
                 )
                 // write and read pacakge send to axi
                 c.io.axi.arready.poke(r.arready)
@@ -137,13 +124,13 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                 if(i_test_index < test_num){
                     c.io.ic.rreq.poke(tests(i_test_index).ic.rreq)
                     c.io.ic.paddr.poke(tests(i_test_index).ic.paddr)
-                    c.io.ic.uc_in.poke(tests(i_test_index).ic.uc_in)
+                    c.io.ic.uncache.poke(tests(i_test_index).ic.uncache)
                 }
                 if(d_test_index < test_num){
                     c.io.dc.rreq.poke(tests(d_test_index).dc.rreq)
                     c.io.dc.wreq.poke(tests(d_test_index).dc.wreq)
-                    c.io.dc.paddr_in.poke(tests(d_test_index).dc.paddr)
-                    c.io.dc.uc_in.poke(tests(d_test_index).dc.uc_in)
+                    c.io.dc.paddr.poke(tests(d_test_index).dc.paddr)
+                    c.io.dc.uncache.poke(tests(d_test_index).dc.uncache)
                     c.io.dc.wdata.poke(tests(d_test_index).dc.wdata)
                     c.io.dc.mtype.poke(tests(d_test_index).dc.mtype)
                 }
@@ -169,31 +156,31 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                 if(c.io.ic.rrsp.peek().litToBoolean){
                     val item = icache_req_q.dequeue()
                     val paddr = item.paddr
-                    val paddr_debug = (paddr >> ic_offset) << ic_offset
-                    var data = BigInt("0" * (32 * (ic_offset - 1)), 2)
-                    for(j <- ic_offset - 2 until -1 by -1){
+                    val paddr_debug = (paddr >> l1_offset) << l1_offset
+                    var data = BigInt("0" * (32 * (l1_offset - 1)), 2)
+                    for(j <- l1_offset - 2 until -1 by -1){
                         data = (data << 32) | (memory.debug_read(paddr_debug + 4 * j)._1 & 0xFFFFFFFFL)
                     }
-                    var rmask = BigInt("1" * (32 * (ic_offset - 1)), 2)
+                    var rmask = BigInt("1" * (32 * (l1_offset - 1)), 2)
                     c.io.ic.rline.expect(data & rmask, f"addr: ${paddr_debug}%x, last write: ${memory.debug_read(paddr_debug)._2}")
                 }
                 // check dcache result
                 if(c.io.dc.rrsp.peek().litToBoolean || c.io.dc.wrsp.peek().litToBoolean){
                     val item = dcache_req_q.dequeue()
                     val paddr = item.paddr
-                    val paddr_debug = (paddr >> dc_offset) << dc_offset
+                    val paddr_debug = (paddr >> l1_offset) << l1_offset
                     // write: debug write to the ref memory
                     if(c.io.dc.wrsp.peek().litToBoolean){
                         val paddr_align = (paddr >> 2) << 2
                         val wdata = item.wdata << ((paddr & 0x3) << 3)
                         val wstrb = ((1 << (1 << item.mtype)) - 1) << (paddr & 0x3)
-                        memory.debug_write(paddr_align, wdata.toInt, wstrb, item.uc_in)
+                        memory.debug_write(paddr_align, wdata.toInt, wstrb, d_test_index)
                     }
-                    var data = BigInt("0" * (32 * (dc_offset - 1)), 2)
-                    for(j <- dc_offset - 2 until -1 by -1){
+                    var data = BigInt("0" * (32 * (l1_offset - 1)), 2)
+                    for(j <- l1_offset - 2 until -1 by -1){
                         data = (data << 32) | (memory.debug_read(paddr_debug + 4 * j)._1 & 0xFFFFFFFFL)
                     }
-                    var rmask = BigInt("1" * (32 * (dc_offset - 1)), 2)
+                    var rmask = BigInt("1" * (32 * (l1_offset - 1)), 2)
                     c.io.dc.rline.expect(data & rmask, f"addr: ${paddr_debug}%x, last write: 1. ${memory.debug_read(paddr_debug)._2}, " +
                                                                                            f"2. ${memory.debug_read(paddr_debug + 1)._2}, " +
                                                                                            f"3. ${memory.debug_read(paddr_debug + 2)._2}, "  +
