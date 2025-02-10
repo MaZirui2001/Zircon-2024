@@ -17,7 +17,7 @@ object Exception{
     val IPE     = 0x0e.U(7.W) // instruction privilege exception
     val FPD     = 0x0f.U(7.W) // floating point disable
     val FPE     = 0x12.U(7.W) // floating point exception
-    val TLBR    = 0x3F.U(7.W) // TLB refill
+    val TLBR    = 0x3f.U(7.W) // TLB refill
 }
 
 object CSR_NAME{
