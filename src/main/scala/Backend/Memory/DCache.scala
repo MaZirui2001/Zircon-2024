@@ -167,8 +167,8 @@ class DCache extends Module {
     assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "DCache: channel 1: multiple hits")
 
     val c1s3_in = (new D_Channel1_Stage2_Signal)(c1s2, VecInit(tag_c1s2), VecInit(data_c1s2), hit_c1s2, lru_tab.rdata(0), io.mmu.paddr, io.mmu.uncache)
-    // miss check
-    miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || !sb.io.enq.ready, miss_c1, (c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR)) || (c1s2.wreq && io.mmu.uncache)))
+    // miss check: when not latest but uncache, must not miss, for later
+    miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || !sb.io.enq.ready, miss_c1, (c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR) && (c1s2.is_latest || !io.mmu.uncache)) || (c1s2.wreq && io.mmu.uncache)))
 
     // stage 3
     val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), c1s3_in), 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || !sb.io.enq.ready) || io.cmt.flush)
