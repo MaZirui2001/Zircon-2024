@@ -62,22 +62,22 @@ class DCache_FSM extends Module {
                 m_state := Mux(io.cc.uncache, m_hold, m_idle)
             }.elsewhen(io.cc.rreq){
                 when(io.cc.is_latest){
-                    m_state := Mux(io.cc.uncache, m_hold, Mux(io.cc.hit.orR, m_idle, m_hold))
+                    m_state := Mux(io.cc.uncache || !io.cc.hit.orR, m_hold, m_idle)
                     lru_reg := io.cc.lru
                     when(!io.cc.uncache && io.cc.hit.orR){
                         lru_upd := ~io.cc.hit
                     }
                 }.otherwise{
-                    m_state := m_wait
+                    // not latest and uncache must !miss
+                    m_state := Mux(io.cc.uncache, m_idle, m_hold)
                 }
             }
         }
         is(m_hold){
             when(io.cc.flush){
-                m_state := m_idle
-                cmiss := true.B
+                m_state := m_wait
             }.elsewhen(io.cc.rreq){
-                m_state := Mux(io.cc.sb_clear, m_miss, m_hold)
+                m_state := Mux(io.cc.sb_clear, m_miss, m_hold) // TODO: sb clear does not means load is the latest
             }.elsewhen(io.cc.wreq){
                 m_state := Mux(io.cc.sb_clear, m_wait, m_hold)
             }
