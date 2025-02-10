@@ -128,52 +128,49 @@ class DCache extends Module {
         2. commit write
         l1_way now is 2
     */
-    // tag
+    // Memory arrays
     val tag_tab     = VecInit.fill(l1_way)(Module(new xilinx_true_dual_port_read_first_1_clock_ram(l1_tag, l1_index_num)).io)
     val vld_tab     = VecInit.fill(l1_way)(Module(new AsyncRegRam(Bool(), l1_index_num, 1, 2, false.B)).io)
-    // data
     val data_tab    = VecInit.fill(l1_way)(Module(new xilinx_true_dual_port_read_first_byte_write_1_clock_ram(l1_line, 8, l1_index_num)).io)
-    // lru: 0 for channel 1if the kth-bit is 1, the kth-way is the one to be replaced
     val lru_tab     = Module(new AsyncRegRam(UInt(2.W), l1_index_num, 1, 1, 1.U(2.W))).io
 
-    /* utils */
-    def index(addr: UInt) = addr(l1_index+l1_offset-1, l1_offset)
-    def offset(addr: UInt) = addr(l1_offset-1, 0)
-    def tag(addr: UInt) = addr(31, l1_index+l1_offset)
-    def tag_index(addr: UInt) = addr(31, l1_offset)
+    // Utils
+    def index(addr: UInt)      = addr(l1_index+l1_offset-1, l1_offset)
+    def offset(addr: UInt)     = addr(l1_offset-1, 0)
+    def tag(addr: UInt)        = addr(31, l1_index+l1_offset)
+    def tag_index(addr: UInt)  = addr(31, l1_offset)
 
-    /* 
-        channel 1: read and first write
-        stage1: receive request
-        stage2: MMU and hit check
-        stage3: generate miss and visit store buffer
-        stage4: generate rdata
-    */
+    // Control modules
     val fsm         = Module(new DCache_FSM)
+    val sb          = Module(new Store_Buffer)
     val miss_c1     = RegInit(false.B)
-    // val cmiss_c1    = WireDefault(false.B)
     val hit_c1      = RegInit(0.U(l1_way.W))
     val rbuf        = RegInit(VecInit.fill(l1_line)(0.U(8.W)))
     val rbuf_mask   = RegInit(0.U(l1_line.W))
-    val sb          = Module(new Store_Buffer)
 
+    // Channel 1 pipeline stages
     val c1s3_wreq   = WireDefault(false.B)
     val sb_full     = !sb.io.enq.ready && c1s3_wreq
 
-    // stage 1
+    // Stage 1: Request
     val c1s1 = (new D_Channel1_Stage1_Signal)(io.pp)
     
-    // stage 2
-    val c1s2        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), c1s1), 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !(miss_c1 || sb_full) || io.cmt.flush)
+    // Stage 2: MMU and hit check
+    val c1s2 = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), c1s1), 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !(miss_c1 || sb_full) || io.cmt.flush)
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val tag_c1s2    = tag_tab.map(_.douta)
     val data_c1s2   = data_tab.map(_.douta)
-    val hit_c1s2    = VecInit(tag_c1s2.zip(vld_c1s2).map { case (t, v) => t === tag(io.mmu.paddr) && v }).asUInt
+    val hit_c1s2    = VecInit(
+        tag_c1s2.zip(vld_c1s2).map { case (t, v) => t === tag(io.mmu.paddr) && v }
+    ).asUInt
     assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "DCache: channel 1: multiple hits")
 
     val c1s3_in = (new D_Channel1_Stage2_Signal)(c1s2, VecInit(tag_c1s2), VecInit(data_c1s2), hit_c1s2, lru_tab.rdata(0), io.mmu.paddr, io.mmu.uncache)
     // miss check: when not latest but uncache, must not miss, for later
-    miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || sb_full, miss_c1, (c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR) && (c1s2.is_latest || !io.mmu.uncache)) || (c1s2.wreq && io.mmu.uncache)))
+    val read_miss = c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR) && (c1s2.is_latest || !io.mmu.uncache)
+    val write_miss = c1s2.wreq && io.mmu.uncache
+    
+    miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || sb_full, miss_c1, read_miss || write_miss))
 
     // stage 3
     val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), c1s3_in), 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || sb_full) || io.cmt.flush)
@@ -249,6 +246,7 @@ class DCache extends Module {
         stage3: write(hit: write through and write memory, miss: write through)
     */
     // stage 1
+
     val c2s1 = (new D_Channel2_Stage1_Signal)(
         sb.io.deq.bits,
         sb.io.deq.valid,
@@ -286,16 +284,15 @@ class DCache extends Module {
     }
 
     // return buffer
-    // val rbuf_mask_next = WireDefault(0.U(l1_line.W))
+    val raw_en = c2s3.wreq && c1s3.rreq && tag_index(c2s3.paddr) === tag_index(c1s3.paddr)
     when(fsm.io.cc.rbuf_clear){
-        rbuf_mask := 0.U
-    }.elsewhen((c2s3.wreq && c1s3.rreq && tag_index(c2s3.paddr) === tag_index(c1s3.paddr))){
+        rbuf_mask := Mux(raw_en, wstrb_shift, 0.U)
+    }.elsewhen(raw_en){
         rbuf_mask := rbuf_mask | wstrb_shift
     }
     val w_mask = mtype_decode(c2s3.mtype) << offset(c2s3.paddr)
-    val w_rbuf_en = c1s3.rreq && c2s3.wreq && tag_index(c2s3.paddr) === tag_index(c1s3.paddr)
     rbuf.zipWithIndex.foreach{ case (r, i) =>
-        when(wstrb_shift(i) && w_rbuf_en){
+        when(wstrb_shift(i) && raw_en){
             r := wdata_shift(i*8+7, i*8)
         }.elsewhen(rbuf_mask(i)){
             r := r
@@ -303,8 +300,6 @@ class DCache extends Module {
             r := io.l2.rline(i*8+7, i*8)
         }
     }
-    // wreq_c2: any stage of channel 2 has wreq
-    fsm.io.cc.wreq_c2 := c2s1.wreq || c2s2.wreq || c2s3.wreq
     // l2 cache
     // rreq: get the posedge of rreq
     io.l2.rreq      := fsm.io.l2.rreq && !ShiftRegister(Mux(io.l2.rrsp, false.B, fsm.io.l2.rreq), 1, false.B, (!io.l2.miss && !c2s3.wreq) || io.l2.rrsp) && !c2s3.wreq

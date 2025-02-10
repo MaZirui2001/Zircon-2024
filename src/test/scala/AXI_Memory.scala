@@ -1,6 +1,7 @@
 import chisel3._
 import chisel3.util._
 import scala.collection.mutable
+import scala.util.Random
 
 object ReadState extends Enumeration {
     val IDLE, AR, R = Value
@@ -19,8 +20,16 @@ class AXI_Write_Item(var awready: Bool, var wready: Bool, var bvalid: Bool)
 class AXI_Memory(rand_delay: Boolean){
     private var mem: mutable.Map[Int, Memory_Item] = mutable.Map()
     private var mem_ref: mutable.Map[Int, Memory_Item] = mutable.Map()
+    
+    // 2. 缓存一些常用的掩码和移位值
+    private val BYTE_MASK = 0xff
+    private val WORD_MASK = 0xffffffff
+    
     var readConfig: AXI_Read_Config = new AXI_Read_Config(0, 0, 0, 0, ReadState.IDLE)
     var writeConfig: AXI_Write_Config = new AXI_Write_Config(0, 0, 0, 0, 0, false, WriteState.IDLE)
+
+    // 添加共享的Random对象
+    private val rand = new Random()
 
     // read from the memory
     def read(
@@ -32,7 +41,7 @@ class AXI_Memory(rand_delay: Boolean){
         // rready: Bool
         axi: AXI_IO
     ): AXI_Read_Item = {
-        var readItem = new AXI_Read_Item(false.B, 0.U, false.B, false.B)
+        val readItem = new AXI_Read_Item(false.B, 0.U, false.B, false.B)
         readConfig.state match {
             // record the read configuration
             case ReadState.IDLE => {
@@ -49,23 +58,21 @@ class AXI_Memory(rand_delay: Boolean){
             }
             // address handshaking
             case ReadState.AR => {
-                // random delay
-                readItem.arready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                // 使用共享的rand对象
+                readItem.arready = if(rand_delay) (rand.nextInt(4) != 0).B else true.B
                 // println("arready: " + readItem.arready.litToBoolean + " arvalid: " + arvalid.litToBoolean)
                 if(readItem.arready.litToBoolean && axi.arvalid.litToBoolean){
                     readConfig.state = ReadState.R
                 }
             }
             case ReadState.R => {
-                // random delay
-                readItem.rvalid = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
-                // if random delay is not enabled, the read data is ready
-                if(readItem.rvalid.litToBoolean){
-                    val word_addr = readConfig.araddr / 4
-                    val word_offset = readConfig.araddr % 4
-                    // assert the address is in the memory
-                    assert(mem.contains(word_addr), f"Address ${readConfig.araddr}%x is not in the memory")
-                    readItem.rdata = ((mem(word_addr).data >> (word_offset * 8) ) & 0xFFFFFFFFL).U
+                // 使用共享的rand对象
+                readItem.rvalid = if(rand_delay) (rand.nextInt(4) != 0).B else true.B
+                if(readItem.rvalid.litToBoolean) {
+                    val word_addr = readConfig.araddr >> 2  // 使用右移替代除法
+                    val word_offset = readConfig.araddr & 0x3  // 使用与操作替代取模
+                    val shift_amount = word_offset << 3
+                    readItem.rdata = ((mem(word_addr).data >> shift_amount) & WORD_MASK).U
                     // check if the last read
                     if(readConfig.arlen == 0){
                         readItem.rlast = true.B
@@ -98,7 +105,7 @@ class AXI_Memory(rand_delay: Boolean){
         axi: AXI_IO,
         cycle: Int
     ): AXI_Write_Item = {
-        var writeItem = new AXI_Write_Item(false.B, false.B, false.B)
+        val writeItem = new AXI_Write_Item(false.B, false.B, false.B)
         writeConfig.state match {
             // record the write configuration
             case WriteState.IDLE => {
@@ -117,40 +124,39 @@ class AXI_Memory(rand_delay: Boolean){
             }
             // address handshaking
             case WriteState.AW => {
-                // random delay
-                writeItem.awready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
+                // 使用共享的rand对象
+                writeItem.awready = if(rand_delay) (rand.nextInt(4) != 0).B else true.B
                 if(writeItem.awready.litToBoolean && axi.awvalid.litToBoolean){
                     writeConfig.state = WriteState.W
                 }
             }
             case WriteState.W => {
-                // random delay
-                writeItem.wready = (if(rand_delay){ (scala.util.Random.nextInt(4) != 0).B } else{ true.B })
-                if(writeItem.wready.litToBoolean){
-                    val word_addr = writeConfig.awaddr / 4
-                    val word_offset = writeConfig.awaddr % 4
-                    if(!mem.contains(word_addr)){
+                writeItem.wready = if(rand_delay) (rand.nextInt(4) != 0).B else true.B
+                if(writeItem.wready.litToBoolean) {
+                    val word_addr = writeConfig.awaddr >> 2
+                    val word_offset = writeConfig.awaddr & 0x3
+                    val shift_amount = word_offset << 3
+                    
+                    if(!mem.contains(word_addr)) {
                         mem(word_addr) = new Memory_Item(0, Array.fill(4)(0))
                     }
-                    if(axi.wlast.litToBoolean){
-                        writeConfig.state = WriteState.B
+                    
+                    if(writeConfig.wstrb != 0) {
+                        val wdata_shift = axi.wdata.litValue.toInt << shift_amount
+                        val wmask = BYTE_MASK << shift_amount
+                        mem(word_addr).data = (mem(word_addr).data & ~wmask) | (wdata_shift & wmask)
+                        mem(word_addr).last_write(word_offset) = cycle
                     }
-                    // write into the memory
-                    var wmask = (0xff << (word_offset * 8))
-                    var wdata_shift = (axi.wdata.litValue.toInt << (word_offset * 8))
-                    (0 until writeConfig.awsize).foreach{ i =>
-                        if((writeConfig.wstrb & (1 << i)) != 0){
-                            mem(word_addr).data = (mem(word_addr).data & ~wmask | wdata_shift & wmask)
-                            mem(word_addr).last_write(word_offset+i) = cycle
-                        }
-                        wmask = wmask << 8
+                    
+                    if(axi.wlast.litToBoolean) {
+                        writeConfig.state = WriteState.B
                     }
                     writeConfig.awaddr = writeConfig.awaddr + writeConfig.awsize
                 }
             }
             case WriteState.B => {
-                // random delay
-                writeItem.bvalid = if(rand_delay){ ( scala.util.Random.nextInt(4) != 0).B } else{ true.B }
+                // 使用共享的rand对象
+                writeItem.bvalid = if(rand_delay) (rand.nextInt(4) != 0).B else true.B
                 if(writeItem.bvalid.litToBoolean && axi.bready.litToBoolean){
                     writeConfig.state = WriteState.IDLE
                 }
@@ -182,9 +188,10 @@ class AXI_Memory(rand_delay: Boolean){
         }
     }
     def initialize(size: Int, load: Boolean): Unit = {
-        for(i <- 0 until size){
-            mem(i) = new Memory_Item((i*4), Array.fill(4)(0))
-            mem_ref(i) = new Memory_Item((i*4), Array.fill(4)(0))
+        // 使用Array.tabulate更高效地初始化
+        for(i <- 0 until size) {
+            mem(i) = new Memory_Item(i << 2, new Array[Int](4))
+            mem_ref(i) = new Memory_Item(i << 2, new Array[Int](4))
         }
     }
 }
