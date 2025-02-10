@@ -15,6 +15,7 @@ class DCache_FSM_Cache_IO extends Bundle {
     val mem_we      = Output(Vec(l1_way, Bool()))
     val addr_1H     = Output(UInt(3.W))
     val r1H         = Output(UInt(2.W))
+    val rbuf_clear  = Output(Bool())
     
     // lru
     val lru         = Input(UInt(2.W))
@@ -22,6 +23,8 @@ class DCache_FSM_Cache_IO extends Bundle {
 
     val sb_clear    = Input(Bool())
     val sb_full     = Input(Bool())
+    val sb_lock     = Output(Bool())
+    val wreq_c2     = Input(Bool())
     val flush       = Input(Bool())
 }
 
@@ -53,7 +56,8 @@ class DCache_FSM extends Module {
     val addr_1H = WireDefault(1.U(3.W)) // choose s1 addr
     val r1H     = WireDefault(1.U(2.W)) // choose mem
 
-
+    io.cc.rbuf_clear := false.B
+    io.cc.sb_lock := false.B
     io.l2.rreq := false.B
     switch(m_state){
         is(m_idle){
@@ -62,10 +66,13 @@ class DCache_FSM extends Module {
                 m_state := Mux(io.cc.uncache, m_hold, m_idle)
             }.elsewhen(io.cc.rreq){
                 when(io.cc.is_latest){
-                    m_state := Mux(io.cc.uncache || !io.cc.hit.orR, m_hold, m_idle)
+                    m_state := Mux(io.cc.uncache, m_hold, Mux(io.cc.hit.orR, m_idle, m_miss))
                     lru_reg := io.cc.lru
                     when(!io.cc.uncache && io.cc.hit.orR){
                         lru_upd := ~io.cc.hit
+                    }
+                    when(!(io.cc.uncache || io.cc.hit.orR)){
+                        io.cc.rbuf_clear := true.B
                     }
                 }.otherwise{
                     // not latest and uncache must !miss
@@ -89,12 +96,14 @@ class DCache_FSM extends Module {
             }
         }
         is(m_refill){
-            m_state := m_wait
+            // lock the sb, and when the c2 is empty, refill the cache line
+            m_state := Mux(!io.cc.wreq_c2, m_wait, m_refill)
+            io.cc.sb_lock := true.B
             addr_1H := 4.U // choose s3 addr, for refill the line
             // if has been flushed, do not update anything in cache
-            lru_upd := Mux(io.cc.rreq, ~lru_reg, 0.U)
-            tagv_we := Mux(io.cc.rreq, lru_reg, 0.U).asBools
-            mem_we  := Mux(io.cc.rreq, lru_reg, 0.U).asBools
+            lru_upd := Mux(io.cc.rreq && !io.cc.wreq_c2, ~lru_reg, 0.U)
+            tagv_we := Mux(io.cc.rreq && !io.cc.wreq_c2, lru_reg, 0.U).asBools
+            mem_we  := Mux(io.cc.rreq && !io.cc.wreq_c2, lru_reg, 0.U).asBools
         }
         is(m_wait){
             m_state := m_pause
