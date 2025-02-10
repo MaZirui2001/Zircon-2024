@@ -36,7 +36,7 @@ class Store_Buffer_IO extends Bundle {
     val ld_hit_data     = Output(UInt(32.W))
 
 	val flush 	        = Input(Bool()) // only when all entries have been committed
-    // val stall           = Input(Bool())
+    val lock            = Input(Bool()) // stop the sb from committing to the dcache
     val clear           = Output(Bool())
 }
 class Store_Buffer extends Module {
@@ -55,7 +55,7 @@ class Store_Buffer extends Module {
     val tptr = RegInit(1.U(nsb.W))
     val cptr = RegInit(1.U(nsb.W)) // commit ptr: points to the latest entry has been committed
 
-    val hptr_nxt = Mux(io.deq.ready && eptyn, shift_sub_1(hptr), hptr)
+    val hptr_nxt = Mux(io.deq.ready && eptyn && !io.lock, shift_sub_1(hptr), hptr)
     val rptr_nxt = Mux(io.st_cmt, shift_sub_1(rptr), rptr)
     val tptr_nxt = Mux(io.enq.valid && fulln, shift_sub_1(tptr), tptr)
     val cptr_nxt = Mux(io.st_finish, shift_sub_1(cptr), cptr)
@@ -88,7 +88,7 @@ class Store_Buffer extends Module {
     io.deq.bits  := Mux1H(hptr, q)
     io.deq_idx   := OHToUInt(hptr)
     io.enq.ready := fulln
-    io.deq.valid := eptyn
+    io.deq.valid := eptyn && !io.lock
     io.clear     := all_clear
 
     // load read: read for each byte
