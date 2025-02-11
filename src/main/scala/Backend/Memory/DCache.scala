@@ -27,15 +27,14 @@ class D_Channel1_Stage2_Signal extends D_Channel1_Stage1_Signal {
     val paddr       = UInt(32.W)
     val uncache     = Bool()
 
-    def apply(_c: D_Channel1_Stage1_Signal, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt, paddr: UInt, uncache: Bool): D_Channel1_Stage2_Signal = {
+    def apply(_c: D_Channel1_Stage1_Signal, _m: D_MMU_IO, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): D_Channel1_Stage2_Signal = {
         val c = Wire(new D_Channel1_Stage2_Signal)
         inheritFields(c, _c)
+        inheritFields(c, _m)
         c.rtag := rtag
         c.rdata := rdata
         c.hit := hit
         c.lru := lru
-        c.paddr := paddr
-        c.uncache := uncache
         c
     }
 }
@@ -165,7 +164,7 @@ class DCache extends Module {
     ).asUInt
     assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "DCache: channel 1: multiple hits")
 
-    val c1s3_in = (new D_Channel1_Stage2_Signal)(c1s2, VecInit(tag_c1s2), VecInit(data_c1s2), hit_c1s2, lru_tab.rdata(0), io.mmu.paddr, io.mmu.uncache)
+    val c1s3_in = (new D_Channel1_Stage2_Signal)(c1s2, io.mmu, VecInit(tag_c1s2), VecInit(data_c1s2), hit_c1s2, lru_tab.rdata(0))
     // miss check: when not latest but uncache, must not miss, for later
     val read_miss = c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR) && (c1s2.is_latest || !io.mmu.uncache)
     val write_miss = c1s2.wreq && io.mmu.uncache
