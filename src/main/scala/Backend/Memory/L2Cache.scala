@@ -53,7 +53,7 @@ class L2_Channel2_Stage1_Signal extends Bundle {
 }
 class L2_Channel2_Stage2_Signal extends L2_Channel2_Stage1_Signal{
     val rtag        = Vec(l2_way, UInt(l2_tag.W))
-    val rdata       = Vec(l2_way, UInt(l2_line_bits.W))
+    val rdata       = Vec(l1_way, UInt(l2_line_bits.W))
     val hit         = UInt(l2_way.W)
     val lru         = UInt(2.W)
 
@@ -96,7 +96,7 @@ class L2_DCache_IO extends Bundle {
     val mtype       = Input(UInt(2.W))
     val miss        = Output(Bool())
 }
-class Mem_IO extends Bundle {
+class Mem_IO(ic: Boolean) extends Bundle {
     val rreq        = Output(Bool())
     val rrsp        = Input(Bool())
     val rlast       = Input(Bool())
@@ -105,19 +105,19 @@ class Mem_IO extends Bundle {
     val rlen        = Output(UInt(8.W))
     val rsize       = Output(UInt(2.W))
 
-    val wreq        = Output(Bool())
-    val wrsp        = Input(Bool())
-    val wlast       = Output(Bool())
-    val waddr       = Output(UInt(32.W))
-    val wdata       = Output(UInt(32.W))
-    val wlen        = Output(UInt(8.W))
-    val wsize       = Output(UInt(2.W))
-    val wstrb       = Output(UInt(4.W))
+    val wreq        = if(ic) None else Some(Output(Bool()))
+    val wrsp        = if(ic) None else Some(Input(Bool()))
+    val wlast       = if(ic) None else Some(Output(Bool()))
+    val waddr       = if(ic) None else Some(Output(UInt(32.W)))
+    val wdata       = if(ic) None else Some(Output(UInt(32.W)))
+    val wlen        = if(ic) None else Some(Output(UInt(8.W)))
+    val wsize       = if(ic) None else Some(Output(UInt(2.W)))
+    val wstrb       = if(ic) None else Some(Output(UInt(4.W)))
 }
 class L2Cache_IO extends Bundle {
     val ic      = new L2_ICache_IO
     val dc      = new L2_DCache_IO
-    val mem     = Vec(2, new Mem_IO)
+    val mem     = new MixedVec(Seq(new Mem_IO(true), new Mem_IO(false)))
 }
 
 
@@ -143,8 +143,8 @@ class L2Cache extends Module {
     val vld_tab     = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 2, 2, false.B)).io)
     // data
     val data_tab    = VecInit.fill(l2_way)(Module(new xilinx_true_dual_port_read_first_byte_write_1_clock_ram(l2_line, 8, l2_index_num)).io)
-    // dirty table, read port: 0-1 for icache, 2-3 for dcache; write port: all for dcache
-    val dirty_tab   = VecInit.fill(l2_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 1, 1, false.B)).io)
+    // dirty table, dirty for dcache
+    val dirty_tab   = VecInit.fill(l1_way)(Module(new AsyncRegRam(Bool(), l2_index_num, 1, 1, false.B)).io)
     // lru, 0 for icache, 1 for dcache, if the kth-bit is 1, the kth-way is the one to be replaced
     val lru_tab     = VecInit.fill(2)(Module(new AsyncRegRam(UInt(2.W), l2_index_num, 1, 1, 1.U(2.W))).io)
 
@@ -166,8 +166,6 @@ class L2Cache extends Module {
     
     val fsm_c1      = Module(new L2Cache_FSM(true))
     val miss_c1     = RegInit(false.B)
-    val hit_c1      = RegInit(0.U(l2_way.W))
-    val wbuf_c1     = RegInit(0.U.asTypeOf(new Write_Buffer))
     val rbuf_c1     = RegInit(0.U(l2_line_bits.W))
     /* stage 1: receive the write through request */
     val c1s1        = (new L2_Channel1_Stage1_Signal)(Mux(ic_hazard, false.B, io.ic.rreq), io.ic.paddr, io.ic.uncache)
@@ -176,37 +174,23 @@ class L2Cache extends Module {
     /* stage 2: search the tag to determine which line to write */
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val hit_c1s2    = VecInit(tag_tab.zip(vld_c1s2).map{ case (tagt, vld) => vld && tagt.douta === tag(c1s2.paddr)}).asUInt
-    assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "icache visit hit more than one line")
 
     val c1s3_in     = (new L2_Channel1_Stage2_Signal)(c1s2, VecInit(tag_tab.map(_.douta)), VecInit(data_tab.map(_.douta)), hit_c1s2, lru_tab(0).rdata(0))
     // miss update logic
     miss_c1         := Mux(fsm_c1.io.cc.cmiss, false.B, Mux(miss_c1, miss_c1, c1s2.rreq && (c1s2.uncache || !hit_c1s2.orR)))
     // Segreg2-3
     val c1s3        = ShiftRegister(c1s3_in, 1, 0.U.asTypeOf(new L2_Channel1_Stage2_Signal), !miss_c1)
+    assert(!c1s3.rreq || PopCount(c1s3.hit) <= 1.U, "L2Cache: icache visit hit more than one line")
     val c1_lru      = lru_tab(0).rdata(0)
     
     /* stage 3: fsm */
-    dirty_tab.zipWithIndex.foreach{ case (dirtyt, i) =>
-        if(i < 2){
-            dirtyt.raddr(0) := index(c1s3.paddr)
-        }
-    }
     // fsm
     fsm_c1.io.cc.rreq    := c1s3.rreq
     fsm_c1.io.cc.uncache := c1s3.uncache
     fsm_c1.io.cc.hit     := c1s3.hit
     fsm_c1.io.cc.lru     := c1_lru
-    fsm_c1.io.cc.drty    := dirty_tab.map(_.rdata(0)).take(2)
-    fsm_c1.io.mem.rrsp      := io.mem(0).rrsp
-    fsm_c1.io.mem.rlast     := io.mem(0).rlast
-    fsm_c1.io.mem.wrsp      := io.mem(0).wrsp
-    // wbuf
-    when(fsm_c1.io.cc.wbuf_we){
-        wbuf_c1.paddr := Mux1H(c1_lru, c1s3.rtag.take(2)) ## index(c1s3.paddr) ## 0.U(l2_offset.W)
-        wbuf_c1.wdata := Mux1H(c1_lru, c1s3.rdata.take(2))
-    }.elsewhen(io.mem(0).wreq && io.mem(0).wrsp){
-        wbuf_c1.wdata := wbuf_c1.wdata >> 32
-    }
+    fsm_c1.io.mem.rrsp   := io.mem(0).rrsp
+    fsm_c1.io.mem.rlast  := io.mem(0).rlast
     // rbuf
     when(io.mem(0).rreq && io.mem(0).rrsp){
         rbuf_c1 := io.mem(0).rdata ## rbuf_c1(l2_line_bits-1, 32)
@@ -222,18 +206,18 @@ class L2Cache extends Module {
         tagt.addra  := Mux1H(fsm_c1.io.cc.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
         tagt.ena    := Mux1H(fsm_c1.io.cc.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
         tagt.dina   := tag(c1s3.paddr)
-        tagt.wea    := fsm_c1.io.cc.tagv_we(i)
+        tagt.wea    := (if(i < 2) fsm_c1.io.cc.tagv_we(i) else false.B)
     }
     data_tab.zipWithIndex.foreach{ case (datat, i) =>
         datat.clka   := clock
         datat.addra  := Mux1H(fsm_c1.io.cc.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
         datat.ena    := Mux1H(fsm_c1.io.cc.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
         datat.dina   := rbuf_c1
-        datat.wea    := Fill(l2_line, fsm_c1.io.cc.mem_we(i))
+        datat.wea    := (if(i < 2) Fill(l2_line, fsm_c1.io.cc.mem_we(i)) else Fill(l2_line, false.B))
     }
     vld_tab.zipWithIndex.foreach{ case (vldt, i) =>
         vldt.raddr(0)   := index(c1s2.paddr)
-        vldt.wen(0)     :=  fsm_c1.io.cc.tagv_we(i)
+        vldt.wen(0)     := (if(i < 2) fsm_c1.io.cc.tagv_we(i) else false.B)
         vldt.waddr(0)   := index(c1s3.paddr)
         vldt.wdata(0)   := true.B
     }
@@ -246,13 +230,6 @@ class L2Cache extends Module {
     io.mem(0).raddr := tag(c1s3.paddr) ## index(c1s3.paddr) ## Mux(c1s3.uncache, offset(c1s3.paddr), 0.U(l2_offset.W))
     io.mem(0).rlen  := Mux(c1s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
     io.mem(0).rsize := 2.U
-    io.mem(0).wreq  := fsm_c1.io.mem.wreq
-    io.mem(0).wlast := fsm_c1.io.mem.wlast
-    io.mem(0).waddr := wbuf_c1.paddr
-    io.mem(0).wdata := wbuf_c1.wdata(31, 0)
-    io.mem(0).wlen  := (l2_line_bits / 32 - 1).U
-    io.mem(0).wsize := 2.U
-    io.mem(0).wstrb := 0xf.U
 
     /*
     channel 2: dcache visit
@@ -261,7 +238,7 @@ class L2Cache extends Module {
         stage 3: read the data from the line
     */
 
-    val fsm_c2      = Module(new L2Cache_FSM)
+    val fsm_c2      = Module(new L2Cache_FSM(false))
     val miss_c2     = RegInit(false.B)
     val hit_c2      = RegInit(0.U(l2_way.W))
     val wbuf_c2     = RegInit(0.U.asTypeOf(new Write_Buffer))
@@ -273,12 +250,12 @@ class L2Cache extends Module {
     /* stage 2: search the tag to determine hit or miss, as well as read the data from the line */
     val vld_c2s2    = vld_tab.map(_.rdata(1))
     val hit_c2s2    = VecInit(tag_tab.zip(vld_c2s2).map{ case (tagt, vld) => vld && tagt.doutb === tag(c2s2.paddr)}).asUInt
-    assert(!(c2s2.rreq || c2s2.wreq) || PopCount(hit_c2s2) <= 1.U, "dcache miss hit more than one line")
     // miss update logic
-    miss_c2         := Mux(fsm_c2.io.cc.cmiss, false.B, Mux(miss_c2, miss_c2, (c2s2.rreq || c2s2.wreq) && (c2s2.uncache || !hit_c2s2.orR)))    
-    val c2s3_in     = (new L2_Channel2_Stage2_Signal)(c2s2, VecInit(tag_tab.map(_.doutb)), VecInit(data_tab.map(_.doutb)), hit_c2s2, lru_tab(1).rdata(0))
+    miss_c2         := Mux(fsm_c2.io.cc.cmiss, false.B, Mux(miss_c2, miss_c2, (c2s2.rreq || c2s2.wreq) && (c2s2.uncache || !hit_c2s2(3, 2).orR)))    
+    val c2s3_in     = (new L2_Channel2_Stage2_Signal)(c2s2, VecInit(tag_tab.map(_.doutb)), VecInit(data_tab.map(_.doutb).drop(2)), hit_c2s2, lru_tab(1).rdata(0))
     // Segreg2-3
     val c2s3        = ShiftRegister(c2s3_in, 1, 0.U.asTypeOf(new L2_Channel2_Stage2_Signal), !miss_c2)
+    assert(!(c2s3.rreq || c2s3.wreq) || PopCount(c2s3.hit(3, 2)) <= 1.U, "L2Cache: dcache visit hit more than one line")
     /* stage 3: read the data from the line */
     val c2_lru      = lru_tab(1).rdata(0)
     // fsm
@@ -287,15 +264,15 @@ class L2Cache extends Module {
     fsm_c2.io.cc.uncache     := c2s3.uncache
     fsm_c2.io.cc.hit         := c2s3.hit
     fsm_c2.io.cc.lru         := c2_lru
-    fsm_c2.io.cc.drty        := dirty_tab.map(_.rdata(0)).drop(2)
+    fsm_c2.io.cc.drty.get    := dirty_tab.map(_.rdata(0))
     fsm_c2.io.mem.rrsp       := io.mem(1).rrsp
     fsm_c2.io.mem.rlast      := io.mem(1).rlast
-    fsm_c2.io.mem.wrsp       := io.mem(1).wrsp
+    fsm_c2.io.mem.wrsp.get   := io.mem(1).wrsp.get
     // wbuf
     when(fsm_c2.io.cc.wbuf_we){
         wbuf_c2.paddr := Mux(c2s3.uncache, c2s3.paddr, Mux1H(c2_lru, c2s3.rtag.drop(2)) ## index(c2s3.paddr) ## 0.U(l2_offset.W))
-        wbuf_c2.wdata := Mux(c2s3.uncache, 0.U((l2_line_bits-32).W) ## c2s3.wdata, Mux1H(c2_lru, c2s3.rdata.drop(2)))
-    }.elsewhen(io.mem(1).wreq && io.mem(1).wrsp){
+        wbuf_c2.wdata := Mux(c2s3.uncache, 0.U((l2_line_bits-32).W) ## c2s3.wdata, Mux1H(c2_lru, c2s3.rdata))
+    }.elsewhen(io.mem(1).wreq.get && io.mem(1).wrsp.get){
         wbuf_c2.wdata := wbuf_c2.wdata >> 32
     }
     // rbuf
@@ -307,7 +284,7 @@ class L2Cache extends Module {
     val wmask_shift = wmask << (offset(c2s3.paddr) << 3)
     val wdata_shift = c2s3.wdata << (offset(c2s3.paddr) << 3)
     val wdata_rbuf = rbuf_c2 & ~wmask_shift | wdata_shift & wmask_shift
-    val rdata_mem = Mux1H(c2s3.hit, c2s3.rdata) & ~wmask_shift |  wdata_shift & wmask_shift
+    val rdata_mem = Mux1H(c2s3.hit(3, 2), c2s3.rdata) & ~wmask_shift | wdata_shift & wmask_shift
     // lru
     lru_tab(1).raddr(0) := index(c2s3.paddr)
     lru_tab(1).wen(0) := fsm_c2.io.cc.lru_upd.orR
@@ -316,9 +293,7 @@ class L2Cache extends Module {
     
     // dirty
     dirty_tab.zipWithIndex.foreach{ case (dirtyt, i) =>
-        if(i >= 2){
-            dirtyt.raddr(0) := index(c2s3.paddr)
-        }
+        dirtyt.raddr(0) := index(c2s3.paddr)
         dirtyt.wen(0)   := fsm_c2.io.cc.drty_we.get(i)
         dirtyt.waddr(0) := index(c2s3.paddr)
         dirtyt.wdata(0) := fsm_c2.io.cc.drty_d.get(i)
@@ -328,19 +303,19 @@ class L2Cache extends Module {
         tagt.addrb  := Mux1H(fsm_c2.io.cc.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
         tagt.enb    := Mux1H(fsm_c2.io.cc.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
         tagt.dinb   := tag(c2s3.paddr)
-        tagt.web    := fsm_c2.io.cc.tagv_we(i)
+        tagt.web    := (if(i >= 2) fsm_c2.io.cc.tagv_we(i-2) else false.B)
     }
     data_tab.zipWithIndex.foreach{ case (datat, i) =>
         datat.addrb  := Mux1H(fsm_c2.io.cc.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
         datat.enb    := Mux1H(fsm_c2.io.cc.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
-        datat.dinb   := Mux(!c2s3.hit.orR, wdata_rbuf, c2s3.wdata << (offset(c2s3.paddr) << 3))
-        datat.web    := Fill(l2_line, fsm_c2.io.cc.mem_we(i)) & Mux(!c2s3.hit.orR, Fill(l2_line, fsm_c2.io.cc.mem_we(i)), mtype << offset(c2s3.paddr))
+        datat.dinb   := Mux(!c2s3.hit(3, 2).orR, wdata_rbuf, c2s3.wdata << (offset(c2s3.paddr) << 3))
+        datat.web    := (if(i >= 2) Fill(l2_line, fsm_c2.io.cc.mem_we(i-2)) & Mux(!c2s3.hit(3, 2).orR, Fill(l2_line, fsm_c2.io.cc.mem_we(i-2)), mtype << offset(c2s3.paddr)) else Fill(l2_line, false.B))
     }
     vld_tab.zipWithIndex.foreach{ case (vldt, i) =>
         vldt.raddr(1)   := index(c2s2.paddr)
-        vldt.wen(1)     := fsm_c2.io.cc.tagv_we(i)
+        vldt.wen(1)     := (if(i >= 2) fsm_c2.io.cc.tagv_we(i-2) else fsm_c2.io.cc.vld_inv.get(i))
         vldt.waddr(1)   := index(c2s3.paddr)
-        vldt.wdata(1)   := true.B
+        vldt.wdata(1)   := (if(i < 2) Mux(fsm_c2.io.cc.vld_inv.get(i), false.B, true.B) else true.B)
     }
 
     io.dc.rrsp      := !miss_c2 && c2s3.rreq
@@ -351,33 +326,15 @@ class L2Cache extends Module {
     io.mem(1).raddr := tag(c2s3.paddr) ## index(c2s3.paddr) ## Mux(c2s3.uncache, offset(c2s3.paddr), 0.U(l2_offset.W))
     io.mem(1).rlen  := Mux(c2s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
     io.mem(1).rsize := Mux(c2s3.uncache, c2s3.mtype, 2.U)
-    io.mem(1).wreq  := fsm_c2.io.mem.wreq
-    io.mem(1).wlast := fsm_c2.io.mem.wlast
-    io.mem(1).waddr := wbuf_c2.paddr(31, 2) ## 0.U(2.W)
-    io.mem(1).wdata := (wbuf_c2.wdata(31, 0) << (wbuf_c2.paddr(1, 0) << 3))
-    io.mem(1).wlen  := Mux(c2s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
-    io.mem(1).wsize := 2.U
-    io.mem(1).wstrb := Mux(c2s3.uncache, mtype << wbuf_c2.paddr(1, 0), 0xf.U)
+    io.mem(1).wreq.get  := fsm_c2.io.mem.wreq.get
+    io.mem(1).wlast.get := fsm_c2.io.mem.wlast.get
+    io.mem(1).waddr.get := wbuf_c2.paddr(31, 2) ## 0.U(2.W)
+    io.mem(1).wdata.get := (wbuf_c2.wdata(31, 0) << (wbuf_c2.paddr(1, 0) << 3))
+    io.mem(1).wlen.get  := Mux(c2s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
+    io.mem(1).wsize.get := 2.U
+    io.mem(1).wstrb.get := Mux(c2s3.uncache, mtype << wbuf_c2.paddr(1, 0), 0xf.U)
 
-    /* related check: 
-        reason:     1) The icache may replace a line that the dcache is writing through.
-                    2) When the icache is writing back a line, the dcache may write the line.
-                    3) Only one port for dcache, so the write in stage 3 must use the same port as the read in stage 1.
-                    Both of the above two cases will make the data that will be write into the replaced line to be lost.
-        
-        solution:   1) If the icache addr in stage 1 is same as the dcache addr whether in any stage, the icache should wait.
-                    2) If the dcache addr in stage 1 is same as the icache addr in stage 2 or 3, the dcache should wait.
-                       (The reason why I don't compare the icache addr in stage 1 is to avoid the deadlock.)
-                    3) If dcache write in stage 3, the dcache read should wait.
-        result:     Using combinational logic to make signal 'miss' to be true. 
-                    It seems that the l2 cache is missing from the l1 caches.
-    */
-    // ic_hazard := (index(c1s1.paddr) === index(c2s1.paddr) && io.dc.wreq
-    //            || index(c1s1.paddr) === index(c2s2.paddr) && c2s2.wreq
-    //            || index(c1s1.paddr) === index(c2s3.paddr) && c2s3.wreq)
-    // dc_hazard := (index(c2s1.paddr) === index(c1s2.paddr) && c1s2.rreq
-    //            || index(c2s1.paddr) === index(c1s3.paddr) && c1s3.rreq
-    //            || io.dc.rreq && c2s3.wreq)
+    /* related check: */
     dc_hazard := c2s3.wreq
 
     io.ic.miss := miss_c1 || ic_hazard
