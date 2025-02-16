@@ -64,6 +64,7 @@ class ICache_FSM extends Module {
         }
 
         is(m_miss) {
+            // send two requests to L2: this line and next line
             when(io.l2.rrsp) {
                 m_state := Mux(io.cc.uncache, m_wait, m_refill)
             }
