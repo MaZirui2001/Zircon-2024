@@ -88,14 +88,13 @@ class ICache extends Module {
     val data_c1s2   = data_tab.map(_.douta)
     val hit_c1s2    = VecInit(
         tag_c1s2.zip(vld_c1s2).map { case (t, v) => t === tag(io.mmu.paddr) && v }
-    ).asUInt
-    assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "ICache: multiple hits")
-    
+    ).asUInt    
     miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || io.pp.stall, miss_c1, c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR)))
 
     val c1s3_in = (new I_Stage2_Signal)(c1s2, io.mmu, VecInit(tag_c1s2), VecInit(data_c1s2), hit_c1s2, lru_tab.rdata(0))
     // Stage 3: Data selection
     val c1s3 = ShiftRegister(c1s3_in, 1, 0.U.asTypeOf(new I_Stage2_Signal), !(miss_c1 || io.pp.stall))
+    assert(!c1s3.rreq || PopCount(c1s3.hit) <= 1.U, "ICache: multiple hits")
     val lru_c1s3    = lru_tab.rdata(0)
     // fsm
     fsm.io.cc.rreq      := c1s3.rreq

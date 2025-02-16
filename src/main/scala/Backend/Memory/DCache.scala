@@ -162,7 +162,7 @@ class DCache extends Module {
     val hit_c1s2    = VecInit(
         tag_c1s2.zip(vld_c1s2).map { case (t, v) => t === tag(io.mmu.paddr) && v }
     ).asUInt
-    assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "DCache: channel 1: multiple hits")
+    // assert(!c1s2.rreq || PopCount(hit_c1s2) <= 1.U, "DCache: channel 1: multiple hits")
 
     val c1s3_in = (new D_Channel1_Stage2_Signal)(c1s2, io.mmu, VecInit(tag_c1s2), VecInit(data_c1s2), hit_c1s2, lru_tab.rdata(0))
     // miss check: when not latest but uncache, must not miss, for later
@@ -173,6 +173,7 @@ class DCache extends Module {
 
     // stage 3
     val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), c1s3_in), 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || sb_full) || io.cmt.flush)
+    assert(!c1s3.rreq || PopCount(c1s3.hit) <= 1.U, "DCache: channel 1: multiple hits")
     c1s3_wreq       := c1s3.wreq
     val lru_c1s3    = lru_tab.rdata(0)
     // store buffer
@@ -258,11 +259,12 @@ class DCache extends Module {
     val vld_c2s2    = vld_tab.map(_.rdata(1))
     val tag_c2s2    = tag_tab.map(_.doutb)
     val hit_c2s2    = VecInit(tag_c2s2.zip(vld_c2s2).map { case (t, v) => t === tag(c2s2.paddr) && v }).asUInt
-    assert(!c2s2.wreq || PopCount(hit_c2s2) <= 1.U, "DCache: channel 2: multiple hits")
 
     // stage 3
     val c2s3_in = (new D_Channel2_Stage2_Signal)(c2s2, hit_c2s2)
     val c2s3 = ShiftRegister(c2s3_in, 1, 0.U.asTypeOf(new D_Channel2_Stage2_Signal), !io.l2.miss)
+    assert(!c2s3.wreq || PopCount(c2s3.hit) <= 1.U, "DCache: channel 2: multiple hits")
+    
     val wdata_shift = c2s3.wdata << (offset(c2s3.paddr) << 3.U)
     val wstrb_shift = mtype_decode(c2s3.mtype) << offset(c2s3.paddr)
     // tag and mem
