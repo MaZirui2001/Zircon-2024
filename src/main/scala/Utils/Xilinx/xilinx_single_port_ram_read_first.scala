@@ -17,7 +17,7 @@ class xilinx_single_port_ram_read_first(RAM_WIDTH: Int, RAM_DEPTH: Int) extends 
 """
 | module xilinx_single_port_ram_read_first #(
 |   parameter RAM_WIDTH = 18,                       // Specify RAM data width
-|   parameter RAM_DEPTH = 1024,                     // Specify RAM depth (number of entries)
+|   parameter RAM_DEPTH = 1024                     // Specify RAM depth (number of entries)
 | ) (
 |   input [clogb2(RAM_DEPTH-1)-1:0] addra,  // Address bus, width determined from RAM_DEPTH
 |   input [RAM_WIDTH-1:0] dina,           // RAM input data
