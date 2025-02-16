@@ -10,7 +10,7 @@ object WriteState extends Enumeration {
     val IDLE, AW, W, B = Value
 }
 
-class Memory_Item(var data: Int, var last_write: Array[Int])
+class Memory_Item(var data: Long, var last_write: Array[Int])
 class AXI_Read_Config(var araddr: Int, var arlen: Int, var arsize: Int, var arburst: Int, var state: ReadState.Value)
 class AXI_Read_Item(var arready: Bool, var rdata: UInt, var rvalid: Bool, var rlast: Bool)
 class AXI_Write_Config(var awaddr: Int, var awlen: Int, var awsize: Int, var awburst: Int, var wstrb: Int, var wlast: Boolean, var state: WriteState.Value)
@@ -22,8 +22,8 @@ class AXI_Memory(rand_delay: Boolean){
     private var mem_ref: mutable.Map[Int, Memory_Item] = mutable.Map()
     
     // 2. 缓存一些常用的掩码和移位值
-    private val BYTE_MASK = 0xff
-    private val WORD_MASK = 0xffffffff
+    private val BYTE_MASK = 0xffL
+    private val WORD_MASK = 0xffffffffL
     
     var readConfig: AXI_Read_Config = new AXI_Read_Config(0, 0, 0, 0, ReadState.IDLE)
     var writeConfig: AXI_Write_Config = new AXI_Write_Config(0, 0, 0, 0, 0, false, WriteState.IDLE)
@@ -136,6 +136,7 @@ class AXI_Memory(rand_delay: Boolean){
                     val word_addr = writeConfig.awaddr >> 2
                     val word_offset = writeConfig.awaddr & 0x3
                     val shift_amount = word_offset << 3
+                    val wstrb = writeConfig.wstrb << word_offset
                     
                     if(!mem.contains(word_addr)) {
                         mem(word_addr) = new Memory_Item(0, Array.fill(4)(0))
@@ -143,8 +144,15 @@ class AXI_Memory(rand_delay: Boolean){
                     
                     if(writeConfig.wstrb != 0) {
                         val wdata_shift = axi.wdata.litValue.toInt << shift_amount
-                        val wmask = BYTE_MASK << shift_amount
-                        mem(word_addr).data = (mem(word_addr).data & ~wmask) | (wdata_shift & wmask)
+                        (0 until 4).foreach{ i =>
+                            if((wstrb & (1 << i)) != 0){
+                                mem(word_addr).data = (mem(word_addr).data & ~(0xff << (i * 8)) | wdata_shift.toInt & (0xff << (i * 8)))
+                                mem(word_addr).last_write(i) = cycle
+                            }
+                        }
+                        // val wmask = BYTE_MASK << shift_amount
+                        // mem(word_addr).data = (mem(word_addr).data & ~wmask) | (wdata_shift & wmask)
+                        // println(wdata_shift.toHexString)
                         mem(word_addr).last_write(word_offset) = cycle
                     }
                     
@@ -169,7 +177,7 @@ class AXI_Memory(rand_delay: Boolean){
         val word_addr = addr / 4
         val word_offset = addr % 4
         assert(mem_ref.contains(word_addr), f"Address ${addr}%x is not in the memory")
-        ((mem_ref(word_addr).data >> (word_offset * 8)), mem_ref(word_addr).last_write(word_offset))
+        ((mem_ref(word_addr).data >> (word_offset * 8)).toInt, mem_ref(word_addr).last_write(word_offset))
     }
     def debug_write(addr: Int, wdata: Int, wstrb: Int, cycle: Int): Unit = {
         assert(addr % 4 == 0, "The address must be aligned to 4 bytes")
