@@ -70,7 +70,8 @@ class Store_Buffer extends Module {
     .elsewhen(io.enq.valid) { fulln := !(cptr_nxt & tptr_nxt) }
     .elsewhen(io.st_finish) { fulln := true.B }
 
-    when(io.deq.ready){ eptyn := !(hptr_nxt & rptr_nxt) }
+    when(io.lock){ eptyn := eptyn }
+    .elsewhen(io.deq.ready){ eptyn := !(hptr_nxt & rptr_nxt) }
     .elsewhen(io.st_cmt) { eptyn := true.B }
 
     when(io.flush){ all_clear := (rptr_nxt & cptr_nxt).orR }
