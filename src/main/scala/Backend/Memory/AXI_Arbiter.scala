@@ -38,7 +38,7 @@ class AXI_IO extends Bundle {
 }
 
 class AXI_Arbiter_IO extends Bundle {
-    val l2  = Vec(2, Flipped(new Mem_IO))
+    val l2  = MixedVec(Seq(Flipped(new Mem_IO(true)), Flipped(new Mem_IO(false))))
     // for Main Memory
     val axi = new AXI_IO
 }
@@ -103,64 +103,38 @@ class AXI_Arbiter extends Module{
     }
 
     // write FSM
-    val w_idle :: w_iaw :: w_iw :: w_ib :: w_daw :: w_dw :: w_db :: Nil = Enum(7)
+    val w_idle :: w_daw :: w_dw :: w_db :: Nil = Enum(4)
     val w_state = RegInit(w_idle)
 
-    io.l2.foreach{ l2 => l2.wrsp := false.B }
-    io.axi.awaddr   := io.l2(0).waddr
+    // io.l2.foreach{ l2 => l2.wrsp.get := false.B }
+    io.l2(1).wrsp.get := false.B
+    io.axi.awaddr   := io.l2(1).waddr.get
     io.axi.awburst  := 1.U
     io.axi.awid     := 0.U
-    io.axi.awlen    := io.l2(0).wlen
-    io.axi.awsize   := io.l2(0).wsize
+    io.axi.awlen    := io.l2(1).wlen.get
+    io.axi.awsize   := io.l2(1).wsize.get
     io.axi.awvalid  := false.B
-    io.axi.wdata    := io.l2(0).wdata
+    io.axi.wdata    := io.l2(1).wdata.get
     io.axi.wlast    := false.B
-    io.axi.wstrb    := io.l2(0).wstrb
+    io.axi.wstrb    := io.l2(1).wstrb.get
     io.axi.wvalid   := false.B
     io.axi.bready   := false.B
 
     switch(w_state){
         is(w_idle){
             // idle state
-            w_state := Mux(io.l2(1).wreq, w_daw, Mux(io.l2(0).wreq, w_iaw, w_idle))
-        }
-        is(w_iaw){
-            // icache aw shake hand state
-            io.axi.awvalid  := true.B
-            io.axi.awaddr   := io.l2(0).waddr
-            io.axi.awsize   := io.l2(0).wsize
-            io.axi.awlen    := io.l2(0).wlen
-            w_state         := Mux(io.axi.awready, w_iw, w_iaw)
-        }
-        is(w_iw){
-            // icache write data state
-            io.l2(0).wrsp   := io.axi.wready
-            io.axi.wvalid   := io.l2(0).wreq
-            io.axi.wdata    := io.l2(0).wdata
-            io.axi.wstrb    := io.l2(0).wstrb
-            io.axi.wlast    := io.l2(0).wlast
-            w_state         := Mux(io.axi.wready && io.axi.wlast && io.axi.wvalid, w_ib, w_iw)
-        }
-        is(w_ib){
-            // icache write response state
-            io.axi.bready   := true.B
-            w_state         := Mux(io.axi.bvalid, w_idle, w_ib)
+            w_state := Mux(io.l2(1).wreq.get, w_daw, w_idle)
         }
         is(w_daw){
             // dcache aw shake hand state
             io.axi.awvalid  := true.B
-            io.axi.awaddr   := io.l2(1).waddr
-            io.axi.awsize   := io.l2(1).wsize
-            io.axi.awlen    := io.l2(1).wlen
             w_state         := Mux(io.axi.awready, w_dw, w_daw)
         }
         is(w_dw){
             // dcache write data state
-            io.l2(1).wrsp   := io.axi.wready
-            io.axi.wvalid   := io.l2(1).wreq
-            io.axi.wdata    := io.l2(1).wdata
-            io.axi.wstrb    := io.l2(1).wstrb
-            io.axi.wlast    := io.l2(1).wlast
+            io.l2(1).wrsp.get   := io.axi.wready
+            io.axi.wvalid   := io.l2(1).wreq.get
+            io.axi.wlast    := io.l2(1).wlast.get
             w_state         := Mux(io.axi.wready && io.axi.wlast && io.axi.wvalid, w_db, w_dw)
         }
         is(w_db){
