@@ -1,6 +1,6 @@
 import chisel3._
 import chisel3.util._
-import ALU_BR_Op._
+import EXE_Op._
 import Adder._
 import Shifter._
 
@@ -8,7 +8,7 @@ import Shifter._
 class ALU_IO extends Bundle {
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
-    val op = Input(ALU_BR_Op())
+    val op = Input(UInt(4.W))
     val res = Output(UInt(32.W))
 }
 
@@ -16,9 +16,9 @@ class ALU extends Module {
     val io = IO(new ALU_IO)
 
     // adder
-    val adder_src1 = io.src1
-    val adder_src2 = Mux((io.op === SUB || io.op === SLT || io.op === SLTU), ~io.src2, io.src2)
-    val adder_cin = Mux(io.op === SUB || io.op === SLT || io.op === SLTU, 1.U, 0.U)
+    val adder_src1 = WireDefault(io.src1)
+    val adder_src2 = WireDefault(io.src2)
+    val adder_cin  = WireDefault(0.U)
 
     val adder = BLevel_PAdder32(adder_src1, adder_src2, adder_cin)
 
@@ -37,11 +37,22 @@ class ALU extends Module {
     io.res := adder_res
     // result select
     switch(io.op){
+        is(SUB){
+            adder_src2 := ~io.src2
+            adder_cin := 1.U
+        }
         is(SLTU){
+            adder_src2 := ~io.src2
+            adder_cin := 1.U
             io.res := !adder_cout
         }
         is(SLT){
+            adder_src2 := ~io.src2
+            adder_cin := 1.U
             io.res := io.src1(31) && !io.src2(31) || !(io.src1(31) ^ io.src2(31)) && adder_res(31)
+        }
+        is(ADD4){
+            adder_src2 := 4.U
         }
         is(AND){
             io.res := io.src1 & io.src2
@@ -64,10 +75,5 @@ class ALU extends Module {
         is(SRA){
             io.res := sfter_res
         }
-        is(LUI){
-            io.res := io.src2
-        }
-
     }
-    
 }

@@ -1,17 +1,38 @@
 import chisel3._
 import chisel3.util._
 
-object ALU_BR_Op extends ChiselEnum{
-    val ADD, SUB, SLT, SLTU, AND, OR, XOR, NOR, SLL, SRL, SRA, LUI = Value
-    val BEQ = Value(0x10.U) 
-    val BNE, BLT, BGE, BLTU, BGEU, B, BL, JIRL = Value
-
-    def getVal(op: ALU_BR_Op.Type): UInt = {
-        op.asUInt.take(getWidth-1)
-    }
-    def getType(op: ALU_BR_Op.Type): Bool = {
-        op.asUInt(getWidth-1).asBool
-    }
+object EXE_Op {
+    // alu
+    val ADD     = 0x0.U(4.W)
+    val SRA     = 0x1.U(4.W)
+    val SUB     = 0x2.U(4.W)
+    val ADD4    = 0x3.U(4.W)
+    val SLT     = 0x4.U(4.W)
+    val SLTU    = 0x5.U(4.W)
+    val NOR     = 0x8.U(4.W)
+    val AND     = 0x9.U(4.W)
+    val OR      = 0xa.U(4.W)
+    val XOR     = 0xb.U(4.W)
+    val SLL     = 0xe.U(4.W)
+    val SRL     = 0xf.U(4.W)
+    // branch
+    val JIRL    = 0x13.U(5.W)
+    val B       = 0x14.U(5.W)
+    val BL      = 0x15.U(5.W)
+    val BEQ     = 0x16.U(5.W)
+    val BNE     = 0x17.U(5.W)
+    val BLT     = 0x18.U(5.W)
+    val BGE     = 0x19.U(5.W)
+    val BLTU    = 0x1a.U(5.W)
+    val BGEU    = 0x1b.U(5.W)
+    // mul and div
+    val MUL     = 0x8.U(4.W)
+    val MULH    = 0x9.U(4.W)
+    val MULHU   = 0xa.U(4.W)
+    val DIV     = 0x0.U(4.W)
+    val MOD     = 0x1.U(4.W)
+    val DIVU    = 0x2.U(4.W)
+    val MODU    = 0x3.U(4.W)
 }
 object MDU_Op extends ChiselEnum{
     val MUL, MULH, MULHU, DIV, DIVU, REM, REMU = Value
