@@ -42,6 +42,19 @@ object Zircon_Util{
         val diff = src1_acc.zip(src2_acc).map{ case (s1, s2) => s1 & !s2 }
         diff.reduce(_ | _)
     }
+    // sign extend
+    def SE(x: UInt, n: Int = 32): UInt = {
+        val len = x.getWidth
+        assert(len < n, "x must have less than n bits")
+        val sign = x(len-1)
+        Fill(n-len, sign) ## x
+    }
+    // zero extend
+    def ZE(x: UInt, n: Int = 32): UInt = {
+        val len = x.getWidth
+        assert(len < n, "x must have less than n bits")
+        Fill(n-len, 0.U) ## x
+    }
     def MuxOH[T <: Data](sel: Seq[Bool], in: Seq[T]): T = {
         val n = in.size
         assert(n > 0, "in must have at least one element")
