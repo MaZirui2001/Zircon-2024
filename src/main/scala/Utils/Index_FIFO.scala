@@ -3,10 +3,11 @@ import chisel3.util._
 import Zircon_Util._
 
 // is_flst: The FIFO is a free list for reg rename
-class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int) extends Bundle {
+class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_preg: Boolean) extends Bundle {
     val enq 	= Flipped(Decoupled(gen))
 	val enq_idx = Output(UInt(n.W))
     val deq 	= Decoupled(gen)
+	val deq_idx = Output(UInt(n.W))
 	// read port
 	val ridx    = Input(Vec(rw, UInt(n.W)))
 	val rdata   = Output(Vec(rw, gen))
@@ -18,41 +19,55 @@ class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int) extends Bundle 
 	val flush 	= Input(Bool())
 }
 
-class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int) extends Module {
-	val io = IO(new Index_FIFO_IO(gen, n, rw, ww))
+class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_preg: Boolean = false, rst_val: Option[Seq[T]] = None) extends Module {
+	val io = IO(new Index_FIFO_IO(gen, n, rw, ww, is_preg))
 
-	val q = RegInit(VecInit.fill(n)(0.U.asTypeOf(gen)))
+	val q = RegInit(
+		if(is_preg && rst_val.isDefined) VecInit(rst_val.get)
+		else VecInit.fill(n)(0.U.asTypeOf(gen))
+	)
 
 	// full and empty flags
 	val fulln = RegInit(true.B)
-	val eptyn = RegInit(false.B)
+	val eptyn = RegInit(if(is_preg) true.B else false.B)
 
 	// pointers
 	val hptr = RegInit(1.U(n.W))
 	val tptr = RegInit(1.U(n.W))
+	val cptr = RegInit(1.U(n.W))
 
 	// pointer update logic
 	val hptr_nxt = Mux(io.deq.ready && eptyn, shift_add_1(hptr), hptr)
 	val tptr_nxt = Mux(io.enq.valid && fulln, shift_add_1(tptr), tptr)
+	val cptr_nxt = Mux(io.enq.valid, shift_add_1(cptr), cptr)
 
-	hptr := Mux(io.flush, 1.U, hptr_nxt)
-	tptr := Mux(io.flush, 1.U, tptr_nxt)
-
+	hptr := Mux(io.flush, if(is_preg) cptr_nxt else 1.U, hptr_nxt)
+	tptr := Mux(io.flush, if(is_preg) tptr_nxt else 1.U, tptr_nxt)
+	cptr := cptr_nxt
 	// full and empty flag update logic
-	when(io.flush){ fulln := true.B }
-	.elsewhen(io.enq.valid) { fulln := !(hptr_nxt & tptr_nxt) }
-	.elsewhen(io.deq.ready) { fulln := true.B }
+	if(!is_preg){
+		when(io.flush){ fulln := true.B }
+		.elsewhen(io.enq.valid) { fulln := !(hptr_nxt & tptr_nxt) }
+		.elsewhen(io.deq.ready) { fulln := true.B }
+	}
 
-	when(io.flush){ eptyn := false.B }
+	when(io.flush){ eptyn := (if(is_preg) true.B else false.B) }
 	.elsewhen(io.deq.ready) { eptyn := !(hptr_nxt & tptr_nxt) }
 	.elsewhen(io.enq.valid) { eptyn := true.B }
 
 	// write logic
 	q.zipWithIndex.foreach{ case (qq, i) => 
-		when(tptr(i) && io.enq.valid && fulln) { qq := io.enq.bits }
+		when(tptr(i) && io.enq.valid && fulln) { 
+			if(qq.isInstanceOf[ROB_Entry]){
+				qq.asInstanceOf[ROB_Entry].fte := io.enq.bits.asInstanceOf[ROB_Entry].fte
+				qq.asInstanceOf[ROB_Entry].bke.complete := false.B
+			}else{
+				qq := io.enq.bits 
+			}
+		}
 	}
 	io.enq_idx := tptr
-
+	io.deq_idx := hptr
 	// random access logic
 	for(i <- 0 until rw){
 		io.rdata(i) := Mux1H(io.ridx(i), q)
@@ -60,7 +75,13 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int) extends Module {
 	for(i <- 0 until ww){
 		when(io.wen(i)){
 			q.zipWithIndex.foreach{ case (qq, j) => 
-				when(io.widx(i)(j)){ qq := io.wdata(i) }
+				when(io.widx(i)(j)){ 
+					if(qq.isInstanceOf[ROB_Entry]){
+						qq.asInstanceOf[ROB_Entry].bke := io.wdata(i).asInstanceOf[ROB_Entry].bke
+					}else{
+						qq := io.wdata(i) 
+					}
+				}
 			}
 		}
 	}

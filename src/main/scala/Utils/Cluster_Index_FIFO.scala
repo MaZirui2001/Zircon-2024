@@ -7,10 +7,11 @@ class Cluster_Entry(w_offset: Int, w_qidx: Int) extends Bundle {
     val qidx = UInt(w_qidx.W)
 }
 
-class Cluster_Index_FIFO_IO[T <: Data](gen: T, n: Int, len: Int, ew: Int, dw: Int, rw: Int, ww: Int) extends Bundle {
+class Cluster_Index_FIFO_IO[T <: Data](gen: T, n: Int, len: Int, ew: Int, dw: Int, rw: Int, ww: Int, is_preg: Boolean) extends Bundle {
     val enq 	= Vec(ew, Flipped(Decoupled(gen)))
     val enq_idx = Output(Vec(ew, new Cluster_Entry(len, n)))
     val deq 	= Vec(dw, Decoupled(gen))
+    val deq_idx = Output(Vec(dw, new Cluster_Entry(len, n)))
     // read port
     val ridx    = Input(Vec(rw, new Cluster_Entry(len, n)))
     val rdata   = Output(Vec(rw, gen))
@@ -22,13 +23,15 @@ class Cluster_Index_FIFO_IO[T <: Data](gen: T, n: Int, len: Int, ew: Int, dw: In
     val flush 	= Input(Bool())
 }
 
-class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int) extends Module {
+class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int, is_preg: Boolean = false, rst_val: Option[Seq[T]] = None) extends Module {
     val n = if(dw > ew) dw else ew
     val len = num / n
+    assert(num % n == 0, "cluster fifo num must be divisible by n")
     // println(s"n: $n, len: $len, num: $num, ew: $ew, dw: $dw")
-    val io = IO(new Cluster_Index_FIFO_IO(gen, n, len, ew, dw, rw, ww))
+    val io = IO(new Cluster_Index_FIFO_IO(gen, n, len, ew, dw, rw, ww, is_preg))
 
-    val fifos = VecInit.tabulate(n)(i => Module(new Index_FIFO(gen, len, rw, ww)).io)
+    val fifos = VecInit.tabulate(n)(i => Module(new Index_FIFO(gen, len, rw, ww, is_preg, 
+        if (rst_val.isDefined) Some(rst_val.get.slice(i*len, (i+1)*len)) else None)).io)
 
     // enq
     val all_enq_ready = fifos.map(_.enq.ready).reduce(_ && _)
@@ -54,26 +57,48 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
         deq.valid := Mux1H(deq_ptr(i), fifos.map(_.deq.valid))
         deq.bits := Mux1H(deq_ptr(i), fifos.map(_.deq.bits))
     }
+    io.deq_idx.zipWithIndex.foreach{ case(idx, i) => 
+        idx.qidx := deq_ptr(i)
+        idx.offset := Mux1H(deq_ptr(i), fifos.map(_.deq_idx))
+    }
 
     fifos.zipWithIndex.foreach{ case (fifo, i) => 
         fifo.deq.ready := (Mux1H(deq_ptr_trn(i), io.deq.map(_.ready)) 
                        && (if(dw > ew) true.B else deq_ptr_trn(i).orR))
     }
 
+    // commit
+    val commit_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(n.W)))
+
     // update enq_ptr
-    when(io.flush){
-        enq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
-    }.otherwise{
+    if(is_preg){
         val counter = PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}).take(log2Ceil(n))
         enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
+    }else{
+        when(io.flush){
+            enq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
+        }.otherwise{
+            val counter = PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}).take(log2Ceil(n))
+            enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
+        }
     }
 
     // update deq_ptr
     when(io.flush){
-        deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
+        if(is_preg){
+            deq_ptr := commit_ptr
+        }else{
+            deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
+        }
     }.otherwise{
         val counter = PopCount(io.deq.map(_.valid).zip(io.deq.map(_.ready)).map{ case (v, r) => v && r}).take(log2Ceil(n))
         deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
+    }
+    
+    // update commit_ptr
+    if(is_preg){
+        val counter = PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}).take(log2Ceil(n))
+        commit_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
     }
 
     fifos.foreach{_.flush := io.flush}
