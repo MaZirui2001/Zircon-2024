@@ -53,14 +53,26 @@ object CPU_Config{
         val wrob = log2Ceil(nrob)
     }
     object Issue{
-        val wissue = 5
+        val nissue = 5
     }
     object Fetch{
         val nfetch = 2
     }
+    object Decode{
+        val ndecode = 3
+    }
     object StoreBuffer{
         val nsb = 8
         val wsb = log2Ceil(nsb)
+    }
+    object Commit{
+        import CPU_Config.Decode._
+        val ncommit = 2
+        assert(ncommit <= ndecode, "ncommit must be less than or equal to ndecode")
+        val nrob = 60
+        assert(nrob % ndecode == 0, "nrob must be divisible by ndecode")
+        val nrob_q = nrob / ndecode
+
     }
     object Cache{
         import CPU_Config.Fetch._

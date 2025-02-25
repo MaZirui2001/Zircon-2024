@@ -41,7 +41,7 @@ class IQ_Entry extends Bundle {
     val prk_wk      = Bool()
     val prd         = UInt(wpreg.W)
     val rd_vld      = Bool()
-    val op          = ALU_BR_Op()
+    val op          = UInt(5.W)
 
     // val pcq_idx     = UInt(wpcq.W)
     // val imq_idx     = UInt(wimq.W)
@@ -61,7 +61,7 @@ class IQ_Entry extends Bundle {
 
 object IQ_Entry{
     def apply(inst_vld: Bool, inst_exi: Bool, prj: UInt, prj_wk: Bool, prk: UInt, prk_wk: Bool, prd: UInt, rd_vld: Bool, 
-              op: ALU_BR_Op.Type, rob_idx: UInt, age: UInt, prj_lpv: UInt, prk_lpv: UInt): IQ_Entry = {
+              op: UInt, rob_idx: UInt, age: UInt, prj_lpv: UInt, prk_lpv: UInt): IQ_Entry = {
         val ie = Wire(new IQ_Entry)
         ie.inst_vld := inst_vld; ie.inst_exi := inst_exi; ie.prj := prj; ie.prj_wk := prj_wk
         ie.prk := prk; ie.prk_wk := prk_wk; ie.prd := prd; ie.rd_vld := rd_vld; ie.op := op
@@ -69,7 +69,7 @@ object IQ_Entry{
         ie
     }
     def apply(): IQ_Entry = {
-        IQ_Entry(false.B, false.B, 0.U, false.B, 0.U, false.B, 0.U, false.B, ALU_BR_Op.ADD, 0.U, 0.U, 0.U, 0.U)
+        IQ_Entry(false.B, false.B, 0.U, false.B, 0.U, false.B, 0.U, false.B, EXE_Op.ADD, 0.U, 0.U, 0.U, 0.U)
     }
 }
 
@@ -78,7 +78,7 @@ class Issue_Queue_IO(ew: Int, dw: Int) extends Bundle {
     val enq         = Vec(ew, Flipped(DecoupledIO(new IQ_Entry)))
     val deq         = Vec(dw, DecoupledIO(new IQ_Entry))
     // val wake_bus    = Input(Vec(wissue, UInt(wpreg.W)))
-    val wake_bus    = Input(Vec(wissue, new Wakeup_Bus_Pkg))
+    val wake_bus    = Input(Vec(nissue, new Wakeup_Bus_Pkg))
     val rply_bus    = Input(new Replay_Bus_Pkg)
     val dcache_miss = Input(Bool())
     val flush       = Input(Bool())
@@ -124,19 +124,19 @@ class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
     /* replay */
     iq.foreach{case (qq) =>
         qq.foreach{case (e) =>
-            when(e.prj_lpv.orR && e.prj =/= 0.U && io.rply_bus.replay){
+            when(e.prj_lpv.orR && io.rply_bus.replay){
                 e.inst_exi := true.B
-                e.prj_wk := false.B
+                e.prj_wk := e.prj === 0.U
             }
-            when(e.prk_lpv.orR && e.prk =/= 0.U && io.rply_bus.replay){
+            when(e.prk_lpv.orR && io.rply_bus.replay){
                 e.inst_exi := true.B
-                e.prk_wk := false.B
+                e.prk_wk := e.prk === 0.U
             }
         }
     }
 
     /* select dw items from iq */
-    var flst_insert_ptr = 1.U(n.W)
+
     flst.io.enq.foreach(_.valid := false.B)
     flst.io.enq.foreach(_.bits := DontCare)
     for(i <- 0 until dw){
@@ -155,20 +155,28 @@ class Issue_Queue(ew: Int, dw: Int, num: Int) extends Module {
         iq(i).zipWithIndex.foreach{ case (e, j) =>
             when(select_item.idx_1h(j)){ 
                 e.inst_exi := false.B 
-                e.prj_wk := false.B
-                e.prk_wk := false.B
+                // e.prj_wk := false.B
+                // e.prk_wk := false.B
             }
         }
-        // recycle the issued instruction
-        val ready_to_recycle = iq(i).map{ case (e) => !e.inst_exi && !e.prj_lpv.orR && !e.prk_lpv.orR && e.inst_vld }
-        val select_recycle_idx = VecInit(PriorityEncoderOH(ready_to_recycle)).asUInt
-        when(flst_insert_ptr(i) && select_recycle_idx(i)){
-            flst.io.enq(i).valid := true.B
-            flst.io.enq(i).bits.offset := OHToUInt(select_recycle_idx)
-            flst.io.enq(i).bits.qidx := i.U(log2Ceil(n).W)
-        }
-        flst_insert_ptr = Mux(select_recycle_idx.orR, shift_add_1(flst_insert_ptr), flst_insert_ptr)
     }
-    
-    io.enq.foreach(_.ready := flst.io.deq.map(_.valid).reduce(_ && _))
+
+    var flst_insert_ptr     = 1.U(n.W)
+    val port_map_flst       = VecInit.fill(dw)(0.U(dw.W))
+    val port_map_trav_flst  = VecInit.fill(dw)(0.U(dw.W))
+    val ready_to_recycle    = iq.map{ case (qq) => qq.map{ case (e) => !e.inst_exi && !e.prj_lpv.orR && !e.prk_lpv.orR && e.inst_vld } }
+    val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(PriorityEncoderOH(qq)).asUInt }
+    for(i <- 0 until dw) {
+        port_map_flst(i) := Mux(select_recycle_idx(i).orR, flst_insert_ptr, 0.U)
+        flst_insert_ptr = Mux(select_recycle_idx(i).orR, shift_add_1(flst_insert_ptr), flst_insert_ptr)
+    }
+    for(i <- 0 until dw) {
+        port_map_trav_flst(i) := VecInit(port_map_flst.map(_(i))).asUInt
+    }
+    flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
+        e.valid := port_map_trav_flst(i).orR
+        e.bits.offset := OHToUInt(Mux1H(port_map_trav_flst(i), select_recycle_idx))
+        e.bits.qidx := Mux1H(port_map_trav_flst(i), VecInit.tabulate(dw)(j => j.U(log2Ceil(dw).W)))
+    }
+    io.enq.foreach(_.ready := DontCare)
 }
