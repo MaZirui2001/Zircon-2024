@@ -3,7 +3,7 @@ import chisel3.util._
 import Zircon_Util._
 
 // is_flst: The FIFO is a free list for reg rename
-class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_preg: Boolean) extends Bundle {
+class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean) extends Bundle {
     val enq 	= Flipped(Decoupled(gen))
 	val enq_idx = Output(UInt(n.W))
     val deq 	= Decoupled(gen)
@@ -17,41 +17,40 @@ class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_preg: Boolea
 	val wdata   = Input(Vec(ww, gen))
 
 	val flush 	= Input(Bool())
+	val dbg_FIFO = Output(Vec(n, gen))
 }
 
-class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_preg: Boolean = false, rst_val: Option[Seq[T]] = None) extends Module {
-	val io = IO(new Index_FIFO_IO(gen, n, rw, ww, is_preg))
+class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean = false, rst_val: Option[Seq[T]] = None) extends Module {
+	val io = IO(new Index_FIFO_IO(gen, n, rw, ww, is_flst))
 
 	val q = RegInit(
-		if(is_preg && rst_val.isDefined) VecInit(rst_val.get)
+		if(is_flst && rst_val.isDefined) VecInit(rst_val.get)
 		else VecInit.fill(n)(0.U.asTypeOf(gen))
 	)
 
 	// full and empty flags
 	val fulln = RegInit(true.B)
-	val eptyn = RegInit(if(is_preg) true.B else false.B)
+	val eptyn = RegInit(if(is_flst) true.B else false.B)
 
 	// pointers
 	val hptr = RegInit(1.U(n.W))
 	val tptr = RegInit(1.U(n.W))
-	val cptr = RegInit(1.U(n.W))
 
 	// pointer update logic
 	val hptr_nxt = Mux(io.deq.ready && eptyn, shift_add_1(hptr), hptr)
 	val tptr_nxt = Mux(io.enq.valid && fulln, shift_add_1(tptr), tptr)
-	val cptr_nxt = Mux(io.enq.valid, shift_add_1(cptr), cptr)
 
-	hptr := Mux(io.flush, if(is_preg) cptr_nxt else 1.U, hptr_nxt)
-	tptr := Mux(io.flush, if(is_preg) tptr_nxt else 1.U, tptr_nxt)
-	cptr := cptr_nxt
+	hptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, hptr_nxt)
+	tptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, tptr_nxt)
+	
 	// full and empty flag update logic
-	if(!is_preg){
+	if(!is_flst){
 		when(io.flush){ fulln := true.B }
 		.elsewhen(io.enq.valid) { fulln := !(hptr_nxt & tptr_nxt) }
 		.elsewhen(io.deq.ready) { fulln := true.B }
 	}
 
-	when(io.flush){ eptyn := (if(is_preg) true.B else false.B) }
+	when(io.flush){ eptyn := (if(is_flst) true.B else false.B) }
 	.elsewhen(io.deq.ready) { eptyn := !(hptr_nxt & tptr_nxt) }
 	.elsewhen(io.enq.valid) { eptyn := true.B }
 
@@ -91,5 +90,6 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_preg: Boolean =
 
 	io.enq.ready := fulln
 	io.deq.valid := eptyn
-
+	
+	io.dbg_FIFO := q
 }

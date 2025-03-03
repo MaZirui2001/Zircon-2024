@@ -23,9 +23,14 @@ class SRat_Commit_IO extends Bundle{
     val flush       = Input(Bool())
 }
 
+class SRat_Diff_IO extends Bundle{
+    val rename_table = Output(Vec(nlreg, UInt(wpreg.W)))
+}
+
 class SRat_IO extends Bundle{
     val rnm = new SRat_Rename_IO
     val cmt = new SRat_Commit_IO
+    val dif = new SRat_Diff_IO
 }
 
 class SRat extends Module {
@@ -46,7 +51,7 @@ class SRat extends Module {
     }
     io.rnm.rd_vld.zipWithIndex.foreach{ case (rd_vld, i) =>
         when(rd_vld){
-            rat_rnm(io.rnm.rd(i)) := io.rnm.pprd(i)
+            rat_rnm(io.rnm.rd(i)) := io.rnm.prd(i)
         }
     }
 
@@ -60,5 +65,7 @@ class SRat extends Module {
     when(io.cmt.flush){
         rat_rnm := rat_cmt
     }
+
+    io.dif.rename_table := rat_rnm 
     
 }
