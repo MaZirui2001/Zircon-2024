@@ -24,9 +24,8 @@ class Branch extends Module{
         is(BGE) { real_jp := io.src1.asSInt >= io.src2.asSInt }
         is(BLTU){ real_jp := io.src1 < io.src2 }
         is(BGEU){ real_jp := io.src1 >= io.src2 }
-        is(B)   { real_jp := true.B }
-        is(BL)  { real_jp := true.B }
-        is(JIRL){ real_jp := true.B }
+        is(JAL)  { real_jp := true.B }
+        is(JALR){ real_jp := true.B }
     }
     val fail = io.branch_tgt =/= io.prdc_tgt
     io.real_jp  :=  real_jp
