@@ -17,7 +17,7 @@ class ALU extends Module {
 
     // adder
     val adder_src1 = WireDefault(io.src1)
-    val adder_src2 = WireDefault(io.src2)
+    val adder_src2 = WireDefault(4.U(32.W))
     val adder_cin  = WireDefault(0.U)
 
     val adder = BLevel_PAdder32(adder_src1, adder_src2, adder_cin)
@@ -51,9 +51,6 @@ class ALU extends Module {
             adder_cin := 1.U
             io.res := io.src1(31) && !io.src2(31) || !(io.src1(31) ^ io.src2(31)) && adder_res(31)
         }
-        is(ADD4){
-            adder_src2 := 4.U
-        }
         is(AND){
             io.res := io.src1 & io.src2
         }
@@ -62,9 +59,6 @@ class ALU extends Module {
         }
         is(XOR){
             io.res := io.src1 ^ io.src2
-        }
-        is(NOR){
-            io.res := ~(io.src1 | io.src2)
         }
         is(SLL){
             io.res := Reverse(shifter.io.res)
