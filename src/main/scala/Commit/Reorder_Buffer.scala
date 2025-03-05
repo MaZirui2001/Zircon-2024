@@ -61,10 +61,11 @@ class ROB_Backend_IO extends Bundle{
 }
 
 class ROB_Commit_IO extends Bundle{
-    val deq     = Vec(ncommit, Decoupled(new ROB_Entry))
-    val sb      = Flipped(new D_Commit_IO)
-    val rnm     = Flipped(new Free_List_Commit_IO)
-    val flush   = Output(Bool())
+    val deq         = Vec(ncommit, Decoupled(new ROB_Entry))
+    val sb          = Flipped(new D_Commit_IO)
+    val rnm         = Flipped(new Rename_Commit_IO)
+    val fq_flush    = Output(Bool())
+    val flush       = Output(Bool())
 }
 
 class Reorder_Buffer_IO extends Bundle{
@@ -95,7 +96,6 @@ class Reorder_Buffer extends Module{
     q.io.widx := io.bke.widx
     q.io.wen := io.bke.wen
     // 3. commit: in commit stage, some instruction will be committed
-    
     for(i <- 0 until ncommit){
         io.cmt.deq(i).bits := {
             val entry = Wire(new ROB_Entry)
@@ -121,11 +121,20 @@ class Reorder_Buffer extends Module{
     io.cmt.sb.st_cmt := ShiftRegister(last_cmt_item.fte.is_store, 1, false.B, true.B)
     io.cmt.sb.flush  := ShiftRegister(flush, 1, false.B, true.B)
     // rename
-    io.cmt.rnm.enq.zipWithIndex.foreach{ case (enq, i) =>
+    io.cmt.rnm.flst.enq.zipWithIndex.foreach{ case (enq, i) =>
         enq.valid   := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rd_vld, 1, false.B, true.B)
         enq.bits    := ShiftRegister(q.io.deq(i).bits.fte.pprd, 1, 0.U(wpreg.W), true.B)
     }
-    io.cmt.rnm.flush := ShiftRegister(flush, 1, false.B, true.B)
+    io.cmt.rnm.flst.flush   := ShiftRegister(flush, 1, false.B, true.B)
+    io.cmt.rnm.srat.rd_vld.zipWithIndex.foreach{ case (rd_vld, i) =>
+        rd_vld      := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rd_vld, 1, false.B, true.B)
+    }
+    io.cmt.rnm.srat.rd      := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.rd)), 1, 0.U(wlreg.W), true.B)
+    io.cmt.rnm.srat.prd     := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.prd)), 1, 0.U(wpreg.W), true.B)
+    io.cmt.rnm.srat.flush   := ShiftRegister(flush, 1, false.B, true.B)
+
+    // fetch queue flush
+    io.cmt.fq_flush := ShiftRegister(flush, 1, false.B, true.B) 
 
 
 }
