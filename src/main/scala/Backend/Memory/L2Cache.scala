@@ -318,14 +318,14 @@ class L2Cache extends Module {
         vldt.wdata(1)   := (if(i < 2) Mux(fsm_c2.io.cc.vld_inv.get(i), false.B, true.B) else true.B)
     }
 
-    io.dc.rrsp      := !miss_c2 && c2s3.rreq
-    io.dc.rline     := Mux(c2s3.uncache, 0.U((l1_line_bits-32).W) ## rbuf_c2(l2_line_bits-1, l2_line_bits-32), 
+    io.dc.rrsp          := !miss_c2 && c2s3.rreq
+    io.dc.rline         := Mux(c2s3.uncache, 0.U((l1_line_bits-32).W) ## rbuf_c2(l2_line_bits-1, l2_line_bits-32), 
                                         (Mux1H(fsm_c2.io.cc.r1H, VecInit(rdata_mem, wdata_rbuf)).asTypeOf(Vec(l2_line_bits / l1_line_bits, UInt(l1_line_bits.W))))(c2s3.paddr(l2_offset-1, l1_offset)))
-    io.dc.wrsp      := !miss_c2 && c2s3.wreq
-    io.mem(1).rreq  := fsm_c2.io.mem.rreq
-    io.mem(1).raddr := tag(c2s3.paddr) ## index(c2s3.paddr) ## Mux(c2s3.uncache, offset(c2s3.paddr), 0.U(l2_offset.W))
-    io.mem(1).rlen  := Mux(c2s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
-    io.mem(1).rsize := Mux(c2s3.uncache, c2s3.mtype, 2.U)
+    io.dc.wrsp          := !miss_c2 && c2s3.wreq
+    io.mem(1).rreq      := fsm_c2.io.mem.rreq
+    io.mem(1).raddr     := tag(c2s3.paddr) ## index(c2s3.paddr) ## Mux(c2s3.uncache, offset(c2s3.paddr), 0.U(l2_offset.W))
+    io.mem(1).rlen      := Mux(c2s3.uncache, 0.U, (l2_line_bits / 32 - 1).U)
+    io.mem(1).rsize     := Mux(c2s3.uncache, c2s3.mtype, 2.U)
     io.mem(1).wreq.get  := fsm_c2.io.mem.wreq.get
     io.mem(1).wlast.get := fsm_c2.io.mem.wlast.get
     io.mem(1).waddr.get := wbuf_c2.paddr(31, 2) ## 0.U(2.W)

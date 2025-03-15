@@ -252,25 +252,25 @@ class DCache extends Module {
         sb.io.deq.valid,
         sb.io.deq_idx
     )
-    sb.io.deq.ready := !io.l2.miss
+    sb.io.deq.ready := !io.l2.miss && !io.l2.rreq
 
     // stage 2
-    val c2s2        = ShiftRegister(c2s1, 1, 0.U.asTypeOf(new D_Channel2_Stage1_Signal), !io.l2.miss)
+    val c2s2        = ShiftRegister(c2s1, 1, 0.U.asTypeOf(new D_Channel2_Stage1_Signal), !io.l2.miss && !io.l2.rreq)
     val vld_c2s2    = vld_tab.map(_.rdata(1))
     val tag_c2s2    = tag_tab.map(_.doutb)
     val hit_c2s2    = VecInit(tag_c2s2.zip(vld_c2s2).map { case (t, v) => t === tag(c2s2.paddr) && v }).asUInt
 
     // stage 3
     val c2s3_in = (new D_Channel2_Stage2_Signal)(c2s2, hit_c2s2)
-    val c2s3 = ShiftRegister(c2s3_in, 1, 0.U.asTypeOf(new D_Channel2_Stage2_Signal), !io.l2.miss)
+    val c2s3 = ShiftRegister(c2s3_in, 1, 0.U.asTypeOf(new D_Channel2_Stage2_Signal), !io.l2.miss && !io.l2.rreq)
     assert(!c2s3.wreq || PopCount(c2s3.hit) <= 1.U, "DCache: channel 2: multiple hits")
     
-    val wdata_shift = c2s3.wdata << (offset(c2s3.paddr) << 3.U)
+    val wdata_shift = c2s3.wdata << (offset(c2s3.paddr) << 3)
     val wstrb_shift = mtype_decode(c2s3.mtype) << offset(c2s3.paddr)
     // tag and mem
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
-        tagt.addrb := Mux(io.l2.miss, index(c2s2.paddr), index(c2s1.paddr))
-        tagt.enb   := Mux(io.l2.miss, c2s2.wreq, c2s1.wreq)
+        tagt.addrb := Mux(io.l2.miss || io.l2.rreq, index(c2s2.paddr), index(c2s1.paddr))
+        tagt.enb   := Mux(io.l2.miss || io.l2.rreq, c2s2.wreq, c2s1.wreq)
         tagt.dinb  := DontCare
         tagt.web   := false.B
     }
@@ -303,10 +303,10 @@ class DCache extends Module {
     }
     // l2 cache
     // rreq: get the posedge of rreq
-    io.l2.rreq      := fsm.io.l2.rreq && !ShiftRegister(Mux(io.l2.rrsp, false.B, fsm.io.l2.rreq), 1, false.B, (!io.l2.miss && !c2s3.wreq) || io.l2.rrsp) && !c2s3.wreq
-    io.l2.wreq      := c2s3.wreq
-    io.l2.paddr     := Mux(c2s3.wreq, c2s3.paddr, c1s3.paddr) // wreq first
-    io.l2.uncache   := Mux(c2s3.wreq, c2s3.uncache, c1s3.uncache)
+    io.l2.rreq      := fsm.io.l2.rreq && !ShiftRegister(Mux(io.l2.rrsp, false.B, fsm.io.l2.rreq), 1, false.B, !io.l2.miss || io.l2.rrsp)
+    io.l2.wreq      := c2s3.wreq && !io.l2.rreq
+    io.l2.paddr     := Mux(io.l2.rreq, c1s3.paddr, c2s3.paddr) // wreq first
+    io.l2.uncache   := Mux(io.l2.rreq, c1s3.uncache, c2s3.uncache)
     io.l2.wdata     := c2s3.wdata
     io.l2.mtype     := c2s3.mtype
 }
