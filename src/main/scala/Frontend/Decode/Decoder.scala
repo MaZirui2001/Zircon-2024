@@ -13,47 +13,52 @@ class Decoder extends Module{
     val io = IO(new Decoder_IO)
 
     val inst            = io.inst
-    val is_algebra_reg  = inst(31, 22) === 0.U
-    val is_shift_imm    = inst(31, 22) === 1.U
-    val is_algebra_imm  = inst(31, 25) === 1.U
-    val is_lu12i        = inst(31, 27) === 1.U
-    val is_pcaddu12i    = inst(31, 27) === 3.U
-    val is_br           = inst(31, 30) === 1.U
-    val is_mem          = inst(31, 28) === 2.U
-    val is_atom         = is_mem && !inst(27)
-    val is_load         = is_mem && !inst(24)
-    val is_store        = is_mem && inst(24)
-    val is_priv         = inst(31, 26) === 1.U
-
+    val funct3          = inst(14, 12)
+    val funct7          = inst(31, 25)
+    val is_algebra_reg  = inst(6, 0) === 0x33.U
+    val is_algebra_imm  = inst(6, 0) === 0x13.U
+    val is_lui          = inst(6, 0) === 0x37.U
+    val is_auipc        = inst(6, 0) === 0x17.U
+    val is_jal          = inst(6, 0) === 0x6f.U
+    val is_jalr         = inst(6, 0) === 0x67.U
+    val is_br           = inst(6, 0) === 0x63.U
+    val is_priv         = inst(6, 0) === 0x73.U || inst(6, 0) === 0x0f.U
+    val is_atom         = inst(6, 0) === 0x2f.U
+    val is_load         = inst(6, 0) === 0x03.U || is_atom && inst(31, 27) === 0x02.U
+    val is_store        = inst(6, 0) === 0x23.U || is_atom && inst(31, 27) === 0x03.U
+    val is_mem          = is_load || is_store
 
     /* op: 
         bit5: indicates src1 source, 0-reg 1-pc, or indicates store, 0-store, 1-not
         bit4: indicates src2 source, 0-reg 1-imm, or indicates load, 0-load, 1-not
         bit3-0: alu operation or memory operation(bit 3 indicates atom)
     */
-    val op_5 = is_br || is_pcaddu12i || is_store
+    val op_5 = is_jal || is_jalr || is_auipc || is_store
     val op_4 = !is_algebra_reg || is_load
     val op_3_0 = Mux1H(Seq(
-        is_algebra_reg  -> Mux(inst(19) && !inst(18), 1.U, inst(18, 15)), // sra need to be 1
-        is_shift_imm    -> Mux(inst(19), inst(18, 15), 0x7.U(3.W) ## (inst(18) && inst(15))),
-        is_algebra_imm  -> (inst(18) && inst(17)) ## !inst(17) ## inst(16, 15),
-        is_br           -> inst(29, 26),
-        is_mem          -> Mux(is_atom, 0xa.U, inst(26, 25) ## inst(23, 22))
+        is_algebra_reg  -> funct7(5) ## funct3,
+        is_algebra_imm  -> Mux(funct3 === 0x5.U, funct7(5) ## funct3, 0.U(1.W) ## funct3),
+        is_jalr         -> JALR,
+        is_jal          -> JAL,
+        is_br           -> 1.U(1.W) ## funct3,
+        is_mem          -> is_atom ## funct3
     ))
     io.op := op_5 ## op_4 ## op_3_0
 
     /* imm */
+    val I_type = is_algebra_imm || is_load || is_jalr
+    val S_type = is_store
+    val J_type = is_jal
+    val U_type = is_lui || is_auipc
+    val B_type = is_br
     val imm = Mux1H(Seq(
-        is_shift_imm                -> ZE(inst(14, 10)),
-        // algebra: addi, slti, sltui is se, else ze
-        is_algebra_imm              -> Mux(inst(24), ZE(inst(21, 10)), SE(inst(21, 10))),
-        // priv: cacop is 12 bits, else 14 bits for csr 
-        is_priv                     -> Mux(inst(25), SE(inst(21, 10)), ZE(inst(23, 10))),
-        (is_lu12i || is_pcaddu12i)  -> inst(24, 5) ## 0.U(12.W),
-        // mem: atomic is 14 bits, else 12 bits
-        is_mem                      -> Mux(inst(27), SE(inst(21, 10)), SE(inst(23, 10))),
-        // br: bl and b is 28 bits, else 18 bits
-        is_br                       -> Mux(inst(27) || inst(29), SE(inst(25, 10) ## 0.U(2.W)), SE(inst(9, 0) ## inst(25, 10) ## 0.U(2.W)))
+        I_type     -> SE(inst(31, 20)),
+        U_type     -> inst(31, 12) ## 0.U(12.W),
+        J_type     -> SE(inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21) ## 0.U(1.W)),
+        B_type     -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W)),
+        S_type     -> SE(inst(31, 25) ## inst(11, 7)),
+        // priv: bit11-0 is csr, bit 16-12 is uimm
+        is_priv    -> ZE(inst(19, 15) ## inst(31, 20))
     ))
     io.imm := imm
 

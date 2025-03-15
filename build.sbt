@@ -9,4 +9,5 @@ scalacOptions ++= Seq(
 val chiselVersion = "6.6.0"
 addCompilerPlugin ("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full)
 libraryDependencies += "org.chipsalliance" %% "chisel" % chiselVersion
+libraryDependencies += "org.typelevel" %% "spire" % "0.18.0"
 libraryDependencies += "edu.berkeley.cs" %% "chiseltest" %"6.0.0"

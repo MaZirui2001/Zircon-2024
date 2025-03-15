@@ -1,5 +1,7 @@
 import chisel3._
 import chisel3.util._
+import Zircon_Util._
+import Adder._
 
 /* Pre-Decoder: 
     In order to shorten the frontend pipleline, we need to decode the instruction
@@ -18,58 +20,76 @@ class Register_Info extends Bundle {
 }
 class Branch_Info extends Bundle {
     val jump_en     = Bool()
-    val imm         = UInt(26.W)
+    val jump_tgt    = UInt(32.W)
 }
 class Pre_Decoder_IO extends Bundle {
-    val inst    = Input(UInt(32.W))
-    val rinfo   = Output(new Register_Info)
-    // val binfo   = Output(new Branch_Info)
+    val inst_pkg    = Input(new Frontend_Package)
+    val pred_info   = Input(new Predict_Info)
+    val rinfo       = Output(new Register_Info)
+    val binfo       = Output(new Branch_Info)
 }
 
 class Pre_Decoder extends Module {
     val io = IO(new Pre_Decoder_IO)
-    val inst = io.inst
+    val inst_pkg    = io.inst_pkg
+    val pred_info   = io.pred_info
+    val inst        = inst_pkg.inst
 
     // rd
-    val rd_vld = VecInit(
-        inst(31, 23) === 0.U && !(inst(21) && inst(19)), // algebraic reg and shift imm
-        inst(31, 27) === 0.U && (inst(26) ^ inst(25)), // algebraic imm and csr
-        inst(31, 28) === 1.U, //lu12i.w and pcaddu12i
-        inst(31, 29) === 1.U && !((inst(27) && inst(24)) || inst(28)), // load and atomic
-        inst(31, 29) === 0x2.U && (inst(28) ^ inst(27)) && inst(26) // jirl and bl
-    ).reduceTree(_ || _)
+    val rd_vld = inst(3, 0) === 0x3.U && !(
+        inst(6, 4) === 0x6.U || // store
+        inst(6, 4) === 0x2.U    // branch
+    )
 
-    val rd_from_rj = inst(31, 20) === 0.U && inst(4, 0) === 0.U
-    val rd_from_r1 = inst(31, 26) === 0x15.U
-    val rd = Mux1H(Seq(
-        rd_from_rj  -> inst(9, 5),
-        rd_from_r1  -> 1.U,
-        !(rd_from_rj || rd_from_r1) -> inst(4, 0)
-    ))
+    val rd = inst(11, 7)
     io.rinfo.rd_vld := Mux(rd === 0.U, false.B, rd_vld)
     io.rinfo.rd := Mux(rd_vld, rd, 0.U)
 
     // rj
-    val rj_vld = VecInit(
-        inst(31, 23) === 0.U && !(inst(21) && inst(19) || inst(22, 20) === 0.U), // algebraic reg
-        inst(31, 25) === 1.U, // algebraic imm
-        inst(31, 26) === 1.U && (!inst(25) && inst(9, 6) =/= 0.U || inst(25) && (!inst(22) || inst(16))), // csrxchg, cacop and idle
-        inst(31, 29) === 1.U && !inst(28), // load and store
-        inst(31, 26) === 0x13.U, // jirl
-    ).reduceTree(_ || _)
+    val rj_vld = (
+        inst(2, 0) === 0x3.U && !(inst(6, 3) === 0xe.U && inst(14)) ||
+        inst(6, 0) === 0x67.U || // jalr
+        inst(3, 0) === 0xf.U
+    )
 
-    val rj = inst(9, 5)
+    val rj = inst(19, 15)
     io.rinfo.rj_vld := Mux(rj === 0.U, false.B, rj_vld)
     io.rinfo.rj := Mux(rj_vld, rj, 0.U)
 
     // rk
-    val rk_vld = VecInit(
-        inst(31, 22) === 0.U && !(inst(21) && inst(19) || inst(21, 20) === 0.U), // algebraic reg
-        inst(31, 25) === 3.U && inst(16), // invtlb
-        inst(31, 29) === 1.U && (inst(27) && inst(24)),  // store
-        inst(31, 30) === 0x1.U && (inst(29) || inst(28, 27) === 3.U) // branch
-    ).reduceTree(_ || _)
-    val rk = Mux(inst(31, 29) =/= 0.U, inst(4, 0), inst(14, 10))
+    val rk_vld = (
+        inst(6, 0) === 0x63.U || // branch
+        inst(6, 0) === 0x23.U || // store
+        inst(6, 0) === 0x33.U || // reg-reg
+        inst(6, 0) === 0x2f.U // atom
+    )
+    val rk = inst(24, 20)
     io.rinfo.rk_vld := Mux(rk === 0.U, false.B, rk_vld)
     io.rinfo.rk := Mux(rk_vld, rk, 0.U)
+
+    /* branch */
+    // jalr: not care
+    // jal: must jump, and jump_tgt must be pc + imm
+    // branch: if not pred, static predict; if pred, jump_tgt must be pc + pred_offset
+    // if not jump or branch, shouldn't predict jump
+
+    val is_jalr = inst(6, 0) === 0x67.U
+    val is_jal  = inst(6, 0) === 0x6f.U
+    val is_br   = inst(6, 0) === 0x63.U
+    val isn_j  = !(is_jalr || is_jal || is_br)
+
+    val imm = Mux1H(Seq(
+        is_jal  -> SE(inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21) ## 0.U(1.W)),
+        is_br   -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W))
+    ))
+
+    io.binfo.jump_en := Mux1H(Seq(
+        isn_j   -> pred_info.jump_en, // isn't jump: predictor must be wrong if it predicts jump
+        is_jal  -> (inst_pkg.pred_info.offset =/= imm), 
+        is_br   -> Mux(pred_info.vld, inst_pkg.pred_info.offset =/= imm, imm(31))
+    ))
+
+    val offset = Mux(isn_j, 4.U, imm)
+    io.binfo.jump_tgt := BLevel_PAdder32(inst_pkg.pc, offset, 0.U).io.res
+
 }

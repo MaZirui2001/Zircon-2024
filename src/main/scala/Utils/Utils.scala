@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 
 
+
 object Zircon_Util{
     def shift_add_1(x: UInt): UInt = {
         val n = x.getWidth
@@ -45,15 +46,22 @@ object Zircon_Util{
     // sign extend
     def SE(x: UInt, n: Int = 32): UInt = {
         val len = x.getWidth
-        assert(len < n, "x must have less than n bits")
+        assert(len <= n, "x must have less than n bits")
         val sign = x(len-1)
         Fill(n-len, sign) ## x
     }
     // zero extend
     def ZE(x: UInt, n: Int = 32): UInt = {
         val len = x.getWidth
-        assert(len < n, "x must have less than n bits")
+        assert(len <= n, "x must have less than n bits")
         Fill(n-len, 0.U) ## x
+    }
+    // align
+    def align(x: UInt, n: Int): UInt = {
+        val len = x.getWidth
+        if(len == n) x
+        else if (len < n) ZE(x, n)
+        else x(n-1, 0)
     }
     def MuxOH[T <: Data](sel: Seq[Bool], in: Seq[T]): T = {
         val n = in.size
@@ -113,4 +121,41 @@ object Zircon_Util{
         val x_shifts = VecInit.tabulate(width)(i => shift_add_n(x, i))
         Mux1H(nOH, x_shifts)
     }
+    def transpose(x: Vec[UInt]): Vec[UInt] = {
+        val n = x(0).getWidth
+        VecInit.tabulate(n)(i => VecInit(x.map(_(i))).asUInt)
+    }
+    def lshift1H(x: UInt, nOH: UInt): UInt = {
+        val width = nOH.getWidth
+        val x_shifts = VecInit.tabulate(width)(i => x << i)
+        Mux1H(nOH, x_shifts)
+    }
+    def rshift1H(x: UInt, nOH: UInt): UInt = {
+        val width = nOH.getWidth
+        val x_shifts = VecInit.tabulate(width)(i => x >> i)
+        Mux1H(nOH, x_shifts)
+    }
+}
+
+object Log2Rev {
+
+  def apply(x: Bits, width: Int): UInt = {
+    if (width < 2) {
+      1.U
+    } else if (width == 2) {
+      !x(0)
+    } else if( width <= divideAndConquerThreshold){
+        PriorityEncoder(x)
+    } else {
+      val mid = 1 << (log2Ceil(width) - 1)
+      val hi = x(width - 1, mid)
+      val lo = x(mid - 1, 0)
+      val useLo = lo.orR
+      Cat(!useLo, Mux(useLo, Log2Rev(lo, mid), Log2Rev(hi, width - mid)))
+    }
+  }
+
+  def apply(x: Bits): UInt = apply(x, x.getWidth)
+
+  private def divideAndConquerThreshold = 4
 }
