@@ -6,7 +6,7 @@ scalacOptions ++= Seq(
   "-unchecked",
   "-language:reflectiveCalls",
 )
-val chiselVersion = "6.6.0"
+val chiselVersion = "6.7.0"
 addCompilerPlugin ("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full)
 libraryDependencies += "org.chipsalliance" %% "chisel" % chiselVersion
 libraryDependencies += "org.typelevel" %% "spire" % "0.18.0"

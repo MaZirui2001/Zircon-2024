@@ -1,6 +1,7 @@
 ### Project Specific stuff
 test_run_dir/
 verilog/
+out/
 ### XilinxISE template
 # intermediate build files
 *.bgn
