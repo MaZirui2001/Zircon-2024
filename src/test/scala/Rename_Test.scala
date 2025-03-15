@@ -23,7 +23,13 @@ class Rename_Test_Generator {
     private val rand = new Random()
 
     def generate_tests: Unit = {
-        val writer = new java.io.PrintWriter("testbench/rename_test.txt")
+        val testbenchDir = os.pwd / "testbench"
+        val testbenchPath = testbenchDir / "rename_test.txt"
+        // 如果目录不存在，则创建
+        if (!os.exists(testbenchDir)) {
+            os.makeDir(testbenchDir)
+        }
+        val writer = new java.io.PrintWriter(testbenchPath.toString)
         // 每一个测试包含ndecode个测试项，ndeocde在Decode中有定义
         val test_array = new Array[Rename_Test_Item](test_num * ndecode)
 
@@ -58,7 +64,9 @@ class Rename_Test_Generator {
     }
 
     def read_tests: Array[Rename_Test_Item] = {
-        val source = scala.io.Source.fromFile("testbench/rename_test.txt")
+        val projectRoot = os.Path(System.getProperty("user.dir"))  // 获取项目根目录
+        val testbenchPath = (projectRoot / "testbench" / "rename_test.txt").toString
+        val source = scala.io.Source.fromFile(testbenchPath)
         val lines = source.getLines().toArray
         val res = Array.fill(lines.length)(Rename_Test_Item(0, 0, 0, 0, 0))
         for (i <- 0 until lines.length) {
@@ -165,7 +173,7 @@ class Rename_Test extends AnyFlatSpec with ChiselScalatestTester {
                             if(rob.nonEmpty){
                                 val item = rob.dequeue()
                                 ref.commit(item)
-                                c.io.cmt.flst.enq(i).valid.poke(item.rd_vld != 0 && item.pprd != 0)
+                                c.io.cmt.flst.enq(i).valid.poke(item.rd_vld != 0)
                                 c.io.cmt.flst.enq(i).bits.poke(item.pprd)
                                 c.io.cmt.srat.rd_vld(i).poke(item.rd_vld != 0)
                                 c.io.cmt.srat.rd(i).poke(item.rd)

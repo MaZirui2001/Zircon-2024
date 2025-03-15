@@ -8,6 +8,8 @@ import CPU_Config.Cache._
 import CPU_Config.Fetch._
 import Zircon_Util._
 import os.write
+import os.Path
+import java.io.File
 import scala.collection.parallel.CollectionConverters._
 
 object Cache_Test_Config {
@@ -36,7 +38,13 @@ class Cache_Test_Generator {
     private val rand = new Random()
 
     def generate_tests: Unit = {
-        val writer = new java.io.PrintWriter("testbench/cachetest.txt")
+        val testbenchDir = os.pwd / "testbench"
+        val testbenchPath = testbenchDir / "cachetest.txt"
+        // 如果目录不存在，则创建
+        if (!os.exists(testbenchDir)) {
+            os.makeDir(testbenchDir)
+        }
+        val writer = new java.io.PrintWriter(testbenchPath.toString)
         val test_array = new Array[Cache_Test_Item](test_num)
         
         // 移除.par，使用普通的map
@@ -90,7 +98,9 @@ class Cache_Test_Generator {
     }
 
     def read_tests(): Array[Cache_Test_Item] = {
-        val source = scala.io.Source.fromFile("testbench/cachetest.txt")
+        val projectRoot = os.Path(System.getProperty("user.dir"))  // 获取项目根目录
+        val testbenchPath = (projectRoot / "testbench" / "cachetest.txt").toString
+        val source = scala.io.Source.fromFile(testbenchPath)
         val lines = source.getLines().toArray
         val res = Array.fill(lines.length)(Cache_Test_Item(ICache_Test_Item(0, 0), DCache_Test_Item(0, 0, 0, 0, 0)))
         for(i <- 0 until lines.length){
@@ -120,7 +130,7 @@ class Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
     it should "pass" in {   
         test(new Cache_Test).withAnnotations(Seq(
             VerilatorBackendAnnotation,
-            WriteVcdAnnotation,
+            // WriteVcdAnnotation,
             VerilatorFlags(Seq("-threads", "2"))
         )) { c =>
             var i_index = 0
