@@ -6,8 +6,10 @@ import Zircon_Util._
 class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean) extends Bundle {
     val enq 	= Flipped(Decoupled(gen))
 	val enq_idx = Output(UInt(n.W))
+	val enq_high = Output(Bool())
     val deq 	= Decoupled(gen)
 	val deq_idx = Output(UInt(n.W))
+	val deq_high = Output(Bool())
 	// read port
 	val ridx    = Input(Vec(rw, UInt(n.W)))
 	val rdata   = Output(Vec(rw, gen))
@@ -35,6 +37,8 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean =
 	// pointers
 	val hptr = RegInit(1.U(n.W))
 	val tptr = RegInit(1.U(n.W))
+	val hptr_high = RegInit(0.U(1.W))
+	val tptr_high = RegInit(0.U(1.W))
 
 	// pointer update logic
 	val hptr_nxt = Mux(io.deq.ready && eptyn, shift_add_1(hptr), hptr)
@@ -42,6 +46,11 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean =
 
 	hptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, hptr_nxt)
 	tptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, tptr_nxt)
+
+	val hptr_high_nxt = Mux(hptr_nxt(0) && hptr(n-1), ~hptr_high, hptr_high)
+	val tptr_high_nxt = Mux(tptr_nxt(0) && tptr(n-1), ~tptr_high, tptr_high)
+	hptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else 0.U, hptr_high_nxt)
+	tptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else 0.U, tptr_high_nxt)
 	
 	// full and empty flag update logic
 	if(!is_flst){
@@ -66,7 +75,9 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean =
 		}
 	}
 	io.enq_idx := tptr
+	io.enq_high := tptr_high
 	io.deq_idx := hptr
+	io.deq_high := hptr_high
 	// random access logic
 	for(i <- 0 until rw){
 		io.rdata(i) := Mux1H(io.ridx(i), q)
