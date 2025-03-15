@@ -17,8 +17,8 @@ class SRat_Rename_IO extends Bundle{
 }
 
 class SRat_Commit_IO extends Bundle{
-    val rd          = Input(Vec(ncommit, UInt(wlreg.W)))
     val rd_vld      = Input(Vec(ncommit, Bool()))
+    val rd          = Input(Vec(ncommit, UInt(wlreg.W)))
     val prd         = Input(Vec(ncommit, UInt(wpreg.W)))
     val flush       = Input(Bool())
 }

@@ -33,18 +33,15 @@ class PReg_Free_List extends Module{
         it traverse is the enq port mapped to the io port
     */
     val port_map_fte = VecInit.fill(ndecode)(0.U(ndecode.W))
-    val port_map_trav_fte = VecInit.fill(ndecode)(0.U(ndecode.W))
+    val port_map_trans_fte = transpose(port_map_fte)
     var valid_ptr_fte = 1.U(ndecode.W)
     for(i <- 0 until ndecode) {
         port_map_fte(i) := Mux(io.fte.deq(i).ready, valid_ptr_fte, 0.U)
         valid_ptr_fte = Mux(io.fte.deq(i).ready, shift_add_1(valid_ptr_fte), valid_ptr_fte)
     }
-    for(i <- 0 until ndecode) {
-        port_map_trav_fte(i) := VecInit(port_map_fte.map(_(i))).asUInt
-    }
     // rename stage
     flst.io.deq.zipWithIndex.foreach{ case (d, i) =>
-        d.ready := port_map_trav_fte(i).orR
+        d.ready := port_map_trans_fte(i).orR
     }
     io.fte.deq.zipWithIndex.foreach{ case (d, i) =>
         d.valid := flst.io.deq(i).valid
@@ -52,18 +49,16 @@ class PReg_Free_List extends Module{
     }
     // commit stage
     val port_map_cmt = VecInit.fill(ncommit)(0.U(ncommit.W))
-    val port_map_trav_cmt = VecInit.fill(ncommit)(0.U(ncommit.W))
+    val port_map_trans_cmt = transpose(port_map_cmt)
     var valid_ptr_cmt = 1.U(ncommit.W)
     for(i <- 0 until ncommit) {
-        port_map_cmt(i) := Mux(io.cmt.enq(i).valid, valid_ptr_cmt, 0.U)
-        valid_ptr_cmt = Mux(io.cmt.enq(i).valid, shift_add_1(valid_ptr_cmt), valid_ptr_cmt)
-    }
-    for(i <- 0 until ncommit) {
-        port_map_trav_cmt(i) := VecInit(port_map_cmt.map(_(i))).asUInt
+        // pprd =/= 0: for the first several instructions, the pprd is not valid
+        port_map_cmt(i) := Mux(io.cmt.enq(i).valid && io.cmt.enq(i).bits =/= 0.U, valid_ptr_cmt, 0.U)
+        valid_ptr_cmt = Mux(io.cmt.enq(i).valid && io.cmt.enq(i).bits =/= 0.U, shift_add_1(valid_ptr_cmt), valid_ptr_cmt)
     }
     flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
-        e.valid := port_map_trav_cmt(i).orR
-        e.bits := Mux1H(port_map_trav_cmt(i), io.cmt.enq.map(_.bits))
+        e.valid := port_map_trans_cmt(i).orR
+        e.bits := Mux1H(port_map_trans_cmt(i), io.cmt.enq.map(_.bits))
     }
     io.cmt.enq.foreach(_.ready := DontCare)
     flst.io.flush := io.cmt.flush
