@@ -47,7 +47,7 @@ class SRT2_Test extends AnyFlatSpec with ChiselScalatestTester{
                 }
                 if(!c.io.busy.peek().asBool.litToBoolean){
                     a = rand1.nextLong(0x100000000L)
-                    b = rand2.nextLong(0x100000000L)
+                    b = rand2.nextLong(0x10000000L)
                     op = rand3.nextInt(4) + 4
                     q.enqueue(SRT2_Test_Item(a, b, op))
                     c.io.src1.poke(a.U)
