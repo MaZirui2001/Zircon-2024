@@ -9,9 +9,17 @@ class SimMain extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "SimMain"
     it should "pass" in {
         val sim = new Simulator()
-        // 这个文件的路径将会通过系统属性IMG_PATH获取，默认使用示例路径
-        val IMG_PATH = System.getProperty("IMG")
-        sim.mem_init(IMG_PATH)
+        
+        // 从环境变量中获取 IMG 路径
+        val imgPath = Option(System.getenv("IMG"))
+        
+        imgPath match {
+            case Some(path) => sim.mem_init(path)
+            case None => 
+                println("没有提供镜像文件路径，使用默认镜像")
+                sim.mem_init(null)
+        }
+        
         breakable {
             while (true) {
                 val end = sim.step()

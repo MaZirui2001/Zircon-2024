@@ -84,7 +84,7 @@ class RingBuffer[T: ClassTag](capacity: Int) {
    */
   def toArray: Array[T] = {
     val result = new Array[T](count).asInstanceOf[Array[T]]
-    tail = (tail - count) % capacity
+    tail = (tail - count + capacity) % capacity
     for (i <- 0 until count) {
       result(i) = buffer((tail + i) % capacity)
     }

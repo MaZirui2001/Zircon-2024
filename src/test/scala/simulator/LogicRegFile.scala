@@ -1,6 +1,6 @@
 import spire.math.UInt
 
-class RegisterFile {
+class LogicRegFile {
     private val rf = Array.fill(32)(UInt(0))
 
     // 重定义()运算符，用于获取某个寄存器的值

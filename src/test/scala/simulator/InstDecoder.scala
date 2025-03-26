@@ -1,6 +1,6 @@
 import spire.math.UInt
 import spire.math.SafeLong
-class Decoder(rf: RegisterFile, mem: Memory, fetch: Fetch) {
+class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
     private def Bits(bits: UInt, hi: Int, lo: Int): UInt = {
         (bits >> lo) & ~(UInt(-1) << (hi - lo + 1))
     }
