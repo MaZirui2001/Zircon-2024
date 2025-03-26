@@ -6,7 +6,7 @@ class Simulator {
     private val base_addr = UInt(0x80000000)
     // soc
     private val mem     = new Memory()
-    private val rf      = new Regfile()
+    private val rf      = new RegisterFile()
     private val fetch   = new Fetch(mem, base_addr)
     private val decoder = new Decoder(rf, mem, fetch)
 

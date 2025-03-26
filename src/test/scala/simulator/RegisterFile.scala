@@ -1,6 +1,6 @@
 import spire.math.UInt
 
-class Regfile {
+class RegisterFile {
     private val rf = Array.fill(32)(UInt(0))
 
     // 重定义()运算符，用于获取某个寄存器的值
@@ -21,12 +21,12 @@ class Regfile {
         }
     }
     
-    // 重置寄存器堆，所有寄存器置为0
-    def reset(): Unit = {
-        for (i <- 0 until 32) {
-            rf(i) = UInt(0)
-        }
-    }
+    // // 重置寄存器堆，所有寄存器置为0
+    // def reset(): Unit = {
+    //     for (i <- 0 until 32) {
+    //         rf(i) = UInt(0)
+    //     }
+    // }
     
     // // 打印所有寄存器的值，用于调试
     def dump(): Array[Int] = {

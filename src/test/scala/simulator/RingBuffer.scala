@@ -23,7 +23,7 @@ class RingBuffer[T: ClassTag](capacity: Int) {
     buffer(tail) = item
     tail = (tail + 1) % capacity
     // println(s"push: ${item.toString}")
-    // count += 1
+    count = if(count < capacity) count + 1 else count
     true
   }
 
@@ -83,8 +83,9 @@ class RingBuffer[T: ClassTag](capacity: Int) {
    * @return 包含所有元素的数组
    */
   def toArray: Array[T] = {
-    val result = new Array[T](capacity).asInstanceOf[Array[T]]
-    for (i <- 0 until capacity) {
+    val result = new Array[T](count).asInstanceOf[Array[T]]
+    tail = (tail - count) % capacity
+    for (i <- 0 until count) {
       result(i) = buffer((tail + i) % capacity)
     }
     result

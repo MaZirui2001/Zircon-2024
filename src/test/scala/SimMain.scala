@@ -3,17 +3,15 @@ import chiseltest._
 import chiseltest.simulator.VerilatorFlags
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util.control.Breaks._
-import java.io.File
 
 
 class SimMain extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "SimMain"
     it should "pass" in {
         val sim = new Simulator()
-        // println(new File("RV-Software/picotest/build/pico-riscv32.bin").getAbsolutePath)
-        sim.mem_init("RV-Software/picotest/build/pico-riscv32.bin")
-        // 打印这个文件的绝对路径
-        // sim.step(1000)
+        // 这个文件的路径将会通过系统属性IMG_PATH获取，默认使用示例路径
+        val IMG_PATH = System.getProperty("IMG")
+        sim.mem_init(IMG_PATH)
         breakable {
             while (true) {
                 val end = sim.step()

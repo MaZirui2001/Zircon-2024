@@ -112,6 +112,11 @@ class Memory {
   
   // 从文件加载内存数据（可用于加载程序）
   def loadFromFile(filename: String, baseAddr: UInt): Unit = {
+    if(filename == "" || filename == null) {
+        println("没有提供镜像文件路径，使用默认镜像")
+        writeWord(baseAddr, UInt(0x80000000))
+        return
+    }
     import java.nio.file.{Files, Paths}
     val bytes = Files.readAllBytes(Paths.get(filename))
     bytes.zipWithIndex.foreach { case (byte, i) =>
