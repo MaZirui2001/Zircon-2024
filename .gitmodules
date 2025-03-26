@@ -1,0 +1,3 @@
+[submodule "RV-Software"]
+	path = RV-Software
+	url = git@github.com:MaZirui2001/RV-Software.git
