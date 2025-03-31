@@ -61,21 +61,21 @@ class SRT2 extends Module {
         div_reg     := src2_abs << src2_leading_zeros
     }
     when(io.busy){
-        // 3 cases, scan the top 3 bits of the remainder
-        val top3 = rmd_reg(64, 62)
-        // if the top 3 bits are the same, q = 0, and shift the remainder left
-        when(top3 === 0.U || top3 === 7.U){
+        // 3 cases, scan the top 2 bits of the remainder
+        val top2 = rmd_reg(63, 62)
+        // if the top 2 bits are the same, q = 0, and shift the remainder left
+        when(top2 === 0.U || top2 === 3.U){
             adder.io.src2 := 0.U
             rmd_reg := (adder.io.res ## rmd_reg(30, 0) ## 0.U)
             rmd_m_reg := rmd_m_reg << 1
         }.otherwise{
-            when(top3(2) === 1.U){
-                // if the top 3 bits are not the same and is negative, q = -1, shift and add the divisor
+            when(top2(1) === 1.U){
+                // if the top 2 bits are not the same and is negative, q = -1, shift and add the divisor
                 adder.io.src2 := div_reg
                 rmd_reg       := (adder.io.res ## rmd_reg(30, 0) ## 0.U)
                 rmd_m_reg     := (rmd_m_reg << 1) | 1.U
             }.otherwise{
-                // if the top 3 bits are not the same and is positive, q = 1, shift and sub the divisor
+                // if the top 2 bits are not the same and is positive, q = 1, shift and sub the divisor
                 adder.io.src2 := ~div_reg
                 adder.io.cin  := 1.U
                 rmd_reg       := (adder.io.res ## rmd_reg(30, 0) ## 1.U) 

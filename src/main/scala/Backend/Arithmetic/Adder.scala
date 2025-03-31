@@ -101,6 +101,12 @@ object Adder {
         }
         io.cout := c
     }
+    class BLevel_PAdder33 extends Module{
+        val io = IO(new Adder_IO(33))
+        val adder32 = BLevel_PAdder32(io.src1(31, 0), io.src2(31, 0), io.cin)
+        io.res := (adder32.io.cout ^ io.src1(32) ^ io.src2(32)) ## adder32.io.res
+        io.cout := (adder32.io.cout & io.src1(32)) | (adder32.io.cout & io.src2(32)) | (io.src1(32) & io.src2(32))
+    }
 
     object BLevel_PAdder32{
         def apply(src1: UInt, src2: UInt, cin: UInt): BLevel_PAdder32 = {
@@ -112,6 +118,15 @@ object Adder {
         }
     }
 
+    object BLevel_PAdder33{
+        def apply(src1: UInt, src2: UInt, cin: UInt): BLevel_PAdder33 = {
+            val adder = Module(new BLevel_PAdder33)
+            adder.io.src1 := src1
+            adder.io.src2 := src2
+            adder.io.cin := cin
+            adder
+        }
+    }
     object BLevel_PAdder64{
         def apply(src1: UInt, src2: UInt, cin: UInt): BLevel_PAdder64 = {
             val adder = Module(new BLevel_PAdder64)
