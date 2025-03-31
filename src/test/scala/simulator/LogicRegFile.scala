@@ -29,7 +29,7 @@ class LogicRegFile {
     // }
     
     // // 打印所有寄存器的值，用于调试
-    def dump(): Array[Int] = {
-        rf.map(_.toInt)
+    def dump(): Array[UInt] = {
+        rf
     }
 }

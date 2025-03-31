@@ -1,4 +1,5 @@
-import chisel3._
+// import chisel3._
+import spire.math.UInt
 import chiseltest._
 import chiseltest.simulator.VerilatorFlags
 import org.scalatest.flatspec.AnyFlatSpec
@@ -150,7 +151,7 @@ class Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                 c.io.axi.arready.poke(r.arready)
                 c.io.axi.awready.poke(w.awready)
                 c.io.axi.bvalid.poke(w.bvalid)
-                c.io.axi.rdata.poke(r.rdata)
+                c.io.axi.rdata.poke(r.rdata.toLong)
                 c.io.axi.rlast.poke(r.rlast)
                 c.io.axi.rvalid.poke(r.rvalid)
                 c.io.axi.wready.poke(w.wready)
@@ -162,7 +163,7 @@ class Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                     if(i_index > 0){
                         val i_test_last = tests(i_index - 1)
                         c.io.i_mmu.paddr.poke(i_test_last.ic.vaddr)
-                        c.io.i_mmu.uncache.poke(false.B)
+                        c.io.i_mmu.uncache.poke(false)
                     }
                     if(!c.io.i_pp.miss.peek().litToBoolean){
                         if(c.io.i_pp.rreq.peek().litToBoolean){
@@ -175,6 +176,7 @@ class Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                         for(j <- 0 until nfetch){
                             val data = memory.debug_read((req.vaddr + (j * 4)).toInt)._1 & 0xFFFFFFFFL
                             c.io.i_pp.rdata(j).expect(data, f"idx: ${i_index}, addr: ${req.vaddr}%x, fetch_offset: ${j}")
+
                         }
                     
                     }
@@ -184,25 +186,25 @@ class Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                     val d_test = tests(d_index)
                     c.io.d_pp.rreq.poke((if(c.io.d_pp.sb_full.peek().litToBoolean) 0 else d_test.dc.rreq))
                     c.io.d_pp.mtype.poke(d_test.dc.mtype)
-                    c.io.d_pp.is_latest.poke(true.B)
+                    c.io.d_pp.is_latest.poke(true)
                     c.io.d_pp.wreq.poke((if(c.io.d_pp.sb_full.peek().litToBoolean) 0 else d_test.dc.wreq))
                     c.io.d_pp.wdata.poke(d_test.dc.wdata)
                     c.io.d_pp.vaddr.poke(d_test.dc.vaddr)
                     if(d_index > 0){
                         val d_test_last = tests(d_index - 1)
                         c.io.d_mmu.paddr.poke(d_test_last.dc.vaddr)
-                        c.io.d_mmu.uncache.poke(false.B)
+                        c.io.d_mmu.uncache.poke(false)
                     }
                     random_commit_delay = if(random_commit_delay > 0) { random_commit_delay - 1 } else { rand.nextInt(4) }
                     if(random_commit_delay == 0 && d_cmt_q.nonEmpty){
                         val req = d_cmt_q.dequeue()
                         if(req.wreq == 1){
-                            c.io.d_cmt.st_cmt.poke(true.B)
+                            c.io.d_cmt.st_cmt.poke(true)
                         } else {
-                            c.io.d_cmt.st_cmt.poke(false.B)
+                            c.io.d_cmt.st_cmt.poke(false)
                         }
                     } else {
-                        c.io.d_cmt.st_cmt.poke(false.B)
+                        c.io.d_cmt.st_cmt.poke(false)
                     }
                     if(!c.io.d_pp.miss.peek().litToBoolean && !c.io.d_pp.sb_full.peek().litToBoolean){
                         if(c.io.d_pp.rreq.peek().litToBoolean || c.io.d_pp.wreq.peek().litToBoolean){

@@ -1,4 +1,4 @@
-import chisel3._
+// import chisel3._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable.Queue
@@ -6,6 +6,7 @@ import scala.util._
 import CPU_Config.Cache._
 import Zircon_Util._
 import os.write
+import spire.math.UInt
 
 object L2_Test_Config {
     val total_space             = 4096
@@ -115,7 +116,7 @@ class L2Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                 c.io.axi.arready.poke(r.arready)
                 c.io.axi.awready.poke(w.awready)
                 c.io.axi.bvalid.poke(w.bvalid)
-                c.io.axi.rdata.poke(r.rdata)
+                c.io.axi.rdata.poke(r.rdata.toInt)
                 c.io.axi.rlast.poke(r.rlast)
                 c.io.axi.rvalid.poke(r.rvalid)
                 c.io.axi.wready.poke(w.wready)

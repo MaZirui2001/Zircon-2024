@@ -39,8 +39,12 @@ class Simulator {
     }
 
     // dump the register file
-    def rf_dump(): Array[Int] = {
+    def rf_dump(): Array[UInt] = {
         rf.dump()
+    }
+    // dump the pc
+    def pc_dump(): UInt = {
+        fetch.getPC()
     }
 
     // dump the instruction ring buffer
