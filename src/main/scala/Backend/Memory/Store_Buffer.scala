@@ -66,7 +66,7 @@ class Store_Buffer extends Module {
     cptr := cptr_nxt
 
     // full and empty flags update logic
-    when(io.flush){ fulln := !(rptr_nxt & cptr_nxt)}
+    when(io.flush){ fulln := Mux(io.st_finish || !(rptr_nxt & tptr_nxt), true.B, fulln) }
     .elsewhen(io.enq.valid) { fulln := !(cptr_nxt & tptr_nxt) }
     .elsewhen(io.st_finish) { fulln := true.B }
 
@@ -74,7 +74,7 @@ class Store_Buffer extends Module {
     .elsewhen(io.deq.ready){ eptyn := !(hptr_nxt & rptr_nxt) }
     .elsewhen(io.st_cmt) { eptyn := true.B }
 
-    when(io.flush){ all_clear := (rptr_nxt & cptr_nxt).orR }
+    when(io.flush){ all_clear := Mux(io.st_finish || !(tptr_nxt & rptr_nxt), (rptr_nxt & cptr_nxt).orR, all_clear) }
     .elsewhen(io.st_finish){ all_clear := (tptr_nxt & cptr_nxt).orR }
     .elsewhen(io.enq.valid){ all_clear := false.B }
     

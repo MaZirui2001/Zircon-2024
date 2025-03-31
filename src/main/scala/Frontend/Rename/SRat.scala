@@ -62,7 +62,7 @@ class SRat extends Module {
         }
     }
 
-    when(io.cmt.flush){
+    when(ShiftRegister(io.cmt.flush, 1, false.B, true.B)){
         rat_rnm := rat_cmt
     }
 

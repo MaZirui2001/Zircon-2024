@@ -8,7 +8,7 @@ import Shifter._
 class ALU_IO extends Bundle {
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
-    val op = Input(UInt(4.W))
+    val op = Input(UInt(5.W))
     val res = Output(UInt(32.W))
 }
 
@@ -37,6 +37,9 @@ class ALU extends Module {
     io.res := adder_res
     // result select
     switch(io.op){
+        is(ADD){
+            adder_src2 := io.src2
+        }
         is(SUB){
             adder_src2 := ~io.src2
             adder_cin := 1.U

@@ -3,27 +3,26 @@ import chisel3.util._
 
 object EXE_Op {
     // alu
-    val ADD     = 0x0.U(4.W)
-    val SLL     = 0x1.U(4.W)
-    val SLT     = 0x2.U(4.W)
-    val SLTU    = 0x3.U(4.W)
-    val XOR     = 0x4.U(4.W)
-    val SRL     = 0x5.U(4.W)
-    val OR      = 0x6.U(4.W)
-    val AND     = 0x7.U(4.W)
-    val SUB     = 0x8.U(4.W)
-    val SRA     = 0xd.U(4.W)
+    val ADD     = 0x0.U(5.W)
+    val SLL     = 0x1.U(5.W)
+    val SLT     = 0x2.U(5.W)
+    val SLTU    = 0x3.U(5.W)
+    val XOR     = 0x4.U(5.W)
+    val SRL     = 0x5.U(5.W)
+    val OR      = 0x6.U(5.W)
+    val AND     = 0x7.U(5.W)
+    val SUB     = 0x8.U(5.W)
+    val SRA     = 0xd.U(5.W)
     
     // branch
-
-    val BEQ     = 0x8.U(4.W)
-    val BNE     = 0x9.U(4.W)
-    val JALR    = 0xa.U(4.W)
-    val JAL     = 0xb.U(4.W)
-    val BLT     = 0xc.U(4.W)
-    val BGE     = 0xd.U(4.W)
-    val BLTU    = 0xe.U(4.W)
-    val BGEU    = 0xf.U(4.W)
+    val BEQ     = 0x18.U(5.W)
+    val BNE     = 0x19.U(5.W)
+    val JALR    = 0x1a.U(5.W)
+    val JAL     = 0x1b.U(5.W)
+    val BLT     = 0x1c.U(5.W)
+    val BGE     = 0x1d.U(5.W)
+    val BLTU    = 0x1e.U(5.W)
+    val BGEU    = 0x1f.U(5.W)
     
     // mul and div
     val MUL     = 0x0.U(4.W)
@@ -35,14 +34,18 @@ object EXE_Op {
     val REM     = 0x6.U(4.W)
     val REMU    = 0x7.U(4.W)
 }
-object MDU_Op extends ChiselEnum{
-    val MUL, MULH, MULHU, DIV, DIVU, REM, REMU = Value
+
+object Jump_Op{
+    val NOP     = 0x0.U(4.W)
+    val BR      = 0x1.U(4.W)
+    val CALL    = 0x2.U(4.W)
+    val RET     = 0x3.U(4.W)
 }
 object CPU_Config{
     object RegisterFile{
         val nlreg = 32
         val wlreg = log2Ceil(nlreg)
-        val npreg = 63
+        val npreg = 64
         val wpreg = log2Ceil(npreg)
     }
     object ReserveQueue{
@@ -50,17 +53,24 @@ object CPU_Config{
         val wpcq = log2Ceil(npcq)
         val nimq = 16
         val wimq = log2Ceil(nimq)
-        val nrob = 32
-        val wrob = log2Ceil(nrob)
     }
     object Issue{
-        val nissue = 5
+        val niq           = 3
+        val nissue        = 5
+        val arith_niq     = 24
+        val arith_nissue  = 3
+        val muldiv_niq    = 9
+        val muldiv_nissue = 1
+        val lsu_niq       = 9
+        val lsu_nissue    = 1
     }
     object Fetch{
-        val nfetch = 2
+        val nfetch = 4
+        val nfetch_q = 16
     }
     object Decode{
         val ndecode = 3
+        val wdecode = log2Ceil(ndecode)
     }
     object StoreBuffer{
         val nsb = 8
@@ -73,7 +83,8 @@ object CPU_Config{
         val nrob = 60
         assert(nrob % ndecode == 0, "nrob must be divisible by ndecode")
         val nrob_q = nrob / ndecode
-
+        val wrob = log2Ceil(nrob)
+        val wrob_q = log2Ceil(nrob_q)
     }
     object Cache{
         import CPU_Config.Fetch._

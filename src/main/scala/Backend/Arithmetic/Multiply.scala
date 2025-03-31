@@ -1,13 +1,14 @@
 import chisel3._
 import chisel3.util._
 import Adder._
-import MDU_Op._
+import EXE_Op._
+import Zircon_Util._
 
 object Multiply{
     class Multiply_IO extends Bundle {
         val src1 = Input(UInt(32.W))
         val src2 = Input(UInt(32.W))
-        val op   = Input(MDU_Op())
+        val op   = Input(UInt(4.W))
         val res  = Output(UInt(32.W))
     }
     class Booth2 extends Module {
@@ -41,10 +42,10 @@ object Multiply{
     }
     class Wallce_Tree17_Cin15 extends Module {
         val io = IO(new Bundle{
-            val src = Input(UInt(17.W))
-            val cin = Input(UInt(15.W))
-            val sum = Output(UInt(1.W))
-            val cout = Output(UInt(16.W))
+            val src     = Input(UInt(17.W))
+            val cin     = Input(UInt(15.W))
+            val sum     = Output(UInt(1.W))
+            val cout    = Output(UInt(16.W))
         })
         val src = io.src
         val cin = io.cin
@@ -106,8 +107,8 @@ object Multiply{
     class Mul_Booth2_Wallce extends Module {
         val io = IO(new Multiply_IO)
         // extend
-        val src1 = Mux(io.op === MULHU, 0.U(32.W) ## io.src1, (Fill(32, io.src1(31)) ## io.src1))
-        val src2 = Mux(io.op === MULHU, 0.U(32.W) ## io.src2, (Fill(32, io.src2(31)) ## io.src2))
+        val src1 = Mux(io.op === MULHU, ZE(io.src1, 64), SE(io.src1, 64))
+        val src2 = Mux(io.op === MULHU || io.op === MULHSU, ZE(io.src2, 64), SE(io.src2, 64))
 
         // Booth2 encoder x 17
         val add1_booth = Wire(Vec(17, Bool()))
@@ -121,10 +122,10 @@ object Multiply{
         }
 
         // Wallace Tree
-        val add1_wallce = RegNext(add1_booth)
-        val pp_wallce = RegNext(pp_booth)
-        val sum_wallce = Wire(Vec(64, UInt(1.W)))
-        val cout_wallce = Wire(Vec(64, UInt(16.W)))
+        val add1_wallce     = ShiftRegister(add1_booth, 1, VecInit.fill(17)(false.B), true.B)
+        val pp_wallce       = ShiftRegister(pp_booth, 1, VecInit.fill(17)(0.U(64.W)), true.B)
+        val sum_wallce      = Wire(Vec(64, UInt(1.W)))
+        val cout_wallce     = Wire(Vec(64, UInt(16.W)))
 
         for(i <- 0 until 64){
             val cin = (if(i == 0) VecInit(add1_wallce.take(15)).asUInt else cout_wallce(i-1)(14, 0))
@@ -134,16 +135,17 @@ object Multiply{
         }
 
         // full adder
-        val fadd_src1 = RegNext(sum_wallce.asUInt)
-        val fadd_src2 = RegNext(VecInit(cout_wallce.map(_(15))).asUInt(62, 0) ## add1_wallce(15))
-        val fadd_cin  = RegNext(add1_wallce(16).asUInt)
+        val fadd_src1 = ShiftRegister(sum_wallce.asUInt, 1, 0.U, true.B)
+        val fadd_src2 = ShiftRegister(VecInit(cout_wallce.map(_(15))).asUInt(62, 0) ## add1_wallce(15), 1, 0.U, true.B)
+        val fadd_cin  = ShiftRegister(add1_wallce(16).asUInt, 1, 0.U, true.B)
 
         val fadd = BLevel_PAdder64(fadd_src1, fadd_src2, fadd_cin)
         io.res := fadd.io.res(63, 32)
         switch(io.op){
-            is(MUL){ io.res := fadd.io.res(31, 0) }
-            is(MULH){ io.res := fadd.io.res(63, 32) }
-            is(MULHU){ io.res := fadd.io.res(63, 32) }
+            is(MUL)     { io.res := fadd.io.res(31, 0) }
+            is(MULH)    { io.res := fadd.io.res(63, 32) }
+            is(MULHU)   { io.res := fadd.io.res(63, 32) }
+            is(MULHSU)  { io.res := fadd.io.res(63, 32) }
         }
     }
     object Booth2{

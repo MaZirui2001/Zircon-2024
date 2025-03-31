@@ -42,6 +42,7 @@ class I_Pipeline_IO extends Bundle {
     val miss        = Output(Bool())
     val rrsp        = Output(Bool())
     val stall       = Input(Bool())
+    val flush       = Input(Bool())
 }
 
 class I_MMU_IO extends Bundle {
@@ -82,7 +83,7 @@ class ICache extends Module {
     val c1s1 = (new I_Stage1_Signal)(io.pp)
 
     // Stage 2: MMU and hit check
-    val c1s2 = ShiftRegister(c1s1, 1, 0.U.asTypeOf(new I_Stage1_Signal), !(miss_c1 || io.pp.stall))
+    val c1s2 = ShiftRegister(c1s1, 1, 0.U.asTypeOf(new I_Stage1_Signal), !(miss_c1 || io.pp.stall) || io.pp.flush)
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val tag_c1s2    = tag_tab.map(_.douta)
     val data_c1s2   = data_tab.map(_.douta)
@@ -104,6 +105,7 @@ class ICache extends Module {
     fsm.io.cc.stall     := io.pp.stall
     fsm.io.l2.rrsp      := io.l2.rrsp && ShiftRegister(io.l2.rrsp, 1, false.B, !io.l2.miss) // for two requests
     fsm.io.l2.miss      := io.l2.miss
+    fsm.io.cc.flush     := io.pp.flush
     // lru
     lru_tab.raddr(0) := index(c1s3.vaddr)
     lru_tab.wen(0)   := fsm.io.cc.lru_upd.orR

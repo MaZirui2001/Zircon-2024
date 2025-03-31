@@ -18,6 +18,7 @@ class ICache_FSM_Cache_IO extends Bundle {
     val lru         = Input(UInt(2.W))
     val lru_upd     = Output(UInt(2.W))
     val stall       = Input(Bool())
+    val flush       = Input(Bool())
 }
 
 
@@ -60,7 +61,7 @@ class ICache_FSM extends Module {
                     io.cc.lru_upd := ~io.cc.hit
                 }
             }
-            io.cc.addr_1H := Mux(io.cc.stall, 2.U, 1.U)
+            io.cc.addr_1H := Mux(io.cc.stall && !io.cc.flush, 2.U, 1.U)
         }
 
         is(m_miss) {
@@ -84,7 +85,8 @@ class ICache_FSM extends Module {
 
         is(m_wait) {
             m_state := m_pause
-            io.cc.addr_1H := 2.U  // choose s2 addr
+            // io.cc.addr_1H := 2.U  // choose s2 addr
+            io.cc.addr_1H := Mux(io.cc.flush, 1.U, 2.U)
             io.cc.cmiss := true.B
         }
 

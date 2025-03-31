@@ -35,7 +35,7 @@ class L2_Channel1_Stage2_Signal extends L2_Channel1_Stage1_Signal{
 class L2_Channel2_Stage1_Signal extends Bundle {
     val rreq        = Bool()
     val wreq        = Bool()
-    val uncache       = Bool()
+    val uncache     = Bool()
     val paddr       = UInt(32.W)
     val mtype       = UInt(2.W)
     val wdata       = UInt(32.W)

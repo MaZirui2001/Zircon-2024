@@ -75,7 +75,7 @@ object Zircon_Util{
         // Mux1H
     }
     // write-first read
-    def wfirst_read[T <: Data](rdata: T, ridx: UInt, widx: Vec[UInt], wdata: Vec[T], wen: Vec[Bool]): T = {
+    def wfirst_read[T <: Data](rdata: T, ridx: UInt, widx: Seq[UInt], wdata: Seq[T], wen: Seq[Bool]): T = {
         assert(widx.size == wdata.size && widx.size == wen.size, "widx, wdata and wen must have the same size")
         val n = wdata.size
         val whit = VecInit.tabulate(n)(i => (ridx === widx(i)) && wen(i))

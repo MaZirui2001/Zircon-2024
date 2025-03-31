@@ -9,6 +9,8 @@ class PRegister_Info extends Bundle {
     val prk     = UInt(wpreg.W)
     val prd     = UInt(wpreg.W)
     val pprd    = UInt(wpreg.W)
+    val prj_wk  = Bool()
+    val prk_wk  = Bool()
 }
 
 class Rename_Frontend_IO extends Bundle {
@@ -51,6 +53,12 @@ class Rename extends Module {
     srat.io.rnm.prd     := io.fte.pinfo.map(_.prd)
 
     // RAW: 
+    def raw(rs: UInt, rds: Seq[UInt]): Bool = {
+        val n = rds.length
+        if(n == 0) return false.B
+        val idx1H = VecInit.tabulate(n){i => (rs === rds(i))}
+        idx1H.asUInt.orR
+    }
     def raw_idx1H(rs: UInt, rds: Seq[UInt]): UInt = {
         val n = rds.length
         if(n == 0) return 0.U
@@ -67,6 +75,8 @@ class Rename extends Module {
         pinfo.prj   := raw_read(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prj(i), flst.io.fte.deq.map(_.bits).take(i))
         pinfo.prk   := raw_read(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prk(i), flst.io.fte.deq.map(_.bits).take(i))
         pinfo.pprd  := raw_read(io.fte.rinfo(i).bits.rd, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.pprd(i), flst.io.fte.deq.map(_.bits).take(i))
+        pinfo.prj_wk := !raw(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i))
+        pinfo.prk_wk := !raw(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i))
     }
     
     io.dif.srat.rename_table := srat.io.dif.rename_table

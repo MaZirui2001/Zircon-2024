@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import Zircon_Util._
 import Adder._
+import CPU_Config.Fetch._
 
 /* Pre-Decoder: 
     In order to shorten the frontend pipleline, we need to decode the instruction
@@ -18,28 +19,23 @@ class Register_Info extends Bundle {
     val rk_vld  = Bool()
     val rk      = UInt(5.W)
 }
-class Branch_Info extends Bundle {
-    val jump_en     = Bool()
-    val jump_tgt    = UInt(32.W)
-}
 class Pre_Decoder_IO extends Bundle {
     val inst_pkg    = Input(new Frontend_Package)
-    val pred_info   = Input(new Predict_Info)
     val rinfo       = Output(new Register_Info)
-    val binfo       = Output(new Branch_Info)
+    val npc         = Flipped(new NPC_PreDecode_IO)
 }
 
 class Pre_Decoder extends Module {
     val io = IO(new Pre_Decoder_IO)
     val inst_pkg    = io.inst_pkg
-    val pred_info   = io.pred_info
+    val pred_info   = inst_pkg.pred_info
     val inst        = inst_pkg.inst
 
     // rd
     val rd_vld = inst(3, 0) === 0x3.U && !(
         inst(6, 4) === 0x6.U || // store
         inst(6, 4) === 0x2.U    // branch
-    )
+    ) || inst(2, 0) === 0x7.U
 
     val rd = inst(11, 7)
     io.rinfo.rd_vld := Mux(rd === 0.U, false.B, rd_vld)
@@ -83,13 +79,32 @@ class Pre_Decoder extends Module {
         is_br   -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W))
     ))
 
-    io.binfo.jump_en := Mux1H(Seq(
+    io.npc.flush := Mux1H(Seq(
         isn_j   -> pred_info.jump_en, // isn't jump: predictor must be wrong if it predicts jump
-        is_jal  -> (inst_pkg.pred_info.offset =/= imm), 
-        is_br   -> Mux(pred_info.vld, inst_pkg.pred_info.offset =/= imm, imm(31))
-    ))
+        is_jal  -> (pred_info.offset =/= imm), 
+        is_br   -> Mux(pred_info.vld, pred_info.offset =/= imm, imm(31))
+    )) && io.inst_pkg.valid
 
-    val offset = Mux(isn_j, 4.U, imm)
-    io.binfo.jump_tgt := BLevel_PAdder32(inst_pkg.pc, offset, 0.U).io.res
+    io.npc.jump_offset := Mux(isn_j, 4.U, imm)
+    io.npc.pc := inst_pkg.pc
 
+}
+
+class Pre_Decoders_IO extends Bundle {
+    val inst_pkg    = Input(Vec(nfetch, new Frontend_Package))
+    val rinfo       = Vec(nfetch, Decoupled(new Register_Info))
+    val npc         = Flipped(new NPC_PreDecode_IO)
+}
+
+class Pre_Decoders extends Module {
+    val io = IO(new Pre_Decoders_IO)
+    val pds = VecInit.fill(nfetch)(Module(new Pre_Decoder).io)
+    for (i <- 0 until nfetch) {
+        pds(i).inst_pkg := io.inst_pkg(i)
+        io.rinfo(i).bits := pds(i).rinfo
+        io.rinfo(i).valid := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.inst_pkg.valid}.take(i).reduce(_ || _)) && io.inst_pkg(i).valid
+    }
+    io.npc.flush := pds.map(_.npc.flush).reduce(_ || _)
+    io.npc.jump_offset := Mux1H(PriorityEncoderOH(pds.map(_.npc.flush)), pds.map(_.npc.jump_offset))
+    io.npc.pc := Mux1H(PriorityEncoderOH(pds.map(_.npc.flush)), pds.map(_.npc.pc))
 }
