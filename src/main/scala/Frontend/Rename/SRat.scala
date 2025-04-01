@@ -36,8 +36,8 @@ class SRat_IO extends Bundle{
 class SRat extends Module {
     val io  = IO(new SRat_IO)
 
-    val rat_rnm = RegInit(VecInit.fill(nlreg)(0.U(wpreg.W)))
-    val rat_cmt = RegInit(VecInit.fill(nlreg)(0.U(wpreg.W)))
+    val rat_rnm = RegInit(VecInit.tabulate(nlreg)(i => i.U(wpreg.W)))
+    val rat_cmt = RegInit(VecInit.tabulate(nlreg)(i => i.U(wpreg.W)))
 
     // reanme stage
     io.rnm.prj.zipWithIndex.foreach{ case (prj, i) =>

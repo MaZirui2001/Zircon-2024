@@ -28,23 +28,21 @@ class Ready_Board extends Module {
     val io = IO(new Ready_Board_IO)
 
     val board = RegInit(VecInit.fill(npreg)((new Ready_Board_Entry)(true.B, 0.U)))
-    val board_nxt = WireDefault(board)
 
     for (i <- 0 until ndecode) {
-        board_nxt(io.pinfo(i).prd).ready := false.B
+        board(io.pinfo(i).prd).ready := false.B
     }
     for (i <- 0 until nissue) {
-        board_nxt(io.wake_bus(i).prd) := (new Ready_Board_Entry)(true.B, io.wake_bus(i).lpv)
+        board(io.wake_bus(i).prd) := (new Ready_Board_Entry)(true.B, io.wake_bus(i).lpv)
     }
-    board_nxt(io.rply_bus.prd).ready := true.B
-    board_nxt.zip(board).foreach{case(e, b) => 
-        when(b.lpv.orR){
-            e.lpv := b.lpv << 1
+    board(io.rply_bus.prd).ready := true.B
+    board.foreach{case(e) => 
+        when(e.lpv.orR){
+            e.lpv := e.lpv << 1
             e.ready := !io.rply_bus.replay
         }
     }
-    board_nxt(0) := (new Ready_Board_Entry)(true.B, 0.U)
-    board := board_nxt
+    board(0) := (new Ready_Board_Entry)(true.B, 0.U)
 
     when(io.flush){
         board := VecInit.fill(npreg)((new Ready_Board_Entry)(true.B, 0.U))

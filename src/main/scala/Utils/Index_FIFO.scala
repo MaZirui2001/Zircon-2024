@@ -3,11 +3,10 @@ import chisel3.util._
 import Zircon_Util._
 
 // is_flst: The FIFO is a free list for reg rename
-class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean, is_preg: Boolean) extends Bundle {
+class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean) extends Bundle {
     val enq 	 = Flipped(Decoupled(gen))
 	val enq_idx  = Output(UInt(n.W))
 	val enq_high = Output(Bool())
-	val cmt      = if(is_preg) Some(Input(Bool())) else None
     val deq 	 = Decoupled(gen)
 	val deq_idx  = Output(UInt(n.W))
 	val deq_high = Output(Bool())
@@ -23,8 +22,8 @@ class Index_FIFO_IO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolea
 	val dbg_FIFO = Output(Vec(n, gen))
 }
 
-class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean = false, rst_val: Option[Seq[T]] = None, is_preg: Boolean = false) extends Module {
-	val io = IO(new Index_FIFO_IO(gen, n, rw, ww, is_flst, is_preg))
+class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean = false, rst_val: Option[Seq[T]] = None) extends Module {
+	val io = IO(new Index_FIFO_IO(gen, n, rw, ww, is_flst))
 
 	val q = RegInit(
 		if(is_flst && rst_val.isDefined) VecInit(rst_val.get)
@@ -38,27 +37,20 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean =
 	// pointers
 	val hptr = RegInit(1.U(n.W))
 	val tptr = RegInit(1.U(n.W))
-	val cptr = RegInit(1.U(n.W))
 	val hptr_high = RegInit(0.U(1.W))
 	val tptr_high = RegInit(0.U(1.W))
-	val cptr_high = RegInit(0.U(1.W))
 
 	// pointer update logic
 	val hptr_nxt = Mux(io.deq.ready && eptyn, shift_add_1(hptr), hptr)
 	val tptr_nxt = Mux(io.enq.valid && fulln, shift_add_1(tptr), tptr)
-	val cptr_nxt = Mux(io.cmt.getOrElse(false.B), shift_add_1(cptr), cptr)
-
-	hptr := Mux(io.flush, if(is_flst) cptr_nxt else 1.U, hptr_nxt)
+	hptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, hptr_nxt)
 	tptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, tptr_nxt)
-	cptr := Mux(io.flush, if(is_flst) cptr_nxt else 1.U, cptr_nxt)
 
 
 	val hptr_high_nxt = Mux(hptr_nxt(0) && hptr(n-1), ~hptr_high, hptr_high)
 	val tptr_high_nxt = Mux(tptr_nxt(0) && tptr(n-1), ~tptr_high, tptr_high)
-	val cptr_high_nxt = Mux(cptr_nxt(0) && cptr(n-1), ~cptr_high, cptr_high)
-	hptr_high := Mux(io.flush, if(is_flst) cptr_high_nxt else 0.U, hptr_high_nxt)
+	hptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else 0.U, hptr_high_nxt)
 	tptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else 0.U, tptr_high_nxt)
-	cptr_high := Mux(io.flush, if(is_flst) cptr_high_nxt else 0.U, cptr_high_nxt)
 
 	// full and empty flag update logic
 	if(!is_flst){

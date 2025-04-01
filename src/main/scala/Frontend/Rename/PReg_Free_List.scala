@@ -15,7 +15,7 @@ class Free_List_Commit_IO extends Bundle{
 }
 
 class Free_List_Diff_IO extends Bundle{
-    val free_list   = Output(Vec(npreg-1, UInt(wpreg.W)))
+    val free_list   = Output(Vec(npreg-32, UInt(wpreg.W)))
 }
 
 class Free_List_IO extends Bundle{
@@ -27,7 +27,7 @@ class Free_List_IO extends Bundle{
 class PReg_Free_List extends Module{
     val io = IO(new Free_List_IO)
 
-    val flst = Module(new Cluster_Index_FIFO(UInt(wpreg.W), npreg-1, ncommit, ndecode, 0, 0, true, Some(Seq.tabulate(npreg-1)(i => (i+1).U(wpreg.W))), true))
+    val flst = Module(new Cluster_Index_FIFO(UInt(wpreg.W), npreg-32, ncommit, ndecode, 0, 0, true, Some(Seq.tabulate(npreg-32)(i => (i+32).U(wpreg.W)))))
     /* calculate the port map
         port_map(i) means io port i is connected to the port_map(i)th enq port
         it traverse is the enq port mapped to the io port
@@ -51,23 +51,15 @@ class PReg_Free_List extends Module{
     val port_map_enq = VecInit.fill(ncommit)(0.U(ncommit.W))
     val port_map_trans_enq = transpose(port_map_enq)
     var valid_ptr_enq = 1.U(ncommit.W)
-    val port_map_cmt = VecInit.fill(ncommit)(0.U(ncommit.W))
-    val port_map_trans_cmt = transpose(port_map_cmt)
-    var valid_ptr_cmt = 1.U(ncommit.W)
     
     for(i <- 0 until ncommit) {
         // pprd =/= 0: for the first several instructions, the pprd is not valid
-        port_map_enq(i) := Mux(io.cmt.enq(i).valid && io.cmt.enq(i).bits =/= 0.U, valid_ptr_enq, 0.U)
-        valid_ptr_enq = Mux(io.cmt.enq(i).valid && io.cmt.enq(i).bits =/= 0.U, shift_add_1(valid_ptr_enq), valid_ptr_enq)
-        port_map_cmt(i) := Mux(io.cmt.enq(i).valid, valid_ptr_cmt, 0.U)
-        valid_ptr_cmt = Mux(io.cmt.enq(i).valid, shift_add_1(valid_ptr_cmt), valid_ptr_cmt)
+        port_map_enq(i) := Mux(io.cmt.enq(i).valid, valid_ptr_enq, 0.U)
+        valid_ptr_enq = Mux(io.cmt.enq(i).valid, shift_add_1(valid_ptr_enq), valid_ptr_enq)
     }
     flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
         e.valid := port_map_trans_enq(i).orR
         e.bits := Mux1H(port_map_trans_enq(i), io.cmt.enq.map(_.bits))
-    }
-    flst.io.cmt.get.zipWithIndex.foreach{ case (c, i) =>
-        c := port_map_trans_cmt(i).orR
     }
     io.cmt.enq.foreach(_.ready := DontCare)
     flst.io.flush := ShiftRegister(io.cmt.flush, 1, false.B, true.B)

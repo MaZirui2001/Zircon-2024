@@ -45,7 +45,7 @@ object CPU_Config{
     object RegisterFile{
         val nlreg = 32
         val wlreg = log2Ceil(nlreg)
-        val npreg = 64
+        val npreg = 62
         val wpreg = log2Ceil(npreg)
     }
     object ReserveQueue{

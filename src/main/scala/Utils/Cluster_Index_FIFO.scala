@@ -18,10 +18,9 @@ class Cluster_Entry(w_offset: Int, w_qidx: Int) extends Bundle {
     }
 }
 
-class Cluster_Index_FIFO_IO[T <: Data](gen: T, n: Int, len: Int, ew: Int, dw: Int, rw: Int, ww: Int, is_flst: Boolean, is_preg: Boolean) extends Bundle {
+class Cluster_Index_FIFO_IO[T <: Data](gen: T, n: Int, len: Int, ew: Int, dw: Int, rw: Int, ww: Int, is_flst: Boolean) extends Bundle {
     val enq 	= Vec(ew, Flipped(Decoupled(gen)))
     val enq_idx = Output(Vec(ew, new Cluster_Entry(len, n)))
-    val cmt     = if(is_preg) Some(Input(Vec(ew, Bool()))) else None
     val deq 	= Vec(dw, Decoupled(gen))
     val deq_idx = Output(Vec(dw, new Cluster_Entry(len, n)))
     // read port
@@ -36,15 +35,15 @@ class Cluster_Index_FIFO_IO[T <: Data](gen: T, n: Int, len: Int, ew: Int, dw: In
     val dbg_FIFO = Output(Vec(n*len, gen))
 }
 
-class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int, is_flst: Boolean = false, rst_val: Option[Seq[T]] = None, is_preg: Boolean = false) extends Module {
+class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int, is_flst: Boolean = false, rst_val: Option[Seq[T]] = None) extends Module {
     val n = if(dw > ew) dw else ew
     val len = num / n
     assert(num % n == 0, "cluster fifo num must be divisible by n")
     // println(s"n: $n, len: $len, num: $num, ew: $ew, dw: $dw")
-    val io = IO(new Cluster_Index_FIFO_IO(gen, n, len, ew, dw, rw, ww, is_flst, is_preg))
+    val io = IO(new Cluster_Index_FIFO_IO(gen, n, len, ew, dw, rw, ww, is_flst))
 
     val fifos = VecInit.tabulate(n)(i => Module(new Index_FIFO(gen, len, rw, ww, is_flst, 
-        if (rst_val.isDefined) Some(rst_val.get.slice(i*len, (i+1)*len)) else None, is_preg)).io)
+        if (rst_val.isDefined) Some(rst_val.get.slice(i*len, (i+1)*len)) else None)).io)
 
     // enq
     val all_enq_ready = fifos.map(_.enq.ready).reduce(_ && _)
@@ -87,12 +86,6 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
 
     // commit
     val commit_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(n.W)))
-    val commit_ptr_trans = transpose(commit_ptr)
-    if(is_preg){
-        fifos.zipWithIndex.foreach{ case (fifo, i) => 
-            fifo.cmt.get := Mux1H(commit_ptr_trans(i), io.cmt.get)
-        }
-    }
 
     // update enq_ptr
     if(is_flst){
@@ -121,13 +114,8 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
     
     // update commit_ptr
     if(is_flst){
-        if(is_preg){
-            val counter = align(PopCount(io.cmt.get), log2Ceil(n))
-            commit_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
-        }else{
-            val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
-            commit_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
-        }
+        val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+        commit_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
     }
 
     fifos.foreach{_.flush := io.flush}
