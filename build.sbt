@@ -7,6 +7,7 @@ scalacOptions ++= Seq(
   "-language:reflectiveCalls",
 )
 val chiselVersion = "6.7.0"
+Test / parallelExecution := true
 addCompilerPlugin ("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full)
 libraryDependencies += "org.chipsalliance" %% "chisel" % chiselVersion
 libraryDependencies += "org.typelevel" %% "spire" % "0.18.0"
