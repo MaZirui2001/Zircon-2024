@@ -30,12 +30,6 @@ class Emulator{
     }
     def difftest_rf(rd_idx: UInt, rd_data_dut: UInt, pc_dut: UInt): Boolean = {
         val rf_ref = simulator.rf_dump()
-        // for(i <- 0 until 32){
-        //     if(rf_ref(i) != rf_dut(rnm_table(i).toInt)){
-        //         println(s"RF mismatch at pc ${pc_dut.toInt.toHexString}, reg ${i}(preg: ${rnm_table(i).toInt}), ref: ${rf_ref(i).toInt.toHexString}, dut: ${rf_dut(rnm_table(i).toInt).toInt.toHexString}")
-        //         return false
-        //     }
-        // }
         if(rf_ref(rd_idx.toInt) != rd_data_dut){
             println(s"RF mismatch at pc ${pc_dut.toInt.toHexString}, reg ${rd_idx.toInt}(preg: ${rnm_table(rd_idx.toInt).toInt}), ref: ${rf_ref(rd_idx.toInt).toLong.toHexString}, dut: ${rd_data_dut.toLong.toHexString}")
             return false
@@ -69,7 +63,7 @@ class Emulator{
                     iring.push((UInt(cmt.fte.pc.litValue.toLong), UInt(cmt.fte.inst.litValue.toLong)))
                     println(s"${cmt.fte.pc.litValue.toLong.toHexString}: ${cmt.fte.rd.litValue.toLong.toHexString} ${cmt.fte.prd.litValue.toLong.toHexString}")
                     if(sim_end(UInt(cmt.fte.inst.litValue.toLong))){
-                        return (if(UInt(dbg.rf.rf(10).litValue.toLong) == UInt(0)) 0 else -1)
+                        return (if(UInt(dbg.rf.rf(rnm_table(10).toInt).litValue.toLong) == UInt(0)) 0 else -1)
                     }
                     // update state
                     rnm_table_update(UInt(cmt.fte.rd.litValue.toLong), UInt(cmt.fte.prd.litValue.toLong))
