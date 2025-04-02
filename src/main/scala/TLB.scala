@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
 import Exception._
-import CPU_Config.TLB._
+import Zircon_Config.TLB._
 import Zircon_Util._
 
 class TLB_Entry_T extends Bundle {

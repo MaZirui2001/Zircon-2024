@@ -1,6 +1,6 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.RegisterFile._
+import Zircon_Config.RegisterFile._
 import RegFile_Utils.WF_Read
 import Zircon_Util._
 

@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Fetch._
-import CPU_Config.Decode._
+import Zircon_Config.Fetch._
+import Zircon_Config.Decode._
 
 class Fetch_Queue_Commit_IO extends Bundle {
     val flush   = Input(Bool())

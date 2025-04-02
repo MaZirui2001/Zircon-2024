@@ -4,8 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable.Queue
 import scala.util._
 import spire.math.UInt
-import Multiply._
-import EXE_Op._
+import Zircon_Config.EXE_Op._
 
 class DIV_Ref{
     def calculate(a: Long, b: Long, op: Int): Long = {

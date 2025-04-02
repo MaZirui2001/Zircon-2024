@@ -1,9 +1,9 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.RegisterFile._
-import CPU_Config.Decode._
-import CPU_Config.Issue._
-import CPU_Config.Commit._
+import Zircon_Config.RegisterFile._
+import Zircon_Config.Decode._
+import Zircon_Config.Issue._
+import Zircon_Config.Commit._
 class Ready_Board_Entry extends Bundle {
     val ready = Bool()
     val lpv = UInt(3.W)

@@ -1,6 +1,6 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Issue._
+import Zircon_Config.Issue._
 
 class Forward_IO extends Bundle {
     val inst_pkg_wb  = Input(Vec(nissue, new Backend_Package))

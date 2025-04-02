@@ -1,10 +1,9 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Decode._
-import CPU_Config.Issue._
+import Zircon_Config.Decode._
+import Zircon_Config.Issue._
 import Zircon_Util._
-import CPU_Config.Commit._
-import Adder.BLevel_PAdder32
+import Zircon_Config.Commit._
 
 class LS_Commit_IO extends Pipeline_Commit_IO {
     val dc      = new D_Commit_IO

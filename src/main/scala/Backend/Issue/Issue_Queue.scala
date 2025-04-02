@@ -1,10 +1,10 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.RegisterFile._
-import CPU_Config.ReserveQueue._
-import CPU_Config.Issue._   
-import CPU_Config.Commit._
-import CPU_Config.Decode._
+import Zircon_Config.RegisterFile._
+import Zircon_Config.ReserveQueue._
+import Zircon_Config.Issue._   
+import Zircon_Config.Commit._
+import Zircon_Config.Decode._
 import Zircon_Util._
 import Log2OH._
 

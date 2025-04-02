@@ -1,8 +1,7 @@
 import chisel3._
 import chisel3.util._
 import Zircon_Util._
-import EXE_Op._
-import Adder._
+import Zircon_Config.EXE_Op._
 
 class SRT2_IO extends Bundle {
     val src1 = Input(UInt(32.W))

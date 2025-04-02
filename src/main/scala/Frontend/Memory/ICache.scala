@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Cache._
-import CPU_Config.Fetch._
+import Zircon_Config.Cache._
+import Zircon_Config.Fetch._
 import Zircon_Util._
 
 class I_Stage1_Signal extends Bundle {

@@ -3,7 +3,7 @@ import chisel3.util._
 import Exception._
 import CSR_NAME._
 
-import CPU_Config._
+import Zircon_Config._
 import Exception._
 
 class CSR_RW_IO extends Bundle{

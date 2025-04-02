@@ -1,6 +1,6 @@
 import chisel3._
 import chisel3.util._
-import EXE_Op._
+import Zircon_Config.EXE_Op._
 
 class Branch_IO extends Bundle{
     val src1        = Input(UInt(32.W))

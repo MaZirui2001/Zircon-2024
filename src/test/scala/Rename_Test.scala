@@ -4,8 +4,8 @@ import chiseltest.simulator.VerilatorFlags
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable.Queue
 import scala.util._
-import CPU_Config.Decode._
-import CPU_Config.RegisterFile._
+import Zircon_Config.Decode._
+import Zircon_Config.RegisterFile._
 import Zircon_Util._
 import os.write
 import scala.collection.parallel.CollectionConverters._
@@ -79,7 +79,7 @@ class Rename_Test_Generator {
 }
 
 class Rename_Ref{
-    import CPU_Config.Commit._
+    import Zircon_Config.Commit._
     val free_list = Array.tabulate(npreg)(i =>
         (i / ndecode) + 1 + (i % ndecode) * (npreg / ndecode)
     )
@@ -122,7 +122,7 @@ class Rename_Ref{
 
 class Rename_Test extends AnyFlatSpec with ChiselScalatestTester {
     import Rename_Test_Config._
-    import CPU_Config.Commit._
+    import Zircon_Config.Commit._
     val test_generator = new Rename_Test_Generator
     println("generating tests ...")
     test_generator.generate_tests

@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Cache._
-import CPU_Config.StoreBuffer._
+import Zircon_Config.Cache._
+import Zircon_Config.StoreBuffer._
 import Zircon_Util._
 
 class D_Channel1_Stage1_Signal extends Bundle {

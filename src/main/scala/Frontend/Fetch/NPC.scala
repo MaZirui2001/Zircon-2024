@@ -1,7 +1,6 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Fetch._
-import Adder._
+import Zircon_Config.Fetch._
 
 class NPC_Commit_IO extends Bundle {
     val flush       = Input(Bool())

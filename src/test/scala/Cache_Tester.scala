@@ -5,8 +5,8 @@ import chiseltest.simulator.VerilatorFlags
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable.Queue
 import scala.util._
-import CPU_Config.Cache._
-import CPU_Config.Fetch._
+import Zircon_Config.Cache._
+import Zircon_Config.Fetch._
 import Zircon_Util._
 import os.write
 import os.Path

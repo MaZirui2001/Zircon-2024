@@ -1,9 +1,9 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Issue._
-import CPU_Config.Decode._
-import CPU_Config.Commit._
-import CPU_Config.RegisterFile._
+import Zircon_Config.Issue._
+import Zircon_Config.Decode._
+import Zircon_Config.Commit._
+import Zircon_Config.RegisterFile._
 
 class Predict_Info extends Bundle {
     val offset      = UInt(32.W)

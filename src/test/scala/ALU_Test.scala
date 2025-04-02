@@ -2,7 +2,6 @@
 // import chiseltest._
 // import org.scalatest.flatspec.AnyFlatSpec
 // import scala.util._
-// import Adder._
 // import ALU_BR_Op._
 
 // object ALU_Dut{

@@ -2,8 +2,7 @@ import chisel3._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util._
-import Multiply._
-import EXE_Op._
+import Zircon_Config.EXE_Op._
 
 class Mul_Test extends AnyFlatSpec with ChiselScalatestTester{
     behavior of "MUL"

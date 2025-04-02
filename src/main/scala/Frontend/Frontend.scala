@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Fetch._
-import CPU_Config.Decode._
+import Zircon_Config.Fetch._
+import Zircon_Config.Decode._
 
 class Frontend_Dispatch_IO extends Bundle {
     val inst_pkg = Vec(ndecode, Decoupled(new Frontend_Package))

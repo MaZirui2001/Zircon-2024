@@ -1,7 +1,6 @@
 import chisel3._
 import chisel3.util._
-import EXE_Op._
-import Adder._
+import Zircon_Config.EXE_Op._
 import Shifter._
 
 

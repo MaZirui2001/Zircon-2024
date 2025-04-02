@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Decode._
-import CPU_Config.Issue._
+import Zircon_Config.Decode._
+import Zircon_Config.Issue._
 import Zircon_Util._
 
 class Dispatcher_IO extends Bundle {

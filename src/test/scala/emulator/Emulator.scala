@@ -1,8 +1,8 @@
 import spire.math.UInt
 
 import chiseltest._
-import CPU_Config.Commit.ncommit
-import CPU_Config.RegisterFile.npreg
+import Zircon_Config.Commit.ncommit
+import Zircon_Config.RegisterFile.npreg
 
 class Emulator{
     private val base_addr = UInt(0x80000000)

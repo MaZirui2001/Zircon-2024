@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
-import EXE_Op._
-import CPU_Config.Issue._
+import Zircon_Config.EXE_Op._
+import Zircon_Config.Issue._
 import Zircon_Util._
 
 class Decoder_IO extends Bundle{

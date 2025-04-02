@@ -1,8 +1,7 @@
 import chisel3._
 import chisel3.util._
 import Zircon_Util._
-import Adder._
-import CPU_Config.Fetch._
+import Zircon_Config.Fetch._
 
 /* Pre-Decoder: 
     In order to shorten the frontend pipleline, we need to decode the instruction

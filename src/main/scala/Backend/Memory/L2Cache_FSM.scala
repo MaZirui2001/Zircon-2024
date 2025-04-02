@@ -1,6 +1,6 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Cache._
+import Zircon_Config.Cache._
 import Zircon_Util._
 
 class L2Cache_FSM_Cache_IO(ic: Boolean) extends Bundle {

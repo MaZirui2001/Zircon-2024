@@ -1,12 +1,12 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.RegisterFile._
-import CPU_Config.Decode._
-import CPU_Config.Commit._
-import CPU_Config.Issue._
+import Zircon_Config.RegisterFile._
+import Zircon_Config.Decode._
+import Zircon_Config.Commit._
+import Zircon_Config.Issue._
 import Zircon_Util._
-import Jump_Op._
-import EXE_Op._
+import Zircon_Config.Jump_Op._
+import Zircon_Config.EXE_Op._
 
 class ROB_Frontend_Entry extends Bundle{
     val rd_vld      = Bool()

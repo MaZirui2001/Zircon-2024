@@ -1,8 +1,8 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.RegisterFile._
-import CPU_Config.Commit._
-import CPU_Config.Decode._
+import Zircon_Config.RegisterFile._
+import Zircon_Config.Commit._
+import Zircon_Config.Decode._
 import Zircon_Util._
 
 class Free_List_Frontend_IO extends Bundle{

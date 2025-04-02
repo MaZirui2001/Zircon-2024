@@ -1,8 +1,8 @@
 import chisel3._
 import chisel3.util._
-import CPU_Config.Issue._
-import CPU_Config.Decode._
-import CPU_Config.Commit._
+import Zircon_Config.Issue._
+import Zircon_Config.Decode._
+import Zircon_Config.Commit._
 
 class Backend_Dispatch_IO extends Bundle {
     val inst_pkg = Vec(niq, Vec(ndecode, Flipped(Decoupled(new Backend_Package))))

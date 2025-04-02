@@ -2,7 +2,6 @@ import chisel3._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util._
-import Adder._
 
 
 class FIFO_Dut(n: Int = 8) {
