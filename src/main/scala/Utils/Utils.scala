@@ -3,39 +3,33 @@ package Zircon_Util
 import chisel3._
 import chisel3.util._
 
-object shift_add_1 {
+object ShiftAdd1 {
     def apply(x: UInt): UInt = {
         val n = x.getWidth
         x(n-2, 0) ## x(n-1)
     }
 }
-object shift_1 {
-    def apply(x: UInt): UInt = {
-        val n = x.getWidth
-        x(n-2, 0) ## 0.U(1.W)
-    }
-}
-object shift_sub_1 {
+object ShiftSub1 {
     def apply(x: UInt): UInt = {
         val n = x.getWidth
         x(0) ## x(n-1, 1)
     }
 }
-object shift_add_n {
+object ShiftAddN {
     def apply(x: UInt, k: Int): UInt = {
         val n = x.getWidth
         if (k == 0) x
         else x(n-k-1, 0) ## x(n-1, n-k)
     }
 }
-object shift_sub_n {
+object ShiftSubN {
     def apply(x: UInt, k: Int): UInt = {
         val n = x.getWidth
         if (k == 0) x
         else x(k-1, 0) ## x(n-1, k)
     }
 }
-object esltu {  
+object ESltu {  
     // extend slt unsigned
     def apply(src1: UInt, src2: UInt): Bool = {
         val n = src1.getWidth
@@ -45,7 +39,7 @@ object esltu {
         Mux(sign_neq, !src1_lt_src2, src1_lt_src2)
     }
 }
-object slt_1H {
+object Slt1H {
     // one-hot slt
     def apply(src1: UInt, src2: UInt): Bool = {
         val n = src1.getWidth
@@ -73,8 +67,8 @@ object ZE {
         Fill(n-len, 0.U) ## x
     }
 }
-object align {
-    // align
+object BitAlign {
+    // BitAlign
     def apply(x: UInt, n: Int): UInt = {
         val len = x.getWidth
         if(len == n) x
@@ -96,7 +90,7 @@ object MuxOH {
         // Mux1H
     }
 }
-object wfirst_read {
+object WFirstRead {
     // write-first read
     def apply[T <: Data](rdata: T, ridx: UInt, widx: Seq[UInt], wdata: Seq[T], wen: Seq[Bool]): T = {
         assert(widx.size == wdata.size && widx.size == wen.size, "widx, wdata and wen must have the same size")
@@ -105,7 +99,7 @@ object wfirst_read {
         Mux(whit.asUInt.orR, Mux1H(whit, wdata), rdata)
     }
 }
-object mtype_decode {
+object MTypeDecode {
     // memtype decode
     def apply(mtype: UInt, n: Int = 4): UInt = {
         val res = Wire(UInt(n.W))
@@ -117,7 +111,7 @@ object mtype_decode {
         res
     }
 }
-object mtype_encode {
+object MTypeEncode {
     // memtype encode
     def apply(mtype: UInt, n: Int = 2): UInt = {
         val res = Wire(UInt(n.W))
@@ -129,7 +123,7 @@ object mtype_encode {
         res
     }
 }
-object inheritFields {
+object InheritFields {
     // inherit fields
     def apply[T <: Bundle, P <: Bundle](child: T, parent: P): Unit = {
         parent.elements.foreach { case (name, data) =>
@@ -139,36 +133,36 @@ object inheritFields {
         }
     }
 }
-object rotateRightOH {
+object RotateRightOH {
     def apply(x: UInt, nOH: UInt): UInt = {
         val width = x.getWidth
         assert(width == nOH.getWidth, "two operators must have the same width")
-        val x_shifts = VecInit.tabulate(width)(i => shift_sub_n(x, i))
+        val x_shifts = VecInit.tabulate(width)(i => ShiftSubN(x, i))
         Mux1H(nOH, x_shifts)
     }
 }
-object rotateLeftOH {
+object RotateLeftOH {
     def apply(x: UInt, nOH: UInt): UInt = {  
         val width = x.getWidth
         assert(width == nOH.getWidth, "two operators must have the same width")
-        val x_shifts = VecInit.tabulate(width)(i => shift_add_n(x, i))
+        val x_shifts = VecInit.tabulate(width)(i => ShiftAddN(x, i))
         Mux1H(nOH, x_shifts)
     }
 }
-object transpose {
+object Transpose {
     def apply(x: Vec[UInt]): Vec[UInt] = {
         val n = x(0).getWidth
         VecInit.tabulate(n)(i => VecInit(x.map(_(i))).asUInt)
     }
 }
-object lshift1H {
+object Lshift1H {
     def apply(x: UInt, nOH: UInt): UInt = {
         val width = nOH.getWidth
         val x_shifts = VecInit.tabulate(width)(i => x << i)
         Mux1H(nOH, x_shifts)
     }
 }
-object rshift1H {
+object Rshift1H {
     def apply(x: UInt, nOH: UInt): UInt = {
         val width = nOH.getWidth
         val x_shifts = VecInit.tabulate(width)(i => x >> i)
@@ -218,7 +212,7 @@ object Log2OH {
     }
     def apply(x: Bits): UInt = apply(x, x.getWidth)
     def apply(x: Seq[Bool]): UInt = apply(VecInit(x).asUInt, x.size)
-    private def divideAndConquerThreshold = 2
+    private def divideAndConquerThreshold = 4
 }
 
 object Log2OHRev {

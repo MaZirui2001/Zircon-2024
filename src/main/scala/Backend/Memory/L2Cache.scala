@@ -24,7 +24,7 @@ class L2_Channel1_Stage2_Signal extends L2_Channel1_Stage1_Signal{
 
     def apply(_c: L2_Channel1_Stage1_Signal, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): L2_Channel1_Stage2_Signal = {
         val c = Wire(new L2_Channel1_Stage2_Signal)
-        inheritFields(c, _c)
+        InheritFields(c, _c)
         c.rtag := rtag
         c.rdata := rdata
         c.hit := hit
@@ -59,7 +59,7 @@ class L2_Channel2_Stage2_Signal extends L2_Channel2_Stage1_Signal{
 
     def apply(_c: L2_Channel2_Stage1_Signal, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): L2_Channel2_Stage2_Signal = {
         val c = Wire(new L2_Channel2_Stage2_Signal)
-        inheritFields(c, _c)
+        InheritFields(c, _c)
         c.rtag := rtag
         c.rdata := rdata
         c.hit := hit
@@ -279,7 +279,7 @@ class L2Cache extends Module {
     when(io.mem(1).rreq && io.mem(1).rrsp){
         rbuf_c2 := io.mem(1).rdata ## rbuf_c2(l2_line_bits-1, 32)
     }
-    val mtype = mtype_decode(c2s3.mtype) 
+    val mtype = MTypeDecode(c2s3.mtype) 
     val wmask = Mux(!c2s3.wreq, 0.U, VecInit.tabulate(32)(i => mtype(i/8)).asUInt)
     val wmask_shift = wmask << (offset(c2s3.paddr) << 3)
     val wdata_shift = c2s3.wdata << (offset(c2s3.paddr) << 3)

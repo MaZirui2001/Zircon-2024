@@ -26,8 +26,8 @@ class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int
 	val tptr = RegInit(1.U(n.W))
 
 	// pointer update logic
-	val hptr_nxt = Mux(io.deq.ready && eptyn, shift_add_1(hptr), hptr)
-	val tptr_nxt = Mux(io.enq.valid && fulln, shift_add_1(tptr), tptr)
+	val hptr_nxt = Mux(io.deq.ready && eptyn, ShiftAdd1(hptr), hptr)
+	val tptr_nxt = Mux(io.enq.valid && fulln, ShiftAdd1(tptr), tptr)
 
 	hptr := Mux(io.flush, if(preg) io.hptr.get else 1.U, hptr_nxt)
 	tptr := Mux(io.flush, if(preg) tptr_nxt else 1.U, tptr_nxt)

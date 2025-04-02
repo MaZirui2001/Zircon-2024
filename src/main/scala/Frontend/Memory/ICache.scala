@@ -10,7 +10,7 @@ class I_Stage1_Signal extends Bundle {
 
     def apply(pp: I_Pipeline_IO): I_Stage1_Signal = {
         val c = Wire(new I_Stage1_Signal)
-        inheritFields(c, pp)
+        InheritFields(c, pp)
         c
     }
 }
@@ -25,8 +25,8 @@ class I_Stage2_Signal extends I_Stage1_Signal {
 
     def apply(_c: I_Stage1_Signal, _mmu: I_MMU_IO, _tag: Vec[UInt], _data: Vec[UInt], _hit: UInt, _lru: UInt): I_Stage2_Signal = {
         val c = Wire(new I_Stage2_Signal)
-        inheritFields(c, _c)
-        inheritFields(c, _mmu)
+        InheritFields(c, _c)
+        InheritFields(c, _mmu)
         c.rtag    := _tag
         c.rdata   := _data
         c.hit     := _hit

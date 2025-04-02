@@ -14,7 +14,7 @@ class D_Channel1_Stage1_Signal extends Bundle {
 
     def apply(pp: D_Pipeline_IO): D_Channel1_Stage1_Signal = {
         val c = Wire(new D_Channel1_Stage1_Signal)
-        inheritFields(c, pp)
+        InheritFields(c, pp)
         c
     }
 }
@@ -29,8 +29,8 @@ class D_Channel1_Stage2_Signal extends D_Channel1_Stage1_Signal {
 
     def apply(_c: D_Channel1_Stage1_Signal, _m: D_MMU_IO, rtag: Vec[UInt], rdata: Vec[UInt], hit: UInt, lru: UInt): D_Channel1_Stage2_Signal = {
         val c = Wire(new D_Channel1_Stage2_Signal)
-        inheritFields(c, _c)
-        inheritFields(c, _m)
+        InheritFields(c, _c)
+        InheritFields(c, _m)
         c.rtag := rtag
         c.rdata := rdata
         c.hit := hit
@@ -46,7 +46,7 @@ class D_Channel1_Stage3_Signal extends D_Channel1_Stage2_Signal {
 
     def apply(_c: D_Channel1_Stage2_Signal, sb_hit_data: UInt, mem_data: UInt, sb_hit: UInt): D_Channel1_Stage3_Signal = {
         val c = Wire(new D_Channel1_Stage3_Signal)
-        inheritFields(c, _c)
+        InheritFields(c, _c)
         c.sb_hit_data := sb_hit_data
         c.mem_data := mem_data
         c.sb_hit := sb_hit
@@ -67,7 +67,7 @@ class D_Channel2_Stage1_Signal extends Bundle {
         c.wreq := sb_valid
         c.wdata := sb_entry.wdata >> (sb_entry.paddr(1, 0) << 3)
         c.paddr := sb_entry.paddr
-        c.mtype := mtype_encode(sb_entry.wstrb >> sb_entry.paddr(1, 0))
+        c.mtype := MTypeEncode(sb_entry.wstrb >> sb_entry.paddr(1, 0))
         c.uncache := sb_entry.uncache
         c.sb_idx := sb_idx
         c
@@ -79,7 +79,7 @@ class D_Channel2_Stage2_Signal extends D_Channel2_Stage1_Signal {
         
     def apply(_c: D_Channel2_Stage1_Signal, hit: UInt): D_Channel2_Stage2_Signal = {
         val c = Wire(new D_Channel2_Stage2_Signal)
-        inheritFields(c, _c)
+        InheritFields(c, _c)
         c.hit := hit
         c
     }
@@ -266,7 +266,7 @@ class DCache extends Module {
     assert(!c2s3.wreq || PopCount(c2s3.hit) <= 1.U, "DCache: channel 2: multiple hits")
     
     val wdata_shift = c2s3.wdata << (offset(c2s3.paddr) << 3)
-    val wstrb_shift = mtype_decode(c2s3.mtype) << offset(c2s3.paddr)
+    val wstrb_shift = MTypeDecode(c2s3.mtype) << offset(c2s3.paddr)
     // tag and mem
     tag_tab.zipWithIndex.foreach{ case (tagt, i) =>
         tagt.addrb := Mux(io.l2.miss || io.l2.rreq, index(c2s2.paddr), index(c2s1.paddr))
@@ -291,7 +291,7 @@ class DCache extends Module {
     }.elsewhen(raw_en){
         rbuf_mask := rbuf_mask | wstrb_shift
     }
-    val w_mask = mtype_decode(c2s3.mtype) << offset(c2s3.paddr)
+    val w_mask = MTypeDecode(c2s3.mtype) << offset(c2s3.paddr)
     rbuf.zipWithIndex.foreach{ case (r, i) =>
         when(wstrb_shift(i) && raw_en){
             r := wdata_shift(i*8+7, i*8)

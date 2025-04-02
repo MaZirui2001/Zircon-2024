@@ -33,11 +33,11 @@ class PReg_Free_List extends Module{
         it traverse is the enq port mapped to the io port
     */
     val port_map_fte = VecInit.fill(ndecode)(0.U(ndecode.W))
-    val port_map_trans_fte = transpose(port_map_fte)
+    val port_map_trans_fte = Transpose(port_map_fte)
     var valid_ptr_fte = 1.U(ndecode.W)
     for(i <- 0 until ndecode) {
         port_map_fte(i) := Mux(io.fte.deq(i).ready, valid_ptr_fte, 0.U)
-        valid_ptr_fte = Mux(io.fte.deq(i).ready, shift_add_1(valid_ptr_fte), valid_ptr_fte)
+        valid_ptr_fte = Mux(io.fte.deq(i).ready, ShiftAdd1(valid_ptr_fte), valid_ptr_fte)
     }
     // rename stage
     flst.io.deq.zipWithIndex.foreach{ case (d, i) =>
@@ -49,13 +49,13 @@ class PReg_Free_List extends Module{
     }
     // commit stage
     val port_map_enq = VecInit.fill(ncommit)(0.U(ncommit.W))
-    val port_map_trans_enq = transpose(port_map_enq)
+    val port_map_trans_enq = Transpose(port_map_enq)
     var valid_ptr_enq = 1.U(ncommit.W)
     
     for(i <- 0 until ncommit) {
         // pprd =/= 0: for the first several instructions, the pprd is not valid
         port_map_enq(i) := Mux(io.cmt.enq(i).valid, valid_ptr_enq, 0.U)
-        valid_ptr_enq = Mux(io.cmt.enq(i).valid, shift_add_1(valid_ptr_enq), valid_ptr_enq)
+        valid_ptr_enq = Mux(io.cmt.enq(i).valid, ShiftAdd1(valid_ptr_enq), valid_ptr_enq)
     }
     flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
         e.valid := port_map_trans_enq(i).orR

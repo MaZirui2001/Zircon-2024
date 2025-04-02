@@ -26,7 +26,7 @@
 //         deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
 //     }.otherwise{
 //         val counter = PopCount(io.deq.map(_.valid).zip(io.deq.map(_.ready)).map{ case (v, r) => v && r}).take(log2Ceil(n))
-//         deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
+//         deq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => ShiftAddN(ptr, i))(counter)}
 //     }
 
 //     // enq
@@ -42,7 +42,7 @@
 //         enq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
 //     }.otherwise{
 //         val counter = PopCount(io.enq.map(_.valid)).take(log2Ceil(n))
-//         enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_sub_n(ptr, i))(counter)}
+//         enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => ShiftSubN(ptr, i))(counter)}
 //     }
 
 //     flst.foreach(_.flush := io.flush)

@@ -33,7 +33,7 @@ class TLB_Mem_T extends TLB_Entry_T {
     val hit_valid   =     Bool() // previous caculate hit check result
     def apply(tlb_entry: TLB_Entry_T, asid: UInt): TLB_Mem_T = {
         val r = Wire(new TLB_Mem_T)
-        inheritFields(r, tlb_entry)
+        InheritFields(r, tlb_entry)
         r.hit_valid := tlb_entry.e && (tlb_entry.g || tlb_entry.asid === asid)
         r
     }

@@ -149,7 +149,7 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
             idx_1h = (1 << j).U(len.W),
             vld = issue_valid(j),
             age = issue_age(j)
-        )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(esltu(a.age, b.age), a, b), a), b))
+        )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(ESltu(a.age, b.age), a, b), a), b))
         
         io.deq(i).valid := select_item.vld
         io.deq(i).bits := Mux1H(select_item.idx_1h, iq(i).map(_.item))
@@ -160,7 +160,7 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
                 idx_1h = (1 << j).U(len.W),
                 vld = load_in_queue(j),
                 age = issue_age(j)
-            )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(esltu(a.age, b.age), a, b), a), b))
+            )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(ESltu(a.age, b.age), a, b), a), b))
             io.deq(i).bits.is_latest := select_item.idx_1h === select_latest.idx_1h
         }
 
@@ -187,13 +187,13 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
 
     var flst_insert_ptr     = 1.U(n.W)
     val port_map_flst       = VecInit.fill(dw)(0.U(dw.W))
-    val port_map_trans_flst = transpose(port_map_flst)
+    val port_map_trans_flst = Transpose(port_map_flst)
     val ready_to_recycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.inst_exi || e.item.prj_lpv.orR || e.item.prk_lpv.orR) } }
     // val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(PriorityEncoderOH(qq)).asUInt }
     val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
     for(i <- 0 until dw) {
         port_map_flst(i) := Mux(select_recycle_idx(i).orR, flst_insert_ptr, 0.U)
-        flst_insert_ptr = Mux(select_recycle_idx(i).orR, shift_add_1(flst_insert_ptr), flst_insert_ptr)
+        flst_insert_ptr = Mux(select_recycle_idx(i).orR, ShiftAdd1(flst_insert_ptr), flst_insert_ptr)
     }
     flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
         e.valid := port_map_trans_flst(i).orR

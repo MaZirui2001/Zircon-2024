@@ -32,8 +32,8 @@ class Regfile extends Module {
     val regfile = RegInit(VecInit.tabulate(npreg)(i => 0.U(32.W)))
 
     for(i <- 0 until nissue){
-        io(i).rd.prj_data := wfirst_read(regfile(io(i).rd.prj), io(i).rd.prj, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
-        io(i).rd.prk_data := wfirst_read(regfile(io(i).rd.prk), io(i).rd.prk, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
+        io(i).rd.prj_data := WFirstRead(regfile(io(i).rd.prj), io(i).rd.prj, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
+        io(i).rd.prk_data := WFirstRead(regfile(io(i).rd.prk), io(i).rd.prk, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
         when(io(i).wr.prd_vld){
             regfile(io(i).wr.prd) := io(i).wr.prd_data
         }
