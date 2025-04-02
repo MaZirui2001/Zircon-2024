@@ -89,13 +89,15 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
 
     // update enq_ptr
     if(is_flst){
-        val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+        // val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+        val counter = align(Log2(VecInit(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}).asUInt << 1), log2Ceil(n))
         enq_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
     }else{
         when(io.flush){
             enq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
         }.otherwise{
-            val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+            // val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+            val counter = align(Log2(VecInit(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}).asUInt << 1), log2Ceil(n))
             enq_ptr.foreach{ ptr => ptr := Mux(all_enq_ready, VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter), ptr)}
         }
     }
@@ -108,13 +110,15 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
             deq_ptr.zipWithIndex.foreach{ case (ptr, i) => ptr := (1 << i).U(n.W) }
         }
     }.otherwise{
-        val counter = align(PopCount(io.deq.map(_.valid).zip(io.deq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+        // val counter = align(PopCount(io.deq.map(_.valid).zip(io.deq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+        val counter = align(Log2(VecInit(io.deq.map(_.valid).zip(io.deq.map(_.ready)).map{ case (v, r) => v && r}).asUInt << 1), log2Ceil(n))
         deq_ptr.foreach{ ptr => ptr := Mux(all_deq_valid, VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter), ptr)}
     }
     
     // update commit_ptr
     if(is_flst){
-        val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+        // val counter = align(PopCount(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}), log2Ceil(n))
+        val counter = align(Log2(VecInit(io.enq.map(_.valid).zip(io.enq.map(_.ready)).map{ case (v, r) => v && r}).asUInt << 1), log2Ceil(n))
         commit_ptr.foreach{ ptr => ptr := VecInit.tabulate(n)(i => shift_add_n(ptr, i))(counter)}
     }
 

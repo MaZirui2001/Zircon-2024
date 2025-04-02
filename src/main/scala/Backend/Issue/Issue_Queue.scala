@@ -6,6 +6,7 @@ import CPU_Config.Issue._
 import CPU_Config.Commit._
 import CPU_Config.Decode._
 import Zircon_Util._
+import Log2OH._
 
 class Replay_Bus_Pkg extends Bundle {
     val prd     = UInt(wpreg.W)
@@ -188,7 +189,8 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     val port_map_flst       = VecInit.fill(dw)(0.U(dw.W))
     val port_map_trans_flst = transpose(port_map_flst)
     val ready_to_recycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.inst_exi || e.item.prj_lpv.orR || e.item.prk_lpv.orR) } }
-    val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(PriorityEncoderOH(qq)).asUInt }
+    // val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(PriorityEncoderOH(qq)).asUInt }
+    val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
     for(i <- 0 until dw) {
         port_map_flst(i) := Mux(select_recycle_idx(i).orR, flst_insert_ptr, 0.U)
         flst_insert_ptr = Mux(select_recycle_idx(i).orR, shift_add_1(flst_insert_ptr), flst_insert_ptr)

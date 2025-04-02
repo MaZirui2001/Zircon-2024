@@ -105,6 +105,6 @@ class Pre_Decoders extends Module {
         io.rinfo(i).valid := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.inst_pkg.valid}.take(i).reduce(_ || _)) && io.inst_pkg(i).valid
     }
     io.npc.flush := pds.map(_.npc.flush).reduce(_ || _)
-    io.npc.jump_offset := Mux1H(PriorityEncoderOH(pds.map(_.npc.flush)), pds.map(_.npc.jump_offset))
-    io.npc.pc := Mux1H(PriorityEncoderOH(pds.map(_.npc.flush)), pds.map(_.npc.pc))
+    io.npc.jump_offset := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.jump_offset))
+    io.npc.pc := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.pc))
 }

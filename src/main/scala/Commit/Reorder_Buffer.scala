@@ -4,6 +4,7 @@ import CPU_Config.RegisterFile._
 import CPU_Config.Decode._
 import CPU_Config.Commit._
 import CPU_Config.Issue._
+import Zircon_Util._
 import Jump_Op._
 import EXE_Op._
 
@@ -128,7 +129,7 @@ class Reorder_Buffer extends Module{
     }
 
     // output
-    val last_cmt_index1H = Reverse(PriorityEncoderOH(Reverse(VecInit(io.cmt.deq.map(_.valid)).asUInt)))
+    val last_cmt_index1H = Log2OH(io.cmt.deq.map(_.valid))
     val last_cmt_item    = Mux1H(last_cmt_index1H, q.io.deq.map(_.bits))
     val flush            = last_cmt_item.flush_gen()
     // self flush

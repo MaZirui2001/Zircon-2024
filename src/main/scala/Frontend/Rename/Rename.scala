@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import CPU_Config.RegisterFile._
 import CPU_Config.Decode._
+import Zircon_Util._
 
 
 class PRegister_Info extends Bundle {
@@ -63,7 +64,7 @@ class Rename extends Module {
         val n = rds.length
         if(n == 0) return 0.U
         val idx1H = VecInit.tabulate(n){i => (rs === rds(i))}
-        Reverse(PriorityEncoderOH(Reverse(idx1H.asUInt)))
+        Log2OH(idx1H)
     }
     def raw_read(rs: UInt, rds: Seq[UInt], prs: UInt, prds: Seq[UInt]): UInt = {
         val n = rds.length

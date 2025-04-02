@@ -11,7 +11,7 @@ object Main extends App {
         "-O=release",
         "--ignore-read-enable-mem",
         "--lower-memories",
-        "--lowering-options=disallowLocalVariables, explicitBitcast, disallowMuxInlining, disallowExpressionInliningInPorts",
+        "--lowering-options=disallowLocalVariables, disallowPackedArrays, explicitBitcast, disallowMuxInlining, disallowExpressionInliningInPorts",
         "-o=verilog/",
         "-split-verilog",
                                 )

@@ -101,7 +101,7 @@ class Store_Buffer extends Module {
     }.asUInt
     // 2. for each byte in the word, check each wstrb, get the match item
     for(i <- 0 until 4){
-        val byte_hit = PriorityEncoderOH(rotateRightOH(sb_word_addr_match & VecInit(q.map(_.wstrb(i))).asUInt, shift_add_1(tptr)))
+        val byte_hit = Log2OHRev(rotateRightOH(sb_word_addr_match & VecInit(q.map(_.wstrb(i))).asUInt, shift_add_1(tptr)))
         load_hit(i) := byte_hit.orR
         load_bytes(i) := Mux1H(rotateLeftOH((byte_hit), shift_add_1(tptr)), q.map(_.wdata(i*8+7, i*8)))
     }

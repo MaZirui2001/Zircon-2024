@@ -114,12 +114,13 @@ class LS_Pipeline extends Module {
         0.U.asTypeOf(new Backend_Package), 
         true.B
     ))
+    inst_pkg_wb.rf_wdata := dc.io.pp.rdata
     // rob
     io.cmt.widx.offset  := UIntToOH(inst_pkg_wb.rob_idx.offset)
     io.cmt.widx.qidx    := UIntToOH(inst_pkg_wb.rob_idx.qidx)
     io.cmt.widx.high    := DontCare
     io.cmt.wen          := inst_pkg_wb.valid
-    io.cmt.wdata        := (new ROB_Backend_Entry)(inst_pkg_wb)
+    io.cmt.wdata        := (new ROB_Backend_Entry)(inst_pkg_wb) 
     // regfile
     io.rf.wr.prd        := inst_pkg_wb.prd
     io.rf.wr.prd_vld    := inst_pkg_wb.rd_vld

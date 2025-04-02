@@ -1,7 +1,6 @@
 import chisel3._
 import chisel3.util._
 import Zircon_Util._
-import Log2Rev._
 import EXE_Op._
 import Adder._
 
