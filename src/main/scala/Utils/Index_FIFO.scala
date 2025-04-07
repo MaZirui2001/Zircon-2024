@@ -43,14 +43,14 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean =
 	// pointer update logic
 	val hptr_nxt = Mux(io.deq.ready && eptyn, ShiftAdd1(hptr), hptr)
 	val tptr_nxt = Mux(io.enq.valid && fulln, ShiftAdd1(tptr), tptr)
-	hptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, hptr_nxt)
-	tptr := Mux(io.flush, if(is_flst) tptr_nxt else 1.U, tptr_nxt)
+	hptr := Mux(io.flush, if(is_flst) tptr_nxt else hptr_nxt, hptr_nxt)
+	tptr := Mux(io.flush, if(is_flst) tptr_nxt else hptr_nxt, tptr_nxt)
 
 
 	val hptr_high_nxt = Mux(hptr_nxt(0) && hptr(n-1), ~hptr_high, hptr_high)
 	val tptr_high_nxt = Mux(tptr_nxt(0) && tptr(n-1), ~tptr_high, tptr_high)
-	hptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else 0.U, hptr_high_nxt)
-	tptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else 0.U, tptr_high_nxt)
+	hptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else hptr_high_nxt, hptr_high_nxt)
+	tptr_high := Mux(io.flush, if(is_flst) tptr_high_nxt else hptr_high_nxt, tptr_high_nxt)
 
 	// full and empty flag update logic
 	if(!is_flst){
@@ -71,11 +71,6 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean =
 				qq.asInstanceOf[ROB_Entry].bke.complete := false.B
 			}else{
 				qq := io.enq.bits 
-			}
-		}
-		if(qq.isInstanceOf[ROB_Entry]){
-			when(io.flush){
-				qq.asInstanceOf[ROB_Entry].bke.complete := false.B
 			}
 		}
 	}
@@ -100,6 +95,13 @@ class Index_FIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, is_flst: Boolean =
 			}
 		}
 	}
+	// q.zipWithIndex.foreach{ case (qq, i) =>
+	// 	if(qq.isInstanceOf[ROB_Entry]){
+	// 		when(io.flush){
+	// 			qq.asInstanceOf[ROB_Entry].bke.complete := false.B
+	// 		}
+	// 	}
+	// }
 
 	// read logic 
 	io.deq.bits := Mux1H(hptr, q)
