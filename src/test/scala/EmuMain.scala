@@ -3,6 +3,7 @@ import chiseltest._
 import chiseltest.simulator.VerilatorFlags
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util.control.Breaks._
+import chiseltest.internal.CachingAnnotation
 
 class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "EmuMain"
@@ -10,11 +11,12 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
     it should "pass" in {
         test(new CPU)
         .withAnnotations(Seq(
+            CachingAnnotation,
             VerilatorBackendAnnotation, 
             WriteVcdAnnotation, 
             VerilatorFlags(Seq(
                 "-j", "16", 
-                "--build-jobs", "16",
+                "--no-MMD", "--cc", "--exe"
             ))))
         { c =>
             println("开始仿真")
