@@ -22,7 +22,7 @@ class Dispatcher extends Module {
         }
         io.bke_pkg(i).zipWithIndex.foreach{case (e, j) =>
             e.valid := port_map_trans(j).orR
-            e.bits := Mux1H(port_map(j), io.fte_pkg.map(_.bits))
+            e.bits := Mux1H(port_map_trans(j), io.fte_pkg.map(_.bits))
         }
     }
     io.fte_pkg.foreach{ fte =>

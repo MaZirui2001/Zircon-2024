@@ -39,7 +39,7 @@ class Dispatch extends Module {
     }
     dsp.io.bke_pkg <> io.bke.inst_pkg
     io.cmt.enq.zipWithIndex.foreach{ case (enq, i) =>
-        enq.valid := io.fte.inst_pkg(i).valid
+        enq.valid := io.fte.inst_pkg(i).valid && dsp.io.fte_pkg(i).ready
         enq.bits := (new ROB_Frontend_Entry)(io.fte.inst_pkg(i).bits)
     }
 }
