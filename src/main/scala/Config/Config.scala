@@ -89,8 +89,8 @@ object Commit{
 object Cache{
     import Fetch._
     val l1_way          = 2
-    val l1_offset       = 4
-    val l1_index        = 3
+    val l1_offset       = 5
+    val l1_index        = 5
     val l1_index_num    = 1 << l1_index
     val l1_tag          = 32 - l1_offset - l1_index
     val l1_line         = (1 << l1_offset)
@@ -99,8 +99,8 @@ object Cache{
     val ic_line_bits    = ic_line * 8
     val fetch_offset    = 2 + log2Ceil(nfetch)
     assert(l1_offset >= fetch_offset, "l1_offset must be greater than fetch_offset")
-    val l2_offset       = 5
-    val l2_index        = 5
+    val l2_offset       = 6
+    val l2_index        = 6
     val l2_index_num    = 1 << l2_index
     val l2_tag          = 32 - l2_offset - l2_index
     val l2_way          = 2 * l1_way

@@ -21,6 +21,7 @@ class Frontend_Package extends Bundle {
     val func        = UInt(niq.W)
     val rinfo       = new Register_Info()
     val pinfo       = new PRegister_Info()
+    val pred_offset = UInt(32.W)
 }
 
 class Backend_Package extends Bundle {
@@ -55,7 +56,7 @@ class Backend_Package extends Bundle {
         val bke = Wire(new Backend_Package)
         bke.valid       := fte.valid
         bke.pc          := fte.pc
-        bke.pred_offset := fte.pred_info.offset
+        bke.pred_offset := fte.pred_offset
         bke.prj         := fte.pinfo.prj
         bke.prk         := fte.pinfo.prk
         bke.prd         := fte.pinfo.prd
