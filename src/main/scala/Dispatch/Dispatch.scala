@@ -29,10 +29,10 @@ class Dispatch extends Module {
     }
 
     // dispatcher
-    dsp.io.fte_pkg.zipWithIndex.foreach{ case (fte, i) =>
-        fte.valid := io.fte.inst_pkg(i).valid
-        fte.bits := fte_pkg(i)
-        io.fte.inst_pkg(i).ready := fte.ready && io.cmt.enq.map(_.ready).reduce(_ && _)
+    dsp.io.fte_pkg.zipWithIndex.foreach{ case (d, i) =>
+        d.valid := io.fte.inst_pkg(i).valid
+        d.bits := fte_pkg(i)
+        io.fte.inst_pkg(i).ready := d.ready && io.cmt.enq.map(_.ready).reduce(_ && _)
     }
     dsp.io.func.zipWithIndex.foreach{ case (func, i) =>
         func := io.fte.inst_pkg(i).bits.func
