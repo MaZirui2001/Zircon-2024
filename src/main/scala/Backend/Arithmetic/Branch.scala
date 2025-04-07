@@ -18,7 +18,7 @@ class Branch extends Module{
     val io = IO(new Branch_IO)
 
     val real_jp = WireDefault(false.B)
-    val fail = WireDefault(Mux(io.op(4), io.imm =/= io.pred_offset, false.B))
+    val fail = WireDefault(Mux(io.op(4), io.pred_offset =/= Mux(real_jp, io.imm, 4.U), false.B))
     val jump_tgt = WireDefault(io.pc + io.imm)
     switch(io.op){
         is(BEQ) { real_jp := io.src1 === io.src2 }
