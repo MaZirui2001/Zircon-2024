@@ -121,8 +121,9 @@ class Reorder_Buffer extends Module{
             entry
         }
         io.cmt.deq(i).valid := (
-            if(i == 0) q.io.deq(i).bits.bke.complete
+            if(i == 0) q.io.deq(i).bits.bke.complete && q.io.deq(i).valid
             else q.io.deq.take(i+1).map(_.bits.bke.complete).reduce(_ && _) 
+              && q.io.deq(i).valid
               && q.io.deq(i-1).bits.bke.nxt_cmt_en
         )
         q.io.deq(i).ready := io.cmt.deq(i).valid
