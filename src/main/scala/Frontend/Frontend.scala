@@ -45,13 +45,13 @@ class Frontend extends Module {
     pc                      := npc.io.pc.npc
 
     // icache visit
-    ic.io.pp.rreq           := fq.io.enq(0).ready || io.cmt.fq.flush
+    ic.io.pp.rreq           := fq.io.enq(0).ready || io.cmt.fq.flush || pd.io.npc.flush
     ic.io.pp.vaddr          := npc.io.pc.npc
 
     // TODO: add predictor
     inst_pkg_pf.foreach{ pkg => 
         pkg.pred_info.jump_en := false.B
-        pkg.pred_info.offset := 0.U
+        pkg.pred_info.offset := 4.U
         pkg.pred_info.vld := false.B
         pkg.valid := true.B
     }
@@ -68,23 +68,24 @@ class Frontend extends Module {
     ic.io.mmu.paddr        := pc
     ic.io.mmu.uncache      := false.B
     ic.io.pp.stall         := !fq.io.enq(0).ready
-    ic.io.pp.flush         := io.cmt.npc.flush
+    ic.io.pp.flush         := io.cmt.npc.flush || pd.io.npc.flush
     io.mem.l2              <> ic.io.l2
     inst_pkg_fc.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := pc + (i * 4).U }
 
     /* Previous Decode Stage */
     val inst_pkg_pd = WireDefault(ShiftRegister(
-        Mux(io.cmt.fq.flush, 0.U.asTypeOf(Vec(nfetch, new Frontend_Package)), inst_pkg_fc), 
+        Mux(io.cmt.fq.flush || pd.io.npc.flush, 0.U.asTypeOf(Vec(nfetch, new Frontend_Package)), inst_pkg_fc), 
         1, 
         0.U.asTypeOf(Vec(nfetch, new Frontend_Package)), 
         (fq.io.enq(0).ready || pd.io.npc.flush) && !npc.io.ic.miss && io.dsp.inst_pkg(0).ready || io.cmt.npc.flush
     ))
-    inst_pkg_pd.zip(ic.io.pp.rdata).foreach{ case (pkg, inst) => pkg.inst := inst }
+    inst_pkg_pd.zip(ic.io.pp.rdata).foreach{ case (pkg, inst) => pkg.inst := inst}
    
     // previous decoder
     pd.io.inst_pkg := inst_pkg_pd
     pd.io.rinfo.foreach{ rinfo => rinfo.ready := DontCare}
     inst_pkg_pd.zip(pd.io.rinfo).foreach{ case (pkg, rinfo) => pkg.rinfo := rinfo.bits }
+    inst_pkg_pd.zip(pd.io.pred_offset).foreach{ case (pkg, pred_offset) => pkg.pred_offset := pred_offset }
     
     // fetch queue
     fq.io.enq.zipWithIndex.foreach{ case (enq, i) => 

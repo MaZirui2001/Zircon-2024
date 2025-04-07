@@ -22,6 +22,7 @@ class Pre_Decoder_IO extends Bundle {
     val inst_pkg    = Input(new Frontend_Package)
     val rinfo       = Output(new Register_Info)
     val npc         = Flipped(new NPC_PreDecode_IO)
+    val pred_offset = Output(UInt(32.W))
 }
 
 class Pre_Decoder extends Module {
@@ -79,13 +80,18 @@ class Pre_Decoder extends Module {
     ))
 
     io.npc.flush := Mux1H(Seq(
-        isn_j   -> pred_info.jump_en, // isn't jump: predictor must be wrong if it predicts jump
+        isn_j   -> (pred_info.offset =/= 4.U), // isn't jump: predictor must be wrong if it predicts jump
         is_jal  -> (pred_info.offset =/= imm), 
-        is_br   -> Mux(pred_info.vld, pred_info.offset =/= imm, imm(31))
+        is_br   -> Mux(pred_info.vld, pred_info.offset =/= Mux(pred_info.jump_en, imm, 4.U), imm(31))
     )) && io.inst_pkg.valid
 
     io.npc.jump_offset := Mux(isn_j, 4.U, imm)
     io.npc.pc := inst_pkg.pc
+    io.pred_offset := Mux1H(Seq(
+        isn_j   -> 4.U,
+        is_jal  -> imm,
+        is_br   -> Mux(pred_info.vld, Mux(pred_info.jump_en, imm, 4.U), Mux(imm(31), imm, 4.U))
+    ))
 
 }
 
@@ -93,6 +99,7 @@ class Pre_Decoders_IO extends Bundle {
     val inst_pkg    = Input(Vec(nfetch, new Frontend_Package))
     val rinfo       = Vec(nfetch, Decoupled(new Register_Info))
     val npc         = Flipped(new NPC_PreDecode_IO)
+    val pred_offset = Vec(nfetch, Output(UInt(32.W)))
 }
 
 class Pre_Decoders extends Module {
@@ -106,4 +113,5 @@ class Pre_Decoders extends Module {
     io.npc.flush := pds.map(_.npc.flush).reduce(_ || _)
     io.npc.jump_offset := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.jump_offset))
     io.npc.pc := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.pc))
+    io.pred_offset := pds.map(_.pred_offset)
 }
