@@ -34,13 +34,13 @@ class MulDiv_Pipeline extends Module {
 
     /* Issue Stage */
     val inst_pkg_is = WireDefault(io.iq.inst_pkg.bits)
-    io.iq.inst_pkg.ready := div.io.busy
+    io.iq.inst_pkg.ready := !div.io.busy
 
     def seg_flush(inst_pkg: Backend_Package): Bool = {
         io.cmt.flush || io.wk.rply_in.replay && (inst_pkg.prj_lpv | inst_pkg.prk_lpv).orR
     }
-    inst_pkg_is.prj_lpv := io.iq.inst_pkg.bits.prj_lpv << 1
-    inst_pkg_is.prk_lpv := io.iq.inst_pkg.bits.prk_lpv << 1
+    inst_pkg_is.prj_lpv := io.iq.inst_pkg.bits.prj_lpv 
+    inst_pkg_is.prk_lpv := io.iq.inst_pkg.bits.prk_lpv
 
     /* Regfile Stage */
     val inst_pkg_rf = WireDefault(ShiftRegister(
@@ -66,6 +66,7 @@ class MulDiv_Pipeline extends Module {
     mul.io.src1 := inst_pkg_ex1.src1
     mul.io.src2 := inst_pkg_ex1.src2
     mul.io.op   := inst_pkg_ex1.op(3, 0)
+    mul.io.div_busy := div.io.busy
 
     // divide
     div.io.src1 := inst_pkg_ex1.src1
@@ -82,7 +83,7 @@ class MulDiv_Pipeline extends Module {
 
     /* Execute Stage 3 */
     val inst_pkg_ex3 = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush || !div.io.busy, 0.U.asTypeOf(new Backend_Package), inst_pkg_ex2), 
+        Mux(io.cmt.flush || div.io.busy, 0.U.asTypeOf(new Backend_Package), inst_pkg_ex2), 
         1, 
         0.U.asTypeOf(new Backend_Package), 
         true.B
@@ -102,7 +103,7 @@ class MulDiv_Pipeline extends Module {
     io.cmt.widx.qidx   := UIntToOH(inst_pkg_wb.rob_idx.qidx)
     io.cmt.widx.high   := DontCare
     io.cmt.wen         := inst_pkg_wb.valid
-    io.cmt.wdata       := (new ROB_Backend_Entry)(inst_pkg_ex3)
+    io.cmt.wdata       := (new ROB_Backend_Entry)(inst_pkg_wb)
     // regfile
     io.rf.wr.prd        := inst_pkg_wb.prd
     io.rf.wr.prd_vld    := inst_pkg_wb.rd_vld

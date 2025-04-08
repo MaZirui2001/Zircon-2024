@@ -42,7 +42,7 @@ class Decoder extends Module{
     val op_5 = is_algebra_reg || is_load
     val op_4 = is_br || is_jal || is_jalr
     val op_3_0 = Mux1H(Seq(
-        is_algebra_reg  -> funct7(5) ## funct3,
+        (is_algebra_reg || is_muldiv)  -> funct7(5) ## funct3,
         is_algebra_imm  -> Mux(funct3 === 0x5.U, funct7(5) ## funct3, 0.U(1.W) ## funct3),
         is_jalr         -> JALR(3, 0),
         is_jal          -> JAL(3, 0),

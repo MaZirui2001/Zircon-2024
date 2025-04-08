@@ -8,6 +8,7 @@ class Multiply_IO extends Bundle {
     val src2 = Input(UInt(32.W))
     val op   = Input(UInt(4.W))
     val res  = Output(UInt(32.W))
+    val div_busy = Input(Bool())
 }
 class Booth2 extends Module {
     val io = IO(new Bundle{
@@ -120,8 +121,9 @@ class Mul_Booth2_Wallce extends Module {
         pp_booth(i) := booth.io.res
     }
     // Wallace Tree
-    val add1_wallce     = ShiftRegister(add1_booth, 1, VecInit.fill(17)(false.B), true.B)
-    val pp_wallce       = ShiftRegister(pp_booth, 1, VecInit.fill(17)(0.U(64.W)), true.B)
+    val add1_wallce     = ShiftRegister(add1_booth, 1, VecInit.fill(17)(false.B), !io.div_busy)
+    val pp_wallce       = ShiftRegister(pp_booth, 1, VecInit.fill(17)(0.U(64.W)), !io.div_busy)
+    val op_wallce       = ShiftRegister(io.op, 1, 0.U, !io.div_busy)
     val sum_wallce      = Wire(Vec(64, UInt(1.W)))
     val cout_wallce     = Wire(Vec(64, UInt(16.W)))
     for(i <- 0 until 64){
@@ -134,9 +136,10 @@ class Mul_Booth2_Wallce extends Module {
     val fadd_src1 = ShiftRegister(sum_wallce.asUInt, 1, 0.U, true.B)
     val fadd_src2 = ShiftRegister(VecInit(cout_wallce.map(_(15))).asUInt(62, 0) ## add1_wallce(15), 1, 0.U, true.B)
     val fadd_cin  = ShiftRegister(add1_wallce(16).asUInt, 1, 0.U, true.B)
+    val fadd_op   = ShiftRegister(op_wallce, 1, 0.U, !io.div_busy)
     val fadd = BLevel_PAdder64(fadd_src1, fadd_src2, fadd_cin)
     io.res := fadd.io.res(63, 32)
-    switch(io.op){
+    switch(fadd_op){
         is(MUL)     { io.res := fadd.io.res(31, 0) }
         is(MULH)    { io.res := fadd.io.res(63, 32) }
         is(MULHU)   { io.res := fadd.io.res(63, 32) }
