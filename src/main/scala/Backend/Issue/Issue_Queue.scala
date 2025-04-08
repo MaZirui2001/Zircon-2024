@@ -185,10 +185,10 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     /* replay */
     iq.foreach{case (qq) =>
         qq.foreach{case (e) =>
-            when(e.item.prj_lpv.orR && io.rply_bus.replay){
+            when(e.item.prj_lpv.orR && io.rply_bus.replay && e.item.valid){
                 e.inst_exi := true.B
             }
-            when(e.item.prk_lpv.orR && io.rply_bus.replay){
+            when(e.item.prk_lpv.orR && io.rply_bus.replay && e.item.valid){
                 e.inst_exi := true.B
             }
         }
@@ -198,7 +198,6 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     val port_map_flst       = VecInit.fill(dw)(0.U(dw.W))
     val port_map_trans_flst = Transpose(port_map_flst)
     val ready_to_recycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.inst_exi || e.item.prj_lpv.orR || e.item.prk_lpv.orR) } }
-    // val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(PriorityEncoderOH(qq)).asUInt }
     val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
     for(i <- 0 until dw) {
         port_map_flst(i) := Mux(select_recycle_idx(i).orR, flst_insert_ptr, 0.U)
