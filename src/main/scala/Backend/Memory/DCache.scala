@@ -155,7 +155,7 @@ class DCache extends Module {
     val c1s1 = (new D_Channel1_Stage1_Signal)(io.pp)
     
     // Stage 2: MMU and hit check
-    val c1s2 = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), c1s1), 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !(miss_c1 || sb_full) || io.cmt.flush)
+    val c1s2 = ShiftRegister(c1s1, 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !(miss_c1 || sb_full))
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val tag_c1s2    = tag_tab.map(_.douta)
     val data_c1s2   = data_tab.map(_.douta)
@@ -172,7 +172,7 @@ class DCache extends Module {
     miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || sb_full, miss_c1, read_miss || write_miss))
 
     // stage 3
-    val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), c1s3_in), 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || sb_full) || io.cmt.flush)
+    val c1s3        = ShiftRegister(c1s3_in, 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || sb_full))
     assert(!c1s3.rreq || PopCount(c1s3.hit) <= 1.U, "DCache: channel 1: multiple hits")
     c1s3_wreq       := c1s3.wreq
     val lru_c1s3    = lru_tab.rdata(0)

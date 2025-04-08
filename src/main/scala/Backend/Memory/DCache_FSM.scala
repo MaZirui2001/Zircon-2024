@@ -67,16 +67,16 @@ class DCache_FSM extends Module {
             }.elsewhen(io.cc.rreq) {
                 when(io.cc.is_latest) {
                     m_state := Mux(io.cc.uncache, m_hold, Mux(io.cc.hit.orR, m_idle, m_miss))
-                    lru_reg := io.cc.lru
-                    when(!io.cc.uncache && io.cc.hit.orR) {
-                        io.cc.lru_upd := ~io.cc.hit
-                    }
-                    when(!(io.cc.uncache || io.cc.hit.orR)) {
-                        io.cc.rbuf_clear := true.B
-                    }
                 }.otherwise {
                     // not latest and uncache must !miss
-                    m_state := Mux(io.cc.uncache, m_idle, m_hold)
+                    m_state := Mux(io.cc.uncache, m_idle, Mux(io.cc.hit.orR, m_idle, m_hold))
+                }
+                lru_reg := io.cc.lru
+                when(!io.cc.uncache && io.cc.hit.orR) {
+                    io.cc.lru_upd := ~io.cc.hit
+                }
+                when(!(io.cc.uncache || io.cc.hit.orR)) {
+                    io.cc.rbuf_clear := true.B
                 }
             }
             io.cc.addr_1H := Mux(io.cc.sb_full, 2.U, 1.U)
