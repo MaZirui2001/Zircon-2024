@@ -98,7 +98,7 @@ class LS_Pipeline extends Module {
         !(dc.io.pp.miss || dc.io.pp.sb_full) || io.cmt.flush
     ))
 
-    inst_pkg_d2.nxt_cmt_en := inst_pkg_d2.op(6)
+    inst_pkg_d2.nxt_cmt_en := !inst_pkg_d2.op(6)
 
     // replay
     io.wk.rply_out.prd      := inst_pkg_d2.prd

@@ -74,7 +74,7 @@ class IQ_Entry(num: Int) extends Bundle {
     }
     def st_before_update(st_item: Seq[DecoupledIO[Backend_Package]]): IQ_Entry = {
         val e = WireDefault(this)
-        e.st_before := this.st_before - PopCount(st_item.map{case s => s.valid && s.bits.op(6)})
+        e.st_before := this.st_before - PopCount(st_item.map{case s => s.valid && s.ready && Mux(this.item.op(6), true.B, s.bits.op(6))})
         e
     }
 }
@@ -110,9 +110,18 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     flst.io.deq.foreach(_.ready := false.B)
     
     val st_left = RegInit(0.U(log2Ceil(num).W))
+    val st_left_next = WireDefault(VecInit.fill(ew)(0.U(log2Ceil(num).W)))
+    val mem_left = RegInit(0.U(log2Ceil(num).W))
+    val mem_left_next = WireDefault(VecInit.fill(ew)(0.U(log2Ceil(num).W)))
     if(is_mem){
-        st_left := Mux(io.flush, 0.U, (st_left + PopCount(io.enq.map{case (e) => e.bits.op(6) && e.valid && e.ready})
-                                               - PopCount(io.deq.map{case (e) => e.bits.op(6) && e.valid && e.ready})))
+        st_left_next.zipWithIndex.foreach{ case (e, i) =>
+            e := st_left + PopCount(io.enq.take(i).map{case (e) => e.bits.op(6) && e.valid && e.ready}) 
+        }
+        st_left := Mux(io.flush, 0.U, st_left_next(ew-1) - PopCount(io.deq.map{case (e) => e.bits.op(6) && e.valid && e.ready}))
+        mem_left_next.zipWithIndex.foreach{ case (e, i) =>
+            e := mem_left + PopCount(io.enq.take(i).map{case (e) => e.valid && e.ready}) 
+        }
+        mem_left := Mux(io.flush, 0.U, mem_left_next(ew-1) - PopCount(io.deq.map{case (e) => e.valid && e.ready}))
     }
     io.st_left := st_left
     /* insert into iq */
@@ -134,7 +143,7 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     // write to iq
     for (i <- 0 until ew){
         when(io.enq(i).valid && flst.io.deq(0).valid){
-            iq(free_iq(i))(free_item(i)) := (new IQ_Entry(len))(enq_entries(i), if(is_mem) st_left else 0.U).state_update(io.wake_bus, io.rply_bus, io.deq, is_mem)
+            iq(free_iq(i))(free_item(i)) := (new IQ_Entry(len))(enq_entries(i), if(is_mem) Mux(enq_entries(i).op(6), mem_left_next(i), st_left_next(i)) else 0.U).state_update(io.wake_bus, io.rply_bus, io.deq, is_mem)
         }
     }
 
