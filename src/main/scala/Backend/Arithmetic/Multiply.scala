@@ -133,9 +133,9 @@ class Mul_Booth2_Wallce extends Module {
         cout_wallce(i) := wallce.cout
     }
     // full adder
-    val fadd_src1 = ShiftRegister(sum_wallce.asUInt, 1, 0.U, true.B)
-    val fadd_src2 = ShiftRegister(VecInit(cout_wallce.map(_(15))).asUInt(62, 0) ## add1_wallce(15), 1, 0.U, true.B)
-    val fadd_cin  = ShiftRegister(add1_wallce(16).asUInt, 1, 0.U, true.B)
+    val fadd_src1 = ShiftRegister(sum_wallce.asUInt, 1, 0.U, !io.div_busy)
+    val fadd_src2 = ShiftRegister(VecInit(cout_wallce.map(_(15))).asUInt(62, 0) ## add1_wallce(15), 1, 0.U, !io.div_busy)
+    val fadd_cin  = ShiftRegister(add1_wallce(16).asUInt, 1, 0.U, !io.div_busy)
     val fadd_op   = ShiftRegister(op_wallce, 1, 0.U, !io.div_busy)
     val fadd = BLevel_PAdder64(fadd_src1, fadd_src2, fadd_cin)
     io.res := fadd.io.res(63, 32)

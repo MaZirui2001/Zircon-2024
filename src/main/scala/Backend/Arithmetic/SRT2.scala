@@ -51,7 +51,8 @@ class SRT2 extends Module {
     }
     /* stage 2: calculate the quotient */
     val op_s2                 = ShiftRegister(io.op, 1, 0.U, en && iter(5))
-    val res_sign_s2           = ShiftRegister(res_sign, 1, false.B, true.B)
+    val res_sign_s2           = ShiftRegister(res_sign, 1, false.B, en && iter(5))
+    val src1_s2               = ShiftRegister(io.src1, 1, 0.U, en && iter(5))
     val src1_leading_zeros_s2 = ShiftRegister(src1_leading_zeros, 1, 0.U, en && iter(5))
     val src2_leading_zeros_s2 = ShiftRegister(src2_leading_zeros, 1, 0.U, en && iter(5))
 
@@ -97,22 +98,24 @@ class SRT2 extends Module {
     val remainder_s2      = BLevel_PAdder32(rmd_reg(63, 32), Mux(rmd_reg(64), div_reg, 0.U), 0.U).io.res >> src2_leading_zeros_s2
     
     /* stage 3: calculate the result */
-    val quotient_s3       = ShiftRegister(quotient_s2, 1, 0.U, true.B)
-    val remainder_s3      = ShiftRegister(remainder_s2, 1, 0.U, true.B)
-    val res_sign_s3       = ShiftRegister(res_sign_s2, 1, false.B, true.B)
-    val op_s3             = ShiftRegister(op_s2, 1, 0.U, true.B)
+    val quotient_s3       = ShiftRegister(quotient_s2, 1, 0.U, iter(5))
+    val remainder_s3      = ShiftRegister(remainder_s2, 1, 0.U, iter(5))
+    val res_sign_s3       = ShiftRegister(res_sign_s2, 1, false.B, iter(5))
+    val src1_s3           = ShiftRegister(src1_s2, 1, 0.U, iter(5))
+    val div_s3_is_zero    = ShiftRegister(div_reg === 0.U, 1, false.B, iter(5))
+    val op_s3             = ShiftRegister(op_s2, 1, 0.U, iter(5))
     val ready_s3          = ShiftRegister(iter(5) && op_s2(2), 1, false.B, true.B)
 
     val result_adder      = Module(new BLevel_PAdder32)
     
     result_adder.io.src1  := Mux1H(Seq(
-        (op_s3 === DIV, Mux(res_sign_s3, ~quotient_s3, quotient_s3)),
-        (op_s3 === DIVU, quotient_s3),
-        (op_s3 === REM, Mux(res_sign_s3, ~remainder_s3, remainder_s3)),
-        (op_s3 === REMU, remainder_s3)
+        (op_s3 === DIV, Mux(div_s3_is_zero, 0xffffffffL.U, Mux(res_sign_s3, ~quotient_s3, quotient_s3))),
+        (op_s3 === DIVU, Mux(div_s3_is_zero, 0xffffffffL.U, quotient_s3)),
+        (op_s3 === REM, Mux(div_s3_is_zero, src1_s3, Mux(res_sign_s3, ~remainder_s3, remainder_s3))),
+        (op_s3 === REMU, Mux(div_s3_is_zero, src1_s3, remainder_s3))
     ))
     result_adder.io.src2 := 0.U
-    result_adder.io.cin  := (op_s3 === DIV || op_s3 === REM) && res_sign_s3
+    result_adder.io.cin  := (op_s3 === DIV || op_s3 === REM) && res_sign_s3 && !div_s3_is_zero
     io.res               := result_adder.io.res
     io.ready             := ready_s3
 }
