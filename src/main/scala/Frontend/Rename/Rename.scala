@@ -76,6 +76,7 @@ class Rename extends Module {
         pinfo.prj   := raw_read(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prj(i), flst.io.fte.deq.map(_.bits).take(i))
         pinfo.prk   := raw_read(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prk(i), flst.io.fte.deq.map(_.bits).take(i))
         pinfo.pprd  := raw_read(io.fte.rinfo(i).bits.rd, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.pprd(i), flst.io.fte.deq.map(_.bits).take(i))
+        // for prj amd prk, this stage will judge whether raw in the group, in order to initially set the prj_wk and prk_wk
         pinfo.prj_wk := !raw(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i))
         pinfo.prk_wk := !raw(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i))
     }

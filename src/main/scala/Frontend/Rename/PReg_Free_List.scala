@@ -53,7 +53,6 @@ class PReg_Free_List extends Module{
     var valid_ptr_enq = 1.U(ncommit.W)
     
     for(i <- 0 until ncommit) {
-        // pprd =/= 0: for the first several instructions, the pprd is not valid
         port_map_enq(i) := Mux(io.cmt.enq(i).valid, valid_ptr_enq, 0.U)
         valid_ptr_enq = Mux(io.cmt.enq(i).valid, ShiftAdd1(valid_ptr_enq), valid_ptr_enq)
     }

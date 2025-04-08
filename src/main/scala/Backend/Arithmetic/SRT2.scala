@@ -107,7 +107,8 @@ class SRT2 extends Module {
     val ready_s3          = ShiftRegister(iter(5) && op_s2(2), 1, false.B, true.B)
 
     val result_adder      = Module(new BLevel_PAdder32)
-    
+    // for div, if the divisor is 0, the result is 0xffffffff according to the RISC-V spec
+    // for rem, if the divisor is 0, the result is the divident
     result_adder.io.src1  := Mux1H(Seq(
         (op_s3 === DIV, Mux(div_s3_is_zero, 0xffffffffL.U, Mux(res_sign_s3, ~quotient_s3, quotient_s3))),
         (op_s3 === DIVU, Mux(div_s3_is_zero, 0xffffffffL.U, quotient_s3)),

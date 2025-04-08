@@ -44,6 +44,8 @@ class IQ_Entry(num: Int) extends Bundle {
     val inst_exi    = Bool()
     val item        = new Backend_Package()
     // for memory access partial unordered execution
+    // for load, st_before is the number of load instructions in the queue
+    // for store, st_before is the number of instructions in the queue
     val st_before   = UInt(log2Ceil(num).W)
 
     def apply(item: Backend_Package, st_before: UInt): IQ_Entry = {
@@ -102,9 +104,11 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
         VecInit.fill(n)(VecInit.fill(len)(0.U.asTypeOf(new IQ_Entry(num))))
     )
     
-    val flst = Module(new Cluster_Index_FIFO(UInt((log2Ceil(n)+log2Ceil(len)).W), num, dw, ew, 0, 0, true, Some(Seq.tabulate(num)(i => ((i / len) << log2Ceil(len) | (i % len)).U((log2Ceil(n) + log2Ceil(len)).W)))))
+    val flst = Module(new Cluster_Index_FIFO(
+        UInt((log2Ceil(n)+log2Ceil(len)).W), num, dw, ew, 0, 0, true, 
+        Some(Seq.tabulate(num)(i => ((i / len) << log2Ceil(len) | (i % len)).U((log2Ceil(n) + log2Ceil(len)).W
+    )))))
     
-    // 在flst进行特定设置
     flst.io.enq.foreach(_.valid := false.B) 
     flst.io.enq.foreach(_.bits := DontCare)
     flst.io.deq.foreach(_.ready := false.B)
@@ -124,15 +128,16 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
         mem_left := Mux(io.flush, 0.U, mem_left_next(ew-1) - PopCount(io.deq.map{case (e) => e.valid && e.ready}))
     }
     io.st_left := st_left
+
     /* insert into iq */
     // allocate free item in iq
     flst.io.deq.zipWithIndex.foreach{ case (deq, i) => 
         deq.ready := io.enq(i).valid
     }
-    val free_iq = flst.io.deq.map((_.bits >> log2Ceil(len)))
-    val free_item = flst.io.deq.map(_.bits(log2Ceil(len)-1, 0))
+    val free_iq     = flst.io.deq.map((_.bits >> log2Ceil(len)))
+    val free_item   = flst.io.deq.map(_.bits(log2Ceil(len)-1, 0))
     val enq_entries = WireDefault(VecInit(io.enq.map(_.bits)))
-    flst.io.flush := false.B
+    flst.io.flush   := false.B
 
     /* wake up */
     iq.foreach{case (qq) =>
@@ -140,10 +145,14 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
             e := e.state_update(io.wake_bus, io.rply_bus, io.deq, is_mem)
         }
     }
-    // write to iq
+    /* write to iq */
     for (i <- 0 until ew){
         when(io.enq(i).valid && flst.io.deq(0).valid){
-            iq(free_iq(i))(free_item(i)) := (new IQ_Entry(len))(enq_entries(i), if(is_mem) Mux(enq_entries(i).op(6), mem_left_next(i), st_left_next(i)) else 0.U).state_update(io.wake_bus, io.rply_bus, io.deq, is_mem)
+            iq(free_iq(i))(free_item(i)) := (new IQ_Entry(len))(
+                enq_entries(i), 
+                if(is_mem) Mux(enq_entries(i).op(6), mem_left_next(i), st_left_next(i)) 
+                else 0.U
+            ).state_update(io.wake_bus, io.rply_bus, io.deq, is_mem)
         }
     }
 

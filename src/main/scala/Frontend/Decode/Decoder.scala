@@ -70,11 +70,4 @@ class Decoder extends Module{
 
     io.func := is_mem ## (is_muldiv || is_priv) ## !(is_mem || is_muldiv || is_priv)
 
-    // io.jump_op := Mux1H(Seq(
-    //     (is_jalr && io.rinfo.rd =/= 0.U  || is_jal) -> CALL,
-    //     (is_jalr && io.rinfo.rd === 0.U)            -> RET,
-    //     is_br                                       -> BR,
-    //     (!(is_br || is_jal || is_jalr))             -> NOP
-    // ))
-
 }
