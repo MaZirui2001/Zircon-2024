@@ -55,8 +55,8 @@ class IQ_Entry(num: Int) extends Bundle {
     }
 
     def state_update(wake_bus: Vec[Wakeup_Bus_Pkg], rply_bus: Replay_Bus_Pkg, deq_item: Seq[DecoupledIO[Backend_Package]], is_mem: Boolean): IQ_Entry = {
-        if(is_mem){ val e = this.wakeup(wake_bus, rply_bus).lpv_update(wake_bus).st_before_update(deq_item); e}
-        else{ val e = this.wakeup(wake_bus, rply_bus).lpv_update(wake_bus); e}
+        if(is_mem){ val e = this.wakeup(wake_bus, rply_bus).lpv_update(wake_bus, rply_bus).st_before_update(deq_item); e}
+        else{ val e = this.wakeup(wake_bus, rply_bus).lpv_update(wake_bus, rply_bus); e}
     }
     
     def wakeup(wake_bus: Vec[Wakeup_Bus_Pkg], rply_bus: Replay_Bus_Pkg): IQ_Entry = {
@@ -66,15 +66,15 @@ class IQ_Entry(num: Int) extends Bundle {
         e
     }
 
-    def lpv_update(wake_bus: Vec[Wakeup_Bus_Pkg]): IQ_Entry = {
+    def lpv_update(wake_bus: Vec[Wakeup_Bus_Pkg], rply_bus: Replay_Bus_Pkg): IQ_Entry = {
         val e = WireDefault(this)
-        e.item.prj_lpv := Mux(this.item.prj_lpv.orR || this.item.prj === 0.U, this.item.prj_lpv << 1, Mux1H(wake_bus.map(_.prd === this.item.prj), wake_bus.map(_.lpv << 1)))
-        e.item.prk_lpv := Mux(this.item.prk_lpv.orR || this.item.prk === 0.U, this.item.prk_lpv << 1, Mux1H(wake_bus.map(_.prd === this.item.prk), wake_bus.map(_.lpv << 1)))
+        e.item.prj_lpv := Mux(this.item.prj_lpv.orR || this.item.prj === 0.U, this.item.prj_lpv << !rply_bus.replay, Mux1H(wake_bus.map(_.prd === this.item.prj), wake_bus.map(_.lpv << 1)))
+        e.item.prk_lpv := Mux(this.item.prk_lpv.orR || this.item.prk === 0.U, this.item.prk_lpv << !rply_bus.replay, Mux1H(wake_bus.map(_.prd === this.item.prk), wake_bus.map(_.lpv << 1)))
         e
     }
     def st_before_update(st_item: Seq[DecoupledIO[Backend_Package]]): IQ_Entry = {
         val e = WireDefault(this)
-        e.st_before := this.st_before - PopCount(st_item.map{case s => s.valid && s.bits.op(5)})
+        e.st_before := this.st_before - PopCount(st_item.map{case s => s.valid && s.bits.op(6)})
         e
     }
 }
@@ -111,8 +111,8 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     
     val st_left = RegInit(0.U(log2Ceil(num).W))
     if(is_mem){
-        st_left := Mux(io.flush, 0.U, (st_left + PopCount(io.enq.map{case (e) => e.bits.op(5) && e.valid && e.ready})
-                                               - PopCount(io.deq.map{case (e) => e.bits.op(5) && e.valid && e.ready})))
+        st_left := Mux(io.flush, 0.U, (st_left + PopCount(io.enq.map{case (e) => e.bits.op(6) && e.valid && e.ready})
+                                               - PopCount(io.deq.map{case (e) => e.bits.op(6) && e.valid && e.ready})))
     }
     io.st_left := st_left
     /* insert into iq */
@@ -166,7 +166,7 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
 
         // make the selected instruction not exist
         iq(i).zipWithIndex.foreach{ case (e, j) =>
-            when(select_item.idx_1h(j)){ 
+            when(select_item.idx_1h(j) && io.deq(i).ready){ 
                 e.inst_exi := false.B 
                 // e.item.prj_wk := false.B
                 // e.item.prk_wk := false.B

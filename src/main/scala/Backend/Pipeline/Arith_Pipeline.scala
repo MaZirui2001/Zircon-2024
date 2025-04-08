@@ -56,8 +56,8 @@ class Arith_Pipeline extends Module {
     def seg_flush(inst_pkg: Backend_Package): Bool = {
         io.cmt.flush || io.wk.rply_in.replay && (inst_pkg.prj_lpv | inst_pkg.prk_lpv).orR
     }
-    inst_pkg_is.prj_lpv := io.iq.inst_pkg.bits.prj_lpv << 1
-    inst_pkg_is.prk_lpv := io.iq.inst_pkg.bits.prk_lpv << 1
+    inst_pkg_is.prj_lpv := io.iq.inst_pkg.bits.prj_lpv 
+    inst_pkg_is.prk_lpv := io.iq.inst_pkg.bits.prk_lpv
 
     // wakeup 
     io.wk.wake_issue := (new Wakeup_Bus_Pkg)(inst_pkg_is)

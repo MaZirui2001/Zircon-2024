@@ -38,7 +38,7 @@ class Ready_Board extends Module {
     board(io.rply_bus.prd).ready := true.B
     board.foreach{case(e) => 
         when(e.lpv.orR){
-            e.lpv := e.lpv << 1
+            e.lpv := e.lpv << !io.rply_bus.replay
             e.ready := !io.rply_bus.replay
         }
     }

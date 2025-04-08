@@ -55,7 +55,7 @@ class LS_Pipeline extends Module {
         Mux(seg_flush(inst_pkg_is), 0.U.asTypeOf(new Backend_Package), inst_pkg_is), 
         1, 
         0.U.asTypeOf(new Backend_Package), 
-        !(dc.io.pp.miss || dc.io.pp.sb_full) || io.cmt.flush || io.wk.rply_in.replay
+        !(dc.io.pp.miss || dc.io.pp.sb_full) || io.cmt.flush
     ))
     // regfile read
     io.rf.rd.prj           := inst_pkg_rf.prj
@@ -85,7 +85,11 @@ class LS_Pipeline extends Module {
     ))
     // dcache
     dc.io.cmt           := io.cmt.dc
-
+    dc.io.mmu.paddr     := inst_pkg_d1.src1
+    // TODO: add mmu
+    dc.io.mmu.uncache   := false.B
+    dc.io.mmu.exception := 0.U(8.W)
+    dc.io.l2            <> io.mem.l2
     /* DCache Stage 2 */
     val inst_pkg_d2 = WireDefault(ShiftRegister(
         Mux(seg_flush(inst_pkg_d1), 0.U.asTypeOf(new Backend_Package), inst_pkg_d1), 
@@ -93,18 +97,12 @@ class LS_Pipeline extends Module {
         0.U.asTypeOf(new Backend_Package), 
         !(dc.io.pp.miss || dc.io.pp.sb_full) || io.cmt.flush
     ))
-    // dcache
-    dc.io.mmu.paddr     := inst_pkg_d2.src1
-    // TODO: add mmu
-    dc.io.mmu.uncache   := false.B
-    dc.io.mmu.exception := 0.U(8.W)
 
-    dc.io.l2            <> io.mem.l2
     inst_pkg_d2.nxt_cmt_en := inst_pkg_d2.op(6)
 
     // replay
     io.wk.rply_out.prd      := inst_pkg_d2.prd
-    io.wk.rply_out.replay   := dc.io.pp.miss || dc.io.pp.sb_full
+    io.wk.rply_out.replay   := (dc.io.pp.miss || dc.io.pp.sb_full) && inst_pkg_d2.valid
 
     /* Write Back Stage */
     val inst_pkg_wb = WireDefault(ShiftRegister(
