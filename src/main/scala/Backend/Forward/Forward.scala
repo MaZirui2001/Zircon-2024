@@ -5,9 +5,9 @@ import Zircon_Config.Issue._
 class Forward_IO extends Bundle {
     val inst_pkg_wb  = Input(Vec(nis, new Backend_Package))
     // only forward arith pipeline
-    val inst_pkg_ex  = Input(Vec(3, new Backend_Package))
-    val src1_fwd     = Vec(3, Decoupled(UInt(32.W)))
-    val src2_fwd     = Vec(3, Decoupled(UInt(32.W)))
+    val inst_pkg_ex  = Input(Vec(4, new Backend_Package))
+    val src1_fwd     = Vec(4, Decoupled(UInt(32.W)))
+    val src2_fwd     = Vec(4, Decoupled(UInt(32.W)))
 }
 
 class Forward extends Module {

@@ -155,7 +155,7 @@ class DCache extends Module {
     val c1s1 = (new D_Channel1_Stage1_Signal)(io.pp)
     
     // Stage 2: MMU and hit check
-    val c1s2 = ShiftRegister(c1s1, 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !(miss_c1 || sb_full))
+    val c1s2 = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), c1s1), 1, 0.U.asTypeOf(new D_Channel1_Stage1_Signal), !(miss_c1 || sb_full) || io.cmt.flush)
     val vld_c1s2    = vld_tab.map(_.rdata(0))
     val tag_c1s2    = tag_tab.map(_.douta)
     val data_c1s2   = data_tab.map(_.douta)
@@ -169,16 +169,16 @@ class DCache extends Module {
     val read_miss = c1s2.rreq && (io.mmu.uncache || !hit_c1s2.orR) && (c1s2.is_latest || !io.mmu.uncache)
     val write_miss = c1s2.wreq && io.mmu.uncache
     
-    miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || sb_full, miss_c1, read_miss || write_miss))
+    miss_c1 := Mux(fsm.io.cc.cmiss, false.B, Mux(miss_c1 || sb_full, miss_c1, (read_miss || write_miss) && !io.cmt.flush))
 
     // stage 3
-    val c1s3        = ShiftRegister(c1s3_in, 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || sb_full))
+    val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), c1s3_in), 1, 0.U.asTypeOf(new D_Channel1_Stage2_Signal), !(miss_c1 || sb_full))
     assert(!c1s3.rreq || PopCount(c1s3.hit) <= 1.U, "DCache: channel 1: multiple hits")
     c1s3_wreq       := c1s3.wreq
     val lru_c1s3    = lru_tab.rdata(0)
     // store buffer
     val sb_enq = (new sb_entry)(c1s3.paddr, c1s3.wdata, c1s3.mtype, c1s3.uncache)
-    sb.io.enq.valid     := c1s3.wreq && !miss_c1
+    sb.io.enq.valid     := c1s3.wreq && !miss_c1 && !io.cmt.flush
     sb.io.enq.bits      := sb_enq
     sb.io.st_cmt        := io.cmt.st_cmt
     sb.io.st_finish     := io.l2.wrsp

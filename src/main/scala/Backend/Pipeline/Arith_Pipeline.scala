@@ -50,21 +50,20 @@ class Arith_Pipeline extends Module {
 
     /* Issue Stage */
     val inst_pkg_is         = WireDefault(io.iq.inst_pkg.bits)
-    io.wk.wake_issue        := (new Wakeup_Bus_Pkg)(inst_pkg_is)
     io.iq.inst_pkg.ready    := true.B
 
     def seg_flush(inst_pkg: Backend_Package): Bool = {
         io.cmt.flush || io.wk.rply_in.replay && (inst_pkg.prj_lpv | inst_pkg.prk_lpv).orR
     }
-    inst_pkg_is.prj_lpv := io.iq.inst_pkg.bits.prj_lpv 
-    inst_pkg_is.prk_lpv := io.iq.inst_pkg.bits.prk_lpv
+    inst_pkg_is.prj_lpv := io.iq.inst_pkg.bits.prj_lpv << 1
+    inst_pkg_is.prk_lpv := io.iq.inst_pkg.bits.prk_lpv << 1
 
     // wakeup 
-    io.wk.wake_issue := (new Wakeup_Bus_Pkg)(inst_pkg_is)
+    io.wk.wake_issue := (new Wakeup_Bus_Pkg)(io.iq.inst_pkg.bits, io.wk.rply_in)
     
     /* Regfile Stage */
     val inst_pkg_rf = WireDefault(ShiftRegister(
-        Mux(seg_flush(inst_pkg_is), 0.U.asTypeOf(new Backend_Package), inst_pkg_is), 
+        Mux(seg_flush(io.iq.inst_pkg.bits), 0.U.asTypeOf(new Backend_Package), inst_pkg_is), 
         1, 
         0.U.asTypeOf(new Backend_Package), 
         true.B
@@ -75,7 +74,7 @@ class Arith_Pipeline extends Module {
     inst_pkg_rf.src2       := io.rf.rd.prk_data
 
     // wakeup
-    io.wk.wake_rf := (new Wakeup_Bus_Pkg)(inst_pkg_rf)
+    io.wk.wake_rf := (new Wakeup_Bus_Pkg)(inst_pkg_rf, io.wk.rply_in)
     
     /* Execute Stage */
     val inst_pkg_ex = WireDefault(ShiftRegister(

@@ -15,9 +15,9 @@ class Replay_Bus_Pkg extends Bundle {
 class Wakeup_Bus_Pkg extends Bundle {
     val prd = UInt(wpreg.W)
     val lpv = UInt(3.W)
-    def apply(pkg: Backend_Package, is_mem: Boolean = false): Wakeup_Bus_Pkg = {
+    def apply(pkg: Backend_Package, rply_bus: Replay_Bus_Pkg, is_mem: Boolean = false): Wakeup_Bus_Pkg = {
         val wk = Wire(new Wakeup_Bus_Pkg)
-        wk.prd := pkg.prd
+        wk.prd := Mux(rply_bus.replay && (pkg.prj_lpv | pkg.prk_lpv).orR, 0.U, pkg.prd)
         wk.lpv := (if(is_mem) pkg.prj_lpv | pkg.prk_lpv | 0x1.U else pkg.prj_lpv | pkg.prk_lpv)
         wk
     }

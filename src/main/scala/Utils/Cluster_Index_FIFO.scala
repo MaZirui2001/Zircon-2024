@@ -68,7 +68,7 @@ class Cluster_Index_FIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int,
     val deq_ptr = RegInit(VecInit.tabulate(dw)(i => (1 << i).U(n.W)))
     val deq_ptr_trans = Transpose(deq_ptr)
     io.deq.zipWithIndex.foreach{ case (deq, i) => 
-        deq.valid := Mux1H(deq_ptr(i), fifos.map(_.deq.valid))
+        deq.valid := Mux1H(deq_ptr(i), fifos.map(_.deq.valid)) && all_deq_valid
         deq.bits := Mux1H(deq_ptr(i), fifos.map(_.deq.bits))
     }
     io.deq_idx.zipWithIndex.foreach{ case(idx, i) => 

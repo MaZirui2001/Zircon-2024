@@ -14,6 +14,7 @@ class LS_IQ_IO extends Pipeline_IQ_IO
 
 class LS_Wakeup_IO extends Bundle {
     val wake_rf    = Output(new Wakeup_Bus_Pkg)
+    val wake_d1    = Output(new Wakeup_Bus_Pkg)
     val rply_in    = Input(new Replay_Bus_Pkg)
     val rply_out   = Output(new Replay_Bus_Pkg)
 }
@@ -67,7 +68,7 @@ class LS_Pipeline extends Module {
     inst_pkg_rf.src1    := agu.io.res
     inst_pkg_rf.src2    := io.rf.rd.prk_data
     // wakeup
-    io.wk.wake_rf := (new Wakeup_Bus_Pkg)(inst_pkg_rf, true)
+    io.wk.wake_rf := (new Wakeup_Bus_Pkg)(inst_pkg_rf, io.wk.rply_in, true)
 
     dc.io.pp.rreq       := inst_pkg_rf.op(5)
     dc.io.pp.mtype      := inst_pkg_rf.op(2, 0)
@@ -83,6 +84,7 @@ class LS_Pipeline extends Module {
         0.U.asTypeOf(new Backend_Package), 
         !(dc.io.pp.miss || dc.io.pp.sb_full) || io.cmt.flush
     ))
+    io.wk.wake_d1 := (new Wakeup_Bus_Pkg)(inst_pkg_d1, io.wk.rply_in, false)
     // dcache
     dc.io.cmt           := io.cmt.dc
     dc.io.mmu.paddr     := inst_pkg_d1.src1

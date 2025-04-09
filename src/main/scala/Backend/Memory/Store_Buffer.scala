@@ -9,6 +9,7 @@ class sb_entry extends Bundle{
     val wdata = UInt(32.W)
     val wstrb = UInt(4.W)
     val uncache = Bool()
+    val commit = Bool()
 
     def apply(paddr: UInt, wdata: UInt, mtype: UInt, uncache: Bool): sb_entry = {
         val entry = Wire(new sb_entry)
@@ -16,6 +17,7 @@ class sb_entry extends Bundle{
         entry.wdata := (wdata << (paddr(1, 0) << 3.U))(31, 0)
         entry.wstrb := (MTypeDecode(mtype(1, 0)) << paddr(1, 0))(3, 0)
         entry.uncache := uncache
+        entry.commit := false.B
         entry
     }
 }
@@ -80,8 +82,10 @@ class Store_Buffer extends Module {
     
     // write logic
     q.zipWithIndex.foreach{ case (qq, i) => 
-        when(io.flush){ qq.wstrb := 0.U(4.W) }
+        when(rptr(i) && io.st_cmt){ qq.commit := true.B }
+        .elsewhen(io.flush){ qq.wstrb := Mux(qq.commit, qq.wstrb, 0.U(4.W)) }
 		.elsewhen(tptr(i) && io.enq.valid && fulln) { qq := io.enq.bits }
+        
 	}
     io.enq_idx := OHToUInt(tptr)
 

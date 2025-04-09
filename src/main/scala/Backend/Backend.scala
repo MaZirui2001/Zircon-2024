@@ -91,6 +91,9 @@ class Backend extends Module {
     md_pp.io.rf             <> rf.io(3)
     md_pp.io.wk.rply_in     := rply_bus
     fwd.io.inst_pkg_wb(3)   := md_pp.io.fwd.inst_pkg_wb
+    fwd.io.inst_pkg_ex(3)   := md_pp.io.fwd.inst_pkg_ex
+    fwd.io.src1_fwd(3)      <> md_pp.io.fwd.src1_fwd
+    fwd.io.src2_fwd(3)      <> md_pp.io.fwd.src2_fwd
     md_pp.io.cmt.flush      := io.cmt.flush(3)
     io.cmt.widx(3)          := md_pp.io.cmt.widx
     io.cmt.wen(3)           := md_pp.io.cmt.wen
@@ -126,7 +129,7 @@ class Backend extends Module {
         ar_pp(1).wk.wake_rf,
         ar_pp(2).wk.wake_rf,
         md_pp.io.wk.wake_ex3,
-        ls_pp.io.wk.wake_rf
+        ls_pp.io.wk.wake_d1
     )
     rply_bus := ls_pp.io.wk.rply_out
     io.mem.l2 <> ls_pp.io.mem.l2
