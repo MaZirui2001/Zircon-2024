@@ -73,8 +73,8 @@ class ROB_Entry extends Bundle{
 
 class ROB_Dispatch_IO extends Bundle{
     val flush       = Output(Bool())
-    val enq         = Vec(ndecode, Flipped(Decoupled(new ROB_Frontend_Entry)))
-    val enq_idx     = Output(Vec(ndecode, new Cluster_Entry(wrob_q, wdecode)))
+    val enq         = Vec(ndcd, Flipped(Decoupled(new ROB_Frontend_Entry)))
+    val enq_idx     = Output(Vec(ndcd, new Cluster_Entry(wrob_q, wdecode)))
 }
 
 class ROB_Commit_IO extends Bundle{
@@ -91,7 +91,7 @@ class Reorder_Buffer_IO extends Bundle{
 class Reorder_Buffer extends Module{
     val io = IO(new Reorder_Buffer_IO)
 
-    val q = Module(new Cluster_Index_FIFO(new ROB_Entry, nrob, ndecode, ncommit, 0, nissue))
+    val q = Module(new Cluster_Index_FIFO(new ROB_Entry, nrob, ndcd, ncommit, 0, nis))
 
     // 1. frontend: in dispatch stage, each instruction will enqueue into the ROB
     q.io.enq.zip(io.dsp.enq).foreach{case (enq, fte) =>
@@ -163,6 +163,6 @@ class Reorder_Buffer extends Module{
     io.dsp.flush := ShiftRegister(flush, 1, false.B, true.B)
 
     // backend
-    io.bke.flush := ShiftRegister(VecInit.fill(nissue)(flush), 1, VecInit.fill(nissue)(false.B), true.B)
+    io.bke.flush := ShiftRegister(VecInit.fill(nis)(flush), 1, VecInit.fill(nis)(false.B), true.B)
 
 }

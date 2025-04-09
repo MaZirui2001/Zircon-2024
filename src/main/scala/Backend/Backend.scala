@@ -5,17 +5,17 @@ import Zircon_Config.Decode._
 import Zircon_Config.Commit._
 
 class Backend_Dispatch_IO extends Bundle {
-    val inst_pkg = Vec(niq, Vec(ndecode, Flipped(Decoupled(new Backend_Package))))
-    val wake_bus = Output(Vec(nissue, new Wakeup_Bus_Pkg))
+    val inst_pkg = Vec(niq, Vec(ndcd, Flipped(Decoupled(new Backend_Package))))
+    val wake_bus = Output(Vec(nis, new Wakeup_Bus_Pkg))
     val rply_bus = Output(new Replay_Bus_Pkg)
 }
 
 class Backend_Commit_IO extends Bundle {
-    val widx    = Output(Vec(nissue, new Cluster_Entry(nrob_q, ndecode)))
-    val wen     = Output(Vec(nissue, Bool()))
-    val wdata   = Output(Vec(nissue, new ROB_Backend_Entry))
+    val widx    = Output(Vec(nis, new Cluster_Entry(nrob_q, ndcd)))
+    val wen     = Output(Vec(nis, Bool()))
+    val wdata   = Output(Vec(nis, new ROB_Backend_Entry))
     val sb      = new D_Commit_IO
-    val flush   = Input(Vec(nissue, Bool()))
+    val flush   = Input(Vec(nis, Bool()))
 }
 
 class Backend_Memory_IO extends Bundle {
@@ -35,9 +35,9 @@ class Backend_IO extends Bundle {
 class Backend extends Module {
     val io = IO(new Backend_IO)
     
-    val ar_iq = Module(new Issue_Queue(ndecode, arith_nissue, arith_niq, false))
-    val md_iq = Module(new Issue_Queue(ndecode, muldiv_nissue, muldiv_niq, false))
-    val ls_iq = Module(new Issue_Queue(ndecode, lsu_nissue, lsu_niq, true))
+    val ar_iq = Module(new Issue_Queue(ndcd, arith_nissue, arith_niq, false))
+    val md_iq = Module(new Issue_Queue(ndcd, muldiv_nissue, muldiv_niq, false))
+    val ls_iq = Module(new Issue_Queue(ndcd, lsu_nissue, lsu_niq, true))
 
     val rf    = Module(new Regfile)
 
@@ -47,7 +47,7 @@ class Backend extends Module {
     val md_pp = Module(new MulDiv_Pipeline)
     val ls_pp = Module(new LS_Pipeline)
 
-    val wake_bus = Wire(Vec(niq, Vec(nissue, new Wakeup_Bus_Pkg)))
+    val wake_bus = Wire(Vec(niq, Vec(nis, new Wakeup_Bus_Pkg)))
     val rply_bus = Wire(new Replay_Bus_Pkg)
 
     /* pipeline 0-2: arith and branch */

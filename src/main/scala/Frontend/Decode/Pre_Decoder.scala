@@ -96,16 +96,16 @@ class Pre_Decoder extends Module {
 }
 
 class Pre_Decoders_IO extends Bundle {
-    val inst_pkg    = Input(Vec(nfetch, new Frontend_Package))
-    val rinfo       = Vec(nfetch, Decoupled(new Register_Info))
+    val inst_pkg    = Input(Vec(nfch, new Frontend_Package))
+    val rinfo       = Vec(nfch, Decoupled(new Register_Info))
     val npc         = Flipped(new NPC_PreDecode_IO)
-    val pred_offset = Vec(nfetch, Output(UInt(32.W)))
+    val pred_offset = Vec(nfch, Output(UInt(32.W)))
 }
 
 class Pre_Decoders extends Module {
     val io = IO(new Pre_Decoders_IO)
-    val pds = VecInit.fill(nfetch)(Module(new Pre_Decoder).io)
-    for (i <- 0 until nfetch) {
+    val pds = VecInit.fill(nfch)(Module(new Pre_Decoder).io)
+    for (i <- 0 until nfch) {
         pds(i).inst_pkg := io.inst_pkg(i)
         io.rinfo(i).bits := pds(i).rinfo
         io.rinfo(i).valid := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.inst_pkg.valid}.take(i).reduce(_ || _)) && io.inst_pkg(i).valid

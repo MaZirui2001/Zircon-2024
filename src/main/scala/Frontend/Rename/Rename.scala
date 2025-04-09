@@ -15,8 +15,8 @@ class PRegister_Info extends Bundle {
 }
 
 class Rename_Frontend_IO extends Bundle {
-    val rinfo   = Vec(ndecode, Flipped(Decoupled(new Register_Info)))
-    val pinfo   = Output(Vec(ndecode, new PRegister_Info))
+    val rinfo   = Vec(ndcd, Flipped(Decoupled(new Register_Info)))
+    val pinfo   = Output(Vec(ndcd, new PRegister_Info))
 }
 
 class Rename_Commit_IO extends Bundle {

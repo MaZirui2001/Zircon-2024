@@ -93,14 +93,14 @@
 // }
 
 // class ROB_Frontend_IO extends Bundle{
-//     val enq     = Vec(ndecode, Flipped(Decoupled(new ROB_Frontend_Entry)))
-//     val enq_idx = Output(Vec(ndecode, new Cluster_Entry(nrob_q, ndecode)))
+//     val enq     = Vec(ndcd, Flipped(Decoupled(new ROB_Frontend_Entry)))
+//     val enq_idx = Output(Vec(ndcd, new Cluster_Entry(nrob_q, ndcd)))
 // }
 
 // class ROB_Backend_IO extends Bundle{
-//     val widx    = Input(Vec(nissue, new Cluster_Entry(nrob_q, ndecode)))
-//     val wen     = Input(Vec(nissue, Bool()))
-//     val wdata   = Input(Vec(nissue, new ROB_Backend_Entry))
+//     val widx    = Input(Vec(nis, new Cluster_Entry(nrob_q, ndcd)))
+//     val wen     = Input(Vec(nis, Bool()))
+//     val wdata   = Input(Vec(nis, new ROB_Backend_Entry))
 // }
 
 // class ROB_Commit_IO extends Bundle{
@@ -119,7 +119,7 @@
 // class Reorder_Buffer extends Module{
 //     val io = IO(new Reorder_Buffer_IO)
 
-//     val q = Module(new Cluster_Index_FIFO(new ROB_Entry, nrob, ndecode, ncommit, 0, nissue))
+//     val q = Module(new Cluster_Index_FIFO(new ROB_Entry, nrob, ndcd, ncommit, 0, nis))
 
 //     // 1. frontend: in dispatch stage, each instruction will enqueue into the ROB
 //     q.io.enq.zip(io.fte.enq).foreach{case (enq, fte) =>

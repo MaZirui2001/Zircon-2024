@@ -26,12 +26,12 @@ class Regfile_Single_IO extends Bundle{
 }
 
 class Regfile extends Module {
-    val io  = IO(Vec(nissue, new Regfile_Single_IO))
+    val io  = IO(Vec(nis, new Regfile_Single_IO))
     val dbg = IO(new Regfile_DBG_IO)
 
     val regfile = RegInit(VecInit.tabulate(npreg)(i => 0.U(32.W)))
 
-    for(i <- 0 until nissue){
+    for(i <- 0 until nis){
         io(i).rd.prj_data := WFirstRead(regfile(io(i).rd.prj), io(i).rd.prj, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
         io(i).rd.prk_data := WFirstRead(regfile(io(i).rd.prk), io(i).rd.prk, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
         when(io(i).wr.prd_vld){

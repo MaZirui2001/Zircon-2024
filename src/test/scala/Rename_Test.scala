@@ -31,9 +31,9 @@ class Rename_Test_Generator {
         }
         val writer = new java.io.PrintWriter(testbenchPath.toString)
         // 每一个测试包含ndecode个测试项，ndeocde在Decode中有定义
-        val test_array = new Array[Rename_Test_Item](test_num * ndecode)
+        val test_array = new Array[Rename_Test_Item](test_num * ndcd)
 
-        val results = (0 until test_num * ndecode).map { i =>
+        val results = (0 until test_num * ndcd).map { i =>
             val item = Rename_Test_Item(0, 0, 0, 0, 0)
 
             item.flush = if(rand.nextInt(20) == 0) 1 else 0
@@ -47,10 +47,10 @@ class Rename_Test_Generator {
             item
         }.toArray
 
-        Array.copy(results, 0, test_array, 0, test_num * ndecode)
+        Array.copy(results, 0, test_array, 0, test_num * ndcd)
 
         // 写入文件，注意每ndeocde个测试项写在一行，每个数据中间空格分割
-        for (i <- 0 until ndecode * test_num) {
+        for (i <- 0 until ndcd * test_num) {
             writer.println(
                 f"${test_array(i).rd_vld} " +
                 f"${test_array(i).rd} " +
@@ -81,7 +81,7 @@ class Rename_Test_Generator {
 class Rename_Ref{
     import Zircon_Config.Commit._
     val free_list = Array.tabulate(npreg)(i =>
-        (i / ndecode) + 1 + (i % ndecode) * (npreg / ndecode)
+        (i / ndcd) + 1 + (i % ndcd) * (npreg / ndcd)
     )
     var head = 0
     var tail = 0
@@ -139,7 +139,7 @@ class Rename_Test extends AnyFlatSpec with ChiselScalatestTester {
             val ref = new Rename_Ref
             val rob = Queue[Simple_ROB_Item]((Simple_ROB_Item(0, 0, 0, 0)))
             var index = 0
-            val end = test_num * ndecode - ndecode
+            val end = test_num * ndcd - ndcd
             val rand = new Random()
             val PRINT_INTERVAL = test_num / 10
             while(index < end) {
@@ -182,10 +182,10 @@ class Rename_Test extends AnyFlatSpec with ChiselScalatestTester {
                         }
                     }
                     if(c.io.fte.rinfo(0).ready.peek().litToBoolean){    
-                        // 1. 随机选定本次测试的数量，范围0-ndecode
-                        val ntest = rand.nextInt(ndecode)
+                        // 1. 随机选定本次测试的数量，范围0-ndcd
+                        val ntest = rand.nextInt(ndcd)
                         // 2. 读取本次测试的测试项并激励
-                        for(i <- 0 until ndecode){
+                        for(i <- 0 until ndcd){
                             if(i < ntest){
                                 c.io.fte.rinfo(i).valid.poke(true)
                                 c.io.fte.rinfo(i).bits.rd_vld.poke(tests(index + i).rd_vld)
@@ -219,7 +219,7 @@ class Rename_Test extends AnyFlatSpec with ChiselScalatestTester {
                 }
                 c.clock.step(1)
                 if(index % PRINT_INTERVAL == 0){
-                    print(s"\rTest: ${index * 100 / (test_num * ndecode)}%")
+                    print(s"\rTest: ${index * 100 / (test_num * ndcd)}%")
                     Console.flush()
                 }
             }

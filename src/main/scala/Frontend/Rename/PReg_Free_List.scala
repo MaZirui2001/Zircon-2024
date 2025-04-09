@@ -6,7 +6,7 @@ import Zircon_Config.Decode._
 import Zircon_Util._
 
 class Free_List_Frontend_IO extends Bundle{
-    val deq         = Vec(ndecode, Decoupled(UInt(wpreg.W)))
+    val deq         = Vec(ndcd, Decoupled(UInt(wpreg.W)))
 }
 
 class Free_List_Commit_IO extends Bundle{
@@ -27,15 +27,15 @@ class Free_List_IO extends Bundle{
 class PReg_Free_List extends Module{
     val io = IO(new Free_List_IO)
 
-    val flst = Module(new Cluster_Index_FIFO(UInt(wpreg.W), npreg-32, ncommit, ndecode, 0, 0, true, Some(Seq.tabulate(npreg-32)(i => (i+32).U(wpreg.W)))))
+    val flst = Module(new Cluster_Index_FIFO(UInt(wpreg.W), npreg-32, ncommit, ndcd, 0, 0, true, Some(Seq.tabulate(npreg-32)(i => (i+32).U(wpreg.W)))))
     /* calculate the port map
         port_map(i) means io port i is connected to the port_map(i)th enq port
         it traverse is the enq port mapped to the io port
     */
-    val port_map_fte = VecInit.fill(ndecode)(0.U(ndecode.W))
+    val port_map_fte = VecInit.fill(ndcd)(0.U(ndcd.W))
     val port_map_trans_fte = Transpose(port_map_fte)
-    var valid_ptr_fte = 1.U(ndecode.W)
-    for(i <- 0 until ndecode) {
+    var valid_ptr_fte = 1.U(ndcd.W)
+    for(i <- 0 until ndcd) {
         port_map_fte(i) := Mux(io.fte.deq(i).ready, valid_ptr_fte, 0.U)
         valid_ptr_fte = Mux(io.fte.deq(i).ready, ShiftAdd1(valid_ptr_fte), valid_ptr_fte)
     }

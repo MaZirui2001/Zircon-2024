@@ -56,7 +56,7 @@ object ReserveQueue{
 }
 object Issue{
     val niq           = 3
-    val nissue        = 5
+    val nis        = 5
     val arith_niq     = 24
     val arith_nissue  = 3
     val muldiv_niq    = 9
@@ -65,12 +65,12 @@ object Issue{
     val lsu_nissue    = 1
 }
 object Fetch{
-    val nfetch = 4
+    val nfch = 4
     val nfetch_q = 16
 }
 object Decode{
-    val ndecode = 3
-    val wdecode = log2Ceil(ndecode)
+    val ndcd = 3
+    val wdecode = log2Ceil(ndcd)
 }
 object StoreBuffer{
     val nsb = 8
@@ -79,10 +79,10 @@ object StoreBuffer{
 object Commit{
     import Decode._
     val ncommit = 2
-    assert(ncommit <= ndecode, "ncommit must be less than or equal to ndecode")
+    assert(ncommit <= ndcd, "ncommit must be less than or equal to ndcd")
     val nrob = 60
-    assert(nrob % ndecode == 0, "nrob must be divisible by ndecode")
-    val nrob_q = nrob / ndecode
+    assert(nrob % ndcd == 0, "nrob must be divisible by ndcd")
+    val nrob_q = nrob / ndcd
     val wrob = log2Ceil(nrob)
     val wrob_q = log2Ceil(nrob_q)
 }
@@ -95,9 +95,9 @@ object Cache{
     val l1_tag          = 32 - l1_offset - l1_index
     val l1_line         = (1 << l1_offset)
     val l1_line_bits    = l1_line * 8
-    val ic_line         = l1_line + nfetch * 4
+    val ic_line         = l1_line + nfch * 4
     val ic_line_bits    = ic_line * 8
-    val fetch_offset    = 2 + log2Ceil(nfetch)
+    val fetch_offset    = 2 + log2Ceil(nfch)
     assert(l1_offset >= fetch_offset, "l1_offset must be greater than fetch_offset")
     val l2_offset       = 6
     val l2_index        = 6

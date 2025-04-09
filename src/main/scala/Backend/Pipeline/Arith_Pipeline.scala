@@ -7,7 +7,7 @@ import Zircon_Config.RegisterFile._
 
 abstract class Pipeline_Commit_IO extends Bundle {
     val flush   = Input(Bool())
-    val widx    = Output(new Cluster_Entry(nrob_q, ndecode))
+    val widx    = Output(new Cluster_Entry(nrob_q, ndcd))
     val wen     = Output(Bool())
     val wdata   = Output(new ROB_Backend_Entry)
 }

@@ -4,7 +4,7 @@ import Zircon_Config.Fetch._
 import Zircon_Config.Decode._
 
 class Frontend_Dispatch_IO extends Bundle {
-    val inst_pkg = Vec(ndecode, Decoupled(new Frontend_Package))
+    val inst_pkg = Vec(ndcd, Decoupled(new Frontend_Package))
 }
 class Frontend_Commit_IO extends Bundle {
     val rnm     = new Rename_Commit_IO
@@ -30,11 +30,11 @@ class Frontend extends Module {
     val pd  = Module(new Pre_Decoders)
     val fq  = Module(new Fetch_Queue)
     val rnm = Module(new Rename)
-    val dcd = VecInit.fill(ndecode)(Module(new Decoder).io)
+    val dcd = VecInit.fill(ndcd)(Module(new Decoder).io)
     val pc  = RegInit(0x7FFFFFF0L.U(32.W))
     
     /* Previous Fetch Stage */
-    val inst_pkg_pf = WireDefault(VecInit.fill(nfetch)(0.U.asTypeOf(new Frontend_Package)))
+    val inst_pkg_pf = WireDefault(VecInit.fill(nfch)(0.U.asTypeOf(new Frontend_Package)))
 
     // npc
     npc.io.cmt              := io.cmt.npc
@@ -60,7 +60,7 @@ class Frontend extends Module {
     val inst_pkg_fc = WireDefault(ShiftRegister(
         inst_pkg_pf, 
         1, 
-        0.U.asTypeOf(Vec(nfetch, new Frontend_Package)), 
+        0.U.asTypeOf(Vec(nfch, new Frontend_Package)), 
         (fq.io.enq(0).ready || pd.io.npc.flush) && !npc.io.ic.miss || io.cmt.npc.flush
     ))
 
@@ -74,9 +74,9 @@ class Frontend extends Module {
 
     /* Previous Decode Stage */
     val inst_pkg_pd = WireDefault(ShiftRegister(
-        Mux(io.cmt.fq.flush || pd.io.npc.flush, 0.U.asTypeOf(Vec(nfetch, new Frontend_Package)), inst_pkg_fc), 
+        Mux(io.cmt.fq.flush || pd.io.npc.flush, 0.U.asTypeOf(Vec(nfch, new Frontend_Package)), inst_pkg_fc), 
         1, 
-        0.U.asTypeOf(Vec(nfetch, new Frontend_Package)), 
+        0.U.asTypeOf(Vec(nfch, new Frontend_Package)), 
         (fq.io.enq(0).ready || pd.io.npc.flush) && !npc.io.ic.miss || io.cmt.npc.flush
     ))
     inst_pkg_pd.zip(ic.io.pp.rdata).foreach{ case (pkg, inst) => pkg.inst := inst}
@@ -112,9 +112,9 @@ class Frontend extends Module {
         pkg.func    := dcd.func
     }
     val inst_pkg_dsp = WireDefault(ShiftRegister(
-        Mux(io.cmt.rnm.flst.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndecode, new Frontend_Package)), inst_pkg_dcd), 
+        Mux(io.cmt.rnm.flst.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndcd, new Frontend_Package)), inst_pkg_dcd), 
         1, 
-        0.U.asTypeOf(Vec(ndecode, new Frontend_Package)), 
+        0.U.asTypeOf(Vec(ndcd, new Frontend_Package)), 
         io.dsp.inst_pkg(0).ready || io.cmt.fq.flush
     ))
     io.dsp.inst_pkg.zip(inst_pkg_dsp).foreach{ case (dsp, pkg) => 

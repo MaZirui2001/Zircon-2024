@@ -38,7 +38,7 @@ class I_Stage2_Signal extends I_Stage1_Signal {
 class I_Pipeline_IO extends Bundle {
     val rreq        = Input(Bool())
     val vaddr       = Input(UInt(32.W))
-    val rdata       = Output(Vec(nfetch, UInt(32.W)))
+    val rdata       = Output(Vec(nfch, UInt(32.W)))
     val miss        = Output(Bool())
     val rrsp        = Output(Bool())
     val stall       = Input(Bool())

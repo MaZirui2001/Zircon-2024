@@ -85,7 +85,7 @@ class IQ_Entry(num: Int) extends Bundle {
 class Issue_Queue_IO(ew: Int, dw: Int, num: Int) extends Bundle {
     val enq         = Vec(ew, Flipped(DecoupledIO(new Backend_Package)))
     val deq         = Vec(dw, DecoupledIO(new Backend_Package))
-    val wake_bus    = Input(Vec(nissue, new Wakeup_Bus_Pkg))
+    val wake_bus    = Input(Vec(nis, new Wakeup_Bus_Pkg))
     val rply_bus    = Input(new Replay_Bus_Pkg)
     val st_left     = Output(UInt(log2Ceil(num).W))
     val flush       = Input(Bool())
@@ -121,11 +121,11 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
         st_left_next.zipWithIndex.foreach{ case (e, i) =>
             e := st_left + PopCount(io.enq.take(i).map{case (e) => e.bits.op(6) && e.valid && e.ready}) 
         }
-        st_left := Mux(io.flush, 0.U, st_left_next(ew-1) - PopCount(io.deq.map{case (e) => e.bits.op(6) && e.valid && e.ready}))
+        st_left := Mux(io.flush, 0.U, st_left + PopCount(io.enq.take(ew).map{case (e) => e.bits.op(6) && e.valid && e.ready}) - PopCount(io.deq.map{case (e) => e.bits.op(6) && e.valid && e.ready}))
         mem_left_next.zipWithIndex.foreach{ case (e, i) =>
             e := mem_left + PopCount(io.enq.take(i).map{case (e) => e.valid && e.ready}) 
         }
-        mem_left := Mux(io.flush, 0.U, mem_left_next(ew-1) - PopCount(io.deq.map{case (e) => e.valid && e.ready}))
+        mem_left := Mux(io.flush, 0.U, mem_left + PopCount(io.enq.take(ew).map{case (e) => e.valid && e.ready}) - PopCount(io.deq.map{case (e) => e.valid && e.ready}))
     }
     io.st_left := st_left
 

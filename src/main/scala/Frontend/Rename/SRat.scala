@@ -6,14 +6,14 @@ import Zircon_Config.Commit._
 import Zircon_Util._
 
 class SRat_Rename_IO extends Bundle{
-    val rj          = Input(Vec(ndecode, UInt(wlreg.W)))
-    val rk          = Input(Vec(ndecode, UInt(wlreg.W)))
-    val rd          = Input(Vec(ndecode, UInt(wlreg.W)))
-    val rd_vld      = Input(Vec(ndecode, Bool()))
-    val prd         = Input(Vec(ndecode, UInt(wpreg.W)))
-    val prj         = Output(Vec(ndecode, UInt(wpreg.W)))
-    val prk         = Output(Vec(ndecode, UInt(wpreg.W)))
-    val pprd        = Output(Vec(ndecode, UInt(wpreg.W)))
+    val rj          = Input(Vec(ndcd, UInt(wlreg.W)))
+    val rk          = Input(Vec(ndcd, UInt(wlreg.W)))
+    val rd          = Input(Vec(ndcd, UInt(wlreg.W)))
+    val rd_vld      = Input(Vec(ndcd, Bool()))
+    val prd         = Input(Vec(ndcd, UInt(wpreg.W)))
+    val prj         = Output(Vec(ndcd, UInt(wpreg.W)))
+    val prk         = Output(Vec(ndcd, UInt(wpreg.W)))
+    val pprd        = Output(Vec(ndcd, UInt(wpreg.W)))
 }
 
 class SRat_Commit_IO extends Bundle{

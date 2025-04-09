@@ -23,7 +23,7 @@ class Dispatch extends Module {
     rboard.io.rply_bus  := io.bke.rply_bus
     rboard.io.flush     := io.cmt.flush
 
-    val fte_pkg = VecInit.tabulate(ndecode){ i => Mux(io.cmt.enq(0).ready, 
+    val fte_pkg = VecInit.tabulate(ndcd){ i => Mux(io.cmt.enq(0).ready, 
         (new Backend_Package)(io.fte.inst_pkg(i).bits, io.cmt.enq_idx(i), rboard.io.prj_info(i), rboard.io.prk_info(i)), 
         0.U.asTypeOf(new Backend_Package))
     }

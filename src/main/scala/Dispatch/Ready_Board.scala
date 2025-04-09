@@ -16,11 +16,11 @@ class Ready_Board_Entry extends Bundle {
 }
 
 class Ready_Board_IO extends Bundle {
-    val pinfo       = Input(Vec(ndecode, new PRegister_Info))
-    val wake_bus    = Input(Vec(nissue, new Wakeup_Bus_Pkg))
+    val pinfo       = Input(Vec(ndcd, new PRegister_Info))
+    val wake_bus    = Input(Vec(nis, new Wakeup_Bus_Pkg))
     val rply_bus    = Input(new Replay_Bus_Pkg)
-    val prj_info    = Output(Vec(ndecode, new Ready_Board_Entry))
-    val prk_info    = Output(Vec(ndecode, new Ready_Board_Entry))
+    val prj_info    = Output(Vec(ndcd, new Ready_Board_Entry))
+    val prk_info    = Output(Vec(ndcd, new Ready_Board_Entry))
     val flush       = Input(Bool())
 }
 
@@ -29,10 +29,10 @@ class Ready_Board extends Module {
 
     val board = RegInit(VecInit.fill(npreg)((new Ready_Board_Entry)(true.B, 0.U)))
 
-    for (i <- 0 until ndecode) {
+    for (i <- 0 until ndcd) {
         board(io.pinfo(i).prd).ready := false.B
     }
-    for (i <- 0 until nissue) {
+    for (i <- 0 until nis) {
         board(io.wake_bus(i).prd) := (new Ready_Board_Entry)(true.B, io.wake_bus(i).lpv)
     }
     board(io.rply_bus.prd).ready := true.B

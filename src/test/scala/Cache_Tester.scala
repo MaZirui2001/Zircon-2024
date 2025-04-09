@@ -16,7 +16,7 @@ import scala.collection.parallel.CollectionConverters._
 object Cache_Test_Config {
     val total_space             = 8192
     val icache_space_start      = 0
-    val icache_space_end        = total_space / 2 - nfetch * 4 // 临界区不能访问
+    val icache_space_end        = total_space / 2 - nfch * 4 // 临界区不能访问
     val dcache_space_start      = total_space / 2
     val dcache_space_end        = total_space
     val test_num                = 65536
@@ -173,7 +173,7 @@ class Cache_Tester extends AnyFlatSpec with ChiselScalatestTester{
                     }
                     if(c.io.i_pp.rrsp.peek().litToBoolean){
                         val req = i_req_q.dequeue()
-                        for(j <- 0 until nfetch){
+                        for(j <- 0 until nfch){
                             val data = memory.debug_read((req.vaddr + (j * 4)).toInt)._1 & 0xFFFFFFFFL
                             c.io.i_pp.rdata(j).expect(data, f"idx: ${i_index}, addr: ${req.vaddr}%x, fetch_offset: ${j}")
 

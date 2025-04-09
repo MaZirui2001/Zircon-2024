@@ -32,7 +32,7 @@ class NPC_IO extends Bundle {
 class NPC extends Module {
     val io = IO(new NPC_IO)
     val pc = WireDefault(io.pc.pc)
-    val offset = WireDefault((nfetch * 4).U)
+    val offset = WireDefault((nfch * 4).U)
     val npc = BLevel_PAdder32(pc, offset, 0.U).io.res
     io.pc.npc := npc
     when(io.cmt.flush){
