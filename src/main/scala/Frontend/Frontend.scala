@@ -77,7 +77,7 @@ class Frontend extends Module {
         Mux(io.cmt.fq.flush || pd.io.npc.flush, 0.U.asTypeOf(Vec(nfch, new Frontend_Package)), inst_pkg_fc), 
         1, 
         0.U.asTypeOf(Vec(nfch, new Frontend_Package)), 
-        (fq.io.enq(0).ready || pd.io.npc.flush) && !npc.io.ic.miss || io.cmt.npc.flush
+        fq.io.enq(0).ready && !npc.io.ic.miss || io.cmt.npc.flush
     ))
     inst_pkg_pd.zip(ic.io.pp.rdata).foreach{ case (pkg, inst) => pkg.inst := inst}
    

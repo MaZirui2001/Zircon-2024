@@ -10,7 +10,7 @@ class Ready_Board_Entry extends Bundle {
     def apply(ready: Bool, lpv: UInt): Ready_Board_Entry = {
         val entry = Wire(new Ready_Board_Entry)
         entry.ready := ready
-        entry.lpv := lpv
+        entry.lpv := lpv << 1
         entry
     }
 }

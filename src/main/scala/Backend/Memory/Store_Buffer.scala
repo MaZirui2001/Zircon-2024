@@ -68,7 +68,7 @@ class Store_Buffer extends Module {
     cptr := cptr_nxt
 
     // full and empty flags update logic
-    when(io.flush){ fulln := Mux(io.st_finish || !(rptr_nxt & tptr_nxt), true.B, fulln) }
+    when(io.flush){ fulln := Mux(io.st_finish , true.B, !q.map(_.commit).reduce(_ && _)) }
     .elsewhen(io.enq.valid) { fulln := !(cptr_nxt & tptr_nxt) }
     .elsewhen(io.st_finish) { fulln := true.B }
 
@@ -76,7 +76,7 @@ class Store_Buffer extends Module {
     .elsewhen(io.deq.ready){ eptyn := !(hptr_nxt & rptr_nxt) }
     .elsewhen(io.st_cmt) { eptyn := true.B }
 
-    when(io.flush){ all_clear := Mux(io.st_finish || !(tptr_nxt & rptr_nxt), (rptr_nxt & cptr_nxt).orR, all_clear) }
+    when(io.flush){ all_clear := Mux(io.st_finish, (rptr_nxt & cptr_nxt).orR, !q.map(_.commit).reduce(_ || _)) }
     .elsewhen(io.st_finish){ all_clear := (tptr_nxt & cptr_nxt).orR }
     .elsewhen(io.enq.valid){ all_clear := false.B }
     
@@ -95,6 +95,11 @@ class Store_Buffer extends Module {
     io.enq.ready := fulln
     io.deq.valid := eptyn && !io.lock
     io.clear     := all_clear
+    q.zipWithIndex.foreach{ case(qq, i) => 
+        when(cptr(i) && io.st_finish){
+            qq.commit := false.B
+        }
+    }
 
     // load read: read for each byte
     val load_bytes = WireDefault(VecInit.fill(4)(0.U(8.W)))
