@@ -19,6 +19,7 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
                 "--no-MMD", "--cc", "--exe"
             ))))
         { c =>
+            c.clock.setTimeout(10000)
             println("开始仿真")
             val emu = new Emulator()
             val imgPath = Option(System.getenv("IMG"))
