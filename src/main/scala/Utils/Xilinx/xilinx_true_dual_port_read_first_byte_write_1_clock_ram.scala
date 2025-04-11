@@ -1,81 +1,81 @@
 import chisel3._
 import chisel3.util._
 
-class xilinx_true_dual_port_read_first_byte_write_1_clock_ram(NB_COL: Int, COL_WIDTH: Int, RAM_DEPTH: Int) extends BlackBox(Map( "NB_COL" -> NB_COL, "COL_WIDTH" -> COL_WIDTH, "RAM_DEPTH" -> RAM_DEPTH)) with HasBlackBoxInline {
+class xilinxTrueDualPortReadFirstByteWrite_1ClockRam(NBCOL: Int, COLWIDTH: Int, RAMDEPTH: Int) extends BlackBox(Map( "NBCOL" -> NBCOL, "COLWIDTH" -> COLWIDTH, "RAMDEPTH" -> RAMDEPTH)) with HasBlackBoxInline {
     val io = IO(new Bundle {
-        val addra = Input(UInt(log2Ceil(RAM_DEPTH).W))
-        val addrb = Input(UInt(log2Ceil(RAM_DEPTH).W))
-        val dina = Input(UInt((NB_COL*COL_WIDTH).W))
-        val dinb = Input(UInt((NB_COL*COL_WIDTH).W))
+        val addra = Input(UInt(log2Ceil(RAMDEPTH).W))
+        val addrb = Input(UInt(log2Ceil(RAMDEPTH).W))
+        val dina = Input(UInt((NBCOL*COLWIDTH).W))
+        val dinb = Input(UInt((NBCOL*COLWIDTH).W))
         val clka = Input(Clock())
-        val wea = Input(UInt(NB_COL.W))
-        val web = Input(UInt(NB_COL.W))
+        val wea = Input(UInt(NBCOL.W))
+        val web = Input(UInt(NBCOL.W))
         val ena = Input(Bool())
         val enb = Input(Bool())
-        val douta = Output(UInt((NB_COL*COL_WIDTH).W))
-        val doutb = Output(UInt((NB_COL*COL_WIDTH).W))
+        val douta = Output(UInt((NBCOL*COLWIDTH).W))
+        val doutb = Output(UInt((NBCOL*COLWIDTH).W))
     })
-    val module = "xilinx_true_dual_port_read_first_byte_write_1_clock_ram.sv"
+    val module = "xilinxTrueDualPortReadFirstByteWrite_1ClockRam.sv"
     setInline(module,
 """
-|module xilinx_true_dual_port_read_first_byte_write_1_clock_ram #(
-|  parameter NB_COL = 4,                           // Specify number of columns (number of bytes)
-|  parameter COL_WIDTH = 9,                        // Specify column width (byte width, typically 8 or 9)
-|  parameter RAM_DEPTH = 1024                     // Specify RAM depth (number of entries)
+|module xilinxTrueDualPortReadFirstByteWrite_1ClockRam #(
+|  parameter NBCOL = 4,                           // Specify number of columns (number of bytes)
+|  parameter COLWIDTH = 9,                        // Specify column width (byte width, typically 8 or 9)
+|  parameter RAMDEPTH = 1024                     // Specify RAM depth (number of entries)
 |) (
-|  input [clogb2(RAM_DEPTH-1)-1:0] addra,   // Port A address bus, width determined from RAM_DEPTH
-|  input [clogb2(RAM_DEPTH-1)-1:0] addrb,   // Port B address bus, width determined from RAM_DEPTH
-|  input [(NB_COL*COL_WIDTH)-1:0] dina,   // Port A RAM input data
-|  input [(NB_COL*COL_WIDTH)-1:0] dinb,   // Port B RAM input data
+|  input [clogb2(RAMDEPTH-1)-1:0] addra,   // Port A address bus, width determined from RAMDEPTH
+|  input [clogb2(RAMDEPTH-1)-1:0] addrb,   // Port B address bus, width determined from RAMDEPTH
+|  input [(NBCOL*COLWIDTH)-1:0] dina,   // Port A RAM input data
+|  input [(NBCOL*COLWIDTH)-1:0] dinb,   // Port B RAM input data
 |  input clka,                            // Clock
-|  input [NB_COL-1:0] wea,                // Port A write enable
-|  input [NB_COL-1:0] web,                // Port B write enable
+|  input [NBCOL-1:0] wea,                // Port A write enable
+|  input [NBCOL-1:0] web,                // Port B write enable
 |  input ena,                             // Port A RAM Enable, for additional power savings, disable port when not in use
 |  input enb,                             // Port B RAM Enable, for additional power savings, disable port when not in use
-|  output [(NB_COL*COL_WIDTH)-1:0] douta, // Port A RAM output data
-|  output [(NB_COL*COL_WIDTH)-1:0] doutb  // Port B RAM output data
+|  output [(NBCOL*COLWIDTH)-1:0] douta, // Port A RAM output data
+|  output [(NBCOL*COLWIDTH)-1:0] doutb  // Port B RAM output data
 |);
 |
-|  reg [(NB_COL*COL_WIDTH)-1:0] BRAM [RAM_DEPTH-1:0];
-|  reg [(NB_COL*COL_WIDTH)-1:0] ram_data_a = {(NB_COL*COL_WIDTH){1'b0}};
-|  reg [(NB_COL*COL_WIDTH)-1:0] ram_data_b = {(NB_COL*COL_WIDTH){1'b0}};
+|  reg [(NBCOL*COLWIDTH)-1:0] BRAM [RAMDEPTH-1:0];
+|  reg [(NBCOL*COLWIDTH)-1:0] ramDataA = {(NBCOL*COLWIDTH){1'b0}};
+|  reg [(NBCOL*COLWIDTH)-1:0] ramDataB = {(NBCOL*COLWIDTH){1'b0}};
 |
 |  // The following code either initializes the memory values to a specified file or to all zeros to match hardware
 |  generate
-|      integer ram_index;
+|      integer ramIndex;
 |      initial
-|        for (ram_index = 0; ram_index < RAM_DEPTH; ram_index = ram_index + 1)
-|          BRAM[ram_index] = {(NB_COL*COL_WIDTH){1'b0}};
+|        for (ramIndex = 0; ramIndex < RAMDEPTH; ramIndex = ramIndex + 1)
+|          BRAM[ramIndex] = {(NBCOL*COLWIDTH){1'b0}};
 |  endgenerate
 |
 |  always @(posedge clka)
 |    if (ena) begin
-|      ram_data_a <= BRAM[addra];
+|      ramDataA <= BRAM[addra];
 |    end
 |
 |  always @(posedge clka)
 |    if (enb) begin
-|      ram_data_b <= BRAM[addrb];
+|      ramDataB <= BRAM[addrb];
 |    end
 |
 |  generate
 |  genvar i;
-|     for (i = 0; i < NB_COL; i = i+1) begin: byte_write
+|     for (i = 0; i < NBCOL; i = i+1) begin: byteWrite
 |       always @(posedge clka)
 |         if (ena)
 |           if (wea[i])
-|             BRAM[addra][(i+1)*COL_WIDTH-1:i*COL_WIDTH] <= dina[(i+1)*COL_WIDTH-1:i*COL_WIDTH];
+|             BRAM[addra][(i+1)*COLWIDTH-1:i*COLWIDTH] <= dina[(i+1)*COLWIDTH-1:i*COLWIDTH];
 |       always @(posedge clka)
 |         if (enb)
 |           if (web[i])
-|             BRAM[addrb][(i+1)*COL_WIDTH-1:i*COL_WIDTH] <= dinb[(i+1)*COL_WIDTH-1:i*COL_WIDTH];
+|             BRAM[addrb][(i+1)*COLWIDTH-1:i*COLWIDTH] <= dinb[(i+1)*COLWIDTH-1:i*COLWIDTH];
 |end
 |  endgenerate
 |
 |  generate
 |      // The following is a 1 clock cycle read latency at the cost of a longer clock-to-out timing
-|       assign douta = ram_data_a;
-|       assign doutb = ram_data_b;
+|       assign douta = ramDataA;
+|       assign doutb = ramDataB;
 |  endgenerate
 |
 |  //  The following function calculates the address width based on specified RAM depth

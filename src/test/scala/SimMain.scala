@@ -14,10 +14,10 @@ class SimMain extends AnyFlatSpec with ChiselScalatestTester {
         val imgPath = Option(System.getenv("IMG"))
         
         imgPath match {
-            case Some(path) => sim.mem_init(path)
+            case Some(path) => sim.memInit(path)
             case None => 
                 println("没有提供镜像文件路径，使用默认镜像")
-                sim.mem_init(null)
+                sim.memInit(null)
         }
         
         breakable {
@@ -36,7 +36,7 @@ class SimMain extends AnyFlatSpec with ChiselScalatestTester {
             }
         }
         println("指令环缓冲区:")
-        val iring = sim.iring_dump()
+        val iring = sim.iringDump()
         for (i <- 0 until iring.length) {
             // 十六进制补充前导0到32位
             println(f"${iring(i)._1.toInt.toHexString.reverse.padTo(8, '0').reverse.mkString}: ${iring(i)._2.toInt.toHexString.reverse.padTo(8, '0').reverse.mkString}")

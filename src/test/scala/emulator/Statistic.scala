@@ -1,26 +1,26 @@
 import spire.math.UInt
 
 class Statistic {
-    private var total_cycles = 0
-    private var total_insts  = 0
+    private var totalCycles = 0
+    private var totalInsts  = 0
 
-    def add_cycles(cycles: Int): Unit = {
-        total_cycles += cycles
+    def addCycles(cycles: Int): Unit = {
+        totalCycles += cycles
     }
 
-    def add_insts(insts: Int): Unit = {
-        total_insts += insts
+    def addInsts(insts: Int): Unit = {
+        totalInsts += insts
     }
 
-    def get_total_cycles(): Int = {
-        total_cycles
+    def getTotalCycles(): Int = {
+        totalCycles
     }
 
-    def get_total_insts(): Int = {
-        total_insts
+    def getTotalInsts(): Int = {
+        totalInsts
     }
 
-    def get_ipc(): Double = {
-        total_insts.toDouble / total_cycles.toDouble
+    def getIpc(): Double = {
+        totalInsts.toDouble / totalCycles.toDouble
     }
 }

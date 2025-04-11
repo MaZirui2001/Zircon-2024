@@ -1,41 +1,41 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.EXE_Op._
+import ZirconConfig.EXEOp._
 
-class Branch_IO extends Bundle{
+class BranchIO extends Bundle{
     val src1        = Input(UInt(32.W))
     val src2        = Input(UInt(32.W))
     val op          = Input(UInt(5.W))
     val pc          = Input(UInt(32.W))
     val imm         = Input(UInt(32.W))
-    val pred_offset = Input(UInt(32.W))
-    val real_jp     = Output(Bool())
-    val pred_fail   = Output(Bool())
-    val jump_tgt    = Output(UInt(32.W))
+    val predOffset = Input(UInt(32.W))
+    val realJp     = Output(Bool())
+    val predFail   = Output(Bool())
+    val jumpTgt    = Output(UInt(32.W))
 }
 
 class Branch extends Module{
-    val io = IO(new Branch_IO)
+    val io = IO(new BranchIO)
 
-    val real_jp         = WireDefault(false.B)
-    val fail            = WireDefault(Mux(io.op(4), io.pred_offset =/= Mux(real_jp, io.imm, 4.U), false.B))
-    val tgt_adder_src1  = WireDefault(io.pc)
-    val tgt_adder_src2  = WireDefault(io.imm)
-    val jump_tgt        = BLevel_PAdder32(tgt_adder_src1, tgt_adder_src2, 0.U).io.res
-    val cmp_src1        = WireDefault(io.src1)
-    val cmp_src2        = WireDefault(io.src2)  
-    val cmp_adder       = BLevel_PAdder32(cmp_src1, ~cmp_src2, 1.U)
+    val realJp         = WireDefault(false.B)
+    val fail           = WireDefault(Mux(io.op(4), io.predOffset =/= Mux(realJp, io.imm, 4.U), false.B))
+    val tgtAdderSrc1   = WireDefault(io.pc)
+    val tgtAdderSrc2   = WireDefault(io.imm)
+    val jumpTgt        = BLevelPAdder32(tgtAdderSrc1, tgtAdderSrc2, 0.U).io.res
+    val cmpSrc1        = WireDefault(io.src1)
+    val cmpSrc2        = WireDefault(io.src2)  
+    val cmpAdder       = BLevelPAdder32(cmpSrc1, ~cmpSrc2, 1.U)
     switch(io.op){
-        is(BEQ) { real_jp := io.src1 === io.src2 }
-        is(BNE) { real_jp := io.src1 =/= io.src2 }
-        is(BLT) { real_jp := cmp_src1(31) && !cmp_src2(31) || !(cmp_src1(31) ^ cmp_src2(31)) && cmp_adder.io.res(31) }
-        is(BGE) { real_jp := (!cmp_src1(31) || cmp_src2(31)) && ((cmp_src1(31) ^ cmp_src2(31)) || !cmp_adder.io.res(31)) }
-        is(BLTU){ real_jp := !cmp_adder.io.cout }
-        is(BGEU){ real_jp := cmp_adder.io.cout }
-        is(JAL) { real_jp := true.B }
-        is(JALR){ real_jp := true.B; fail := jump_tgt =/= io.pred_offset; tgt_adder_src1 := io.src1 }
+        is(BEQ) { realJp := io.src1 === io.src2 }
+        is(BNE) { realJp := io.src1 =/= io.src2 }
+        is(BLT) { realJp := cmpSrc1(31) && !cmpSrc2(31) || !(cmpSrc1(31) ^ cmpSrc2(31)) && cmpAdder.io.res(31) }
+        is(BGE) { realJp := (!cmpSrc1(31) || cmpSrc2(31)) && ((cmpSrc1(31) ^ cmpSrc2(31)) || !cmpAdder.io.res(31)) }
+        is(BLTU){ realJp := !cmpAdder.io.cout }
+        is(BGEU){ realJp := cmpAdder.io.cout }
+        is(JAL) { realJp := true.B }
+        is(JALR){ realJp := true.B; fail := jumpTgt =/= io.predOffset; tgtAdderSrc1 := io.src1 }
     }
-    io.real_jp      := real_jp
-    io.pred_fail    := fail
-    io.jump_tgt     := jump_tgt
+    io.realJp      := realJp
+    io.predFail    := fail
+    io.jumpTgt     := jumpTgt
 }

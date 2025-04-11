@@ -11,8 +11,8 @@ class Memory {
     val BYTE = 0       // 000: 字节读取，符号扩展 (lb)
     val HALF = 1       // 001: 半字读取，符号扩展 (lh)
     val WORD = 2       // 010: 字读取 (lw)
-    val BYTE_U = 4     // 100: 字节读取，无符号扩展 (lbu)
-    val HALF_U = 5     // 101: 半字读取，无符号扩展 (lhu)
+    val BYTEU = 4     // 100: 字节读取，无符号扩展 (lbu)
+    val HALFU = 5     // 101: 半字读取，无符号扩展 (lhu)
   }
   
   // 读内存 - 根据funct3提供的访问类型返回适当扩展的值
@@ -21,8 +21,8 @@ class Memory {
       case AccessType.BYTE => signExtend(readByte(addr), 8)
       case AccessType.HALF => signExtend(readHalf(addr), 16)
       case AccessType.WORD => readWord(addr)
-      case AccessType.BYTE_U => zeroExtend(readByte(addr), 8)
-      case AccessType.HALF_U => zeroExtend(readHalf(addr), 16)
+      case AccessType.BYTEU => zeroExtend(readByte(addr), 8)
+      case AccessType.HALFU => zeroExtend(readHalf(addr), 16)
       case _ => throw new IllegalArgumentException(s"不支持的访问类型: $accessType")
     }
   }
@@ -30,9 +30,9 @@ class Memory {
   // 写内存 - 根据funct3提供的访问类型写入适当大小的数据
   def write(addr: UInt, data: UInt, accessType: Int): Unit = {
     accessType match {
-      case AccessType.BYTE | AccessType.BYTE_U => 
+      case AccessType.BYTE | AccessType.BYTEU => 
         writeByte(addr, data & UInt(0xFF))
-      case AccessType.HALF | AccessType.HALF_U => 
+      case AccessType.HALF | AccessType.HALFU => 
         writeHalf(addr, data & UInt(0xFFFF))
       case AccessType.WORD => 
         writeWord(addr, data & UInt(0xFFFFFFFF))

@@ -1,14 +1,14 @@
 
 import chisel3._
 import chisel3.util._
-import Zircon_Config.EXE_Op._
-import Zircon_Util._
-class Multiply_IO extends Bundle {
+import ZirconConfig.EXEOp._
+import ZirconUtil._
+class MultiplyIO extends Bundle {
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
     val op   = Input(UInt(4.W))
     val res  = Output(UInt(32.W))
-    val div_busy = Input(Bool())
+    val divBusy = Input(Bool())
 }
 class Booth2 extends Module {
     val io = IO(new Bundle{
@@ -41,7 +41,7 @@ object CSA {
         (sum, cout)
     }
 }
-class Wallce_Tree17_Cin15 extends Module {
+class WallceTree17Cin15 extends Module {
     val io = IO(new Bundle{
         val src     = Input(UInt(17.W))
         val cin     = Input(UInt(15.W))
@@ -105,41 +105,41 @@ class Wallce_Tree17_Cin15 extends Module {
     io.sum := sum(5).asUInt
     io.cout := cout.asUInt
 }
-class Mul_Booth2_Wallce extends Module {
-    val io = IO(new Multiply_IO)
+class MulBooth2Wallce extends Module {
+    val io = IO(new MultiplyIO)
     // extend
     val src1 = Mux(io.op === MULHU, ZE(io.src1, 64), SE(io.src1, 64))
     val src2 = Mux(io.op === MULHU || io.op === MULHSU, ZE(io.src2, 64), SE(io.src2, 64))
     // Booth2 encoder x 17
-    val add1_booth = Wire(Vec(17, Bool()))
-    val pp_booth = Wire(Vec(17, UInt(64.W)))
-    add1_booth(0) := src2(0)
-    pp_booth(0) := Mux(src2(0), ~src1, 0.U)
+    val add1Booth = Wire(Vec(17, Bool()))
+    val ppBooth = Wire(Vec(17, UInt(64.W)))
+    add1Booth(0) := src2(0)
+    ppBooth(0) := Mux(src2(0), ~src1, 0.U)
     for(i <- 1 until 17){
         val booth = Booth2(src1 << (2*i-1).U, src2(2*i, 2*i-2))
-        add1_booth(i) := booth.io.add1
-        pp_booth(i) := booth.io.res
+        add1Booth(i) := booth.io.add1
+        ppBooth(i) := booth.io.res
     }
     // Wallace Tree
-    val add1_wallce     = ShiftRegister(add1_booth, 1, VecInit.fill(17)(false.B), !io.div_busy)
-    val pp_wallce       = ShiftRegister(pp_booth, 1, VecInit.fill(17)(0.U(64.W)), !io.div_busy)
-    val op_wallce       = ShiftRegister(io.op, 1, 0.U, !io.div_busy)
-    val sum_wallce      = Wire(Vec(64, UInt(1.W)))
-    val cout_wallce     = Wire(Vec(64, UInt(16.W)))
+    val add1Wallce     = ShiftRegister(add1Booth, 1, VecInit.fill(17)(false.B), !io.divBusy)
+    val ppWallce       = ShiftRegister(ppBooth, 1, VecInit.fill(17)(0.U(64.W)), !io.divBusy)
+    val opWallce       = ShiftRegister(io.op, 1, 0.U, !io.divBusy)
+    val sumWallce      = Wire(Vec(64, UInt(1.W)))
+    val coutWallce     = Wire(Vec(64, UInt(16.W)))
     for(i <- 0 until 64){
-        val cin = (if(i == 0) VecInit(add1_wallce.take(15)).asUInt else cout_wallce(i-1)(14, 0))
-        val wallce = Wallce_Tree17_Cin15(VecInit(pp_wallce.map(_(i))).asUInt, cin).io
-        sum_wallce(i) := wallce.sum
-        cout_wallce(i) := wallce.cout
+        val cin = (if(i == 0) VecInit(add1Wallce.take(15)).asUInt else coutWallce(i-1)(14, 0))
+        val wallce = WallceTree17Cin15(VecInit(ppWallce.map(_(i))).asUInt, cin).io
+        sumWallce(i) := wallce.sum
+        coutWallce(i) := wallce.cout
     }
     // full adder
-    val fadd_src1 = ShiftRegister(sum_wallce.asUInt, 1, 0.U, !io.div_busy)
-    val fadd_src2 = ShiftRegister(VecInit(cout_wallce.map(_(15))).asUInt(62, 0) ## add1_wallce(15), 1, 0.U, !io.div_busy)
-    val fadd_cin  = ShiftRegister(add1_wallce(16).asUInt, 1, 0.U, !io.div_busy)
-    val fadd_op   = ShiftRegister(op_wallce, 1, 0.U, !io.div_busy)
-    val fadd = BLevel_PAdder64(fadd_src1, fadd_src2, fadd_cin)
+    val faddSrc1 = ShiftRegister(sumWallce.asUInt, 1, 0.U, !io.divBusy)
+    val faddSrc2 = ShiftRegister(VecInit(coutWallce.map(_(15))).asUInt(62, 0) ## add1Wallce(15), 1, 0.U, !io.divBusy)
+    val faddCin  = ShiftRegister(add1Wallce(16).asUInt, 1, 0.U, !io.divBusy)
+    val faddOp   = ShiftRegister(opWallce, 1, 0.U, !io.divBusy)
+    val fadd = BLevelPAdder64(faddSrc1, faddSrc2, faddCin)
     io.res := fadd.io.res(63, 32)
-    switch(fadd_op){
+    switch(faddOp){
         is(MUL)     { io.res := fadd.io.res(31, 0) }
         is(MULH)    { io.res := fadd.io.res(63, 32) }
         is(MULHU)   { io.res := fadd.io.res(63, 32) }
@@ -154,9 +154,9 @@ object Booth2{
         booth2
     }
 }
-object Wallce_Tree17_Cin15{
-    def apply(src: UInt, cin: UInt): Wallce_Tree17_Cin15 = {
-        val wallce = Module(new Wallce_Tree17_Cin15)
+object WallceTree17Cin15{
+    def apply(src: UInt, cin: UInt): WallceTree17Cin15 = {
+        val wallce = Module(new WallceTree17Cin15)
         wallce.io.src := src
         wallce.io.cin := cin
         wallce

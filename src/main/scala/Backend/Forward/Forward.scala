@@ -1,31 +1,31 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.Issue._
+import ZirconConfig.Issue._
 
-class Forward_IO extends Bundle {
-    val inst_pkg_wb  = Input(Vec(nis, new Backend_Package))
+class ForwardIO extends Bundle {
+    val instPkgWb  = Input(Vec(nis, new BackendPackage))
     // only forward arith pipeline
-    val inst_pkg_ex  = Input(Vec(4, new Backend_Package))
-    val src1_fwd     = Vec(4, Decoupled(UInt(32.W)))
-    val src2_fwd     = Vec(4, Decoupled(UInt(32.W)))
+    val instPkgEx  = Input(Vec(4, new BackendPackage))
+    val src1Fwd     = Vec(4, Decoupled(UInt(32.W)))
+    val src2Fwd     = Vec(4, Decoupled(UInt(32.W)))
 }
 
 class Forward extends Module {
-    val io = IO(new Forward_IO)
+    val io = IO(new ForwardIO)
 
-    io.src1_fwd.zipWithIndex.foreach{ case (fwd, i) =>
-        val fwd_en = VecInit.tabulate(nis){ j =>
-            io.inst_pkg_ex(i).prj === io.inst_pkg_wb(j).prd && io.inst_pkg_wb(j).rd_vld
+    io.src1Fwd.zipWithIndex.foreach{ case (fwd, i) =>
+        val fwdEn = VecInit.tabulate(nis){ j =>
+            io.instPkgEx(i).prj === io.instPkgWb(j).prd && io.instPkgWb(j).rdVld
         }
-        fwd.valid := fwd_en.reduce(_ || _)
-        fwd.bits  := Mux1H(fwd_en, io.inst_pkg_wb.map(_.rf_wdata))
+        fwd.valid := fwdEn.reduce(_ || _)
+        fwd.bits  := Mux1H(fwdEn, io.instPkgWb.map(_.rfWdata))
     }
 
-    io.src2_fwd.zipWithIndex.foreach{ case (fwd, i) =>
-        val fwd_en = VecInit.tabulate(nis){ j =>
-            io.inst_pkg_ex(i).prk === io.inst_pkg_wb(j).prd && io.inst_pkg_wb(j).rd_vld
+    io.src2Fwd.zipWithIndex.foreach{ case (fwd, i) =>
+        val fwdEn = VecInit.tabulate(nis){ j =>
+            io.instPkgEx(i).prk === io.instPkgWb(j).prd && io.instPkgWb(j).rdVld
         }
-        fwd.valid := fwd_en.reduce(_ || _)
-        fwd.bits  := Mux1H(fwd_en, io.inst_pkg_wb.map(_.rf_wdata))
+        fwd.valid := fwdEn.reduce(_ || _)
+        fwd.bits  := Mux1H(fwdEn, io.instPkgWb.map(_.rfWdata))
     }
 }

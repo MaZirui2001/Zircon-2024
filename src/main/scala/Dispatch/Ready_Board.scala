@@ -1,55 +1,55 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.RegisterFile._
-import Zircon_Config.Decode._
-import Zircon_Config.Issue._
-import Zircon_Config.Commit._
-class Ready_Board_Entry extends Bundle {
+import ZirconConfig.RegisterFile._
+import ZirconConfig.Decode._
+import ZirconConfig.Issue._
+import ZirconConfig.Commit._
+class ReadyBoardEntry extends Bundle {
     val ready = Bool()
     val lpv = UInt(3.W)
-    def apply(ready: Bool, lpv: UInt): Ready_Board_Entry = {
-        val entry = Wire(new Ready_Board_Entry)
+    def apply(ready: Bool, lpv: UInt): ReadyBoardEntry = {
+        val entry = Wire(new ReadyBoardEntry)
         entry.ready := ready
         entry.lpv := lpv << 1
         entry
     }
 }
 
-class Ready_Board_IO extends Bundle {
-    val pinfo       = Input(Vec(ndcd, new PRegister_Info))
-    val wake_bus    = Input(Vec(nis, new Wakeup_Bus_Pkg))
-    val rply_bus    = Input(new Replay_Bus_Pkg)
-    val prj_info    = Output(Vec(ndcd, new Ready_Board_Entry))
-    val prk_info    = Output(Vec(ndcd, new Ready_Board_Entry))
-    val flush       = Input(Bool())
+class ReadyBoardIO extends Bundle {
+    val pinfo      = Input(Vec(ndcd, new PRegisterInfo))
+    val wakeBus    = Input(Vec(nis, new WakeupBusPkg))
+    val rplyBus    = Input(new ReplayBusPkg)
+    val prjInfo    = Output(Vec(ndcd, new ReadyBoardEntry))
+    val prkInfo    = Output(Vec(ndcd, new ReadyBoardEntry))
+    val flush      = Input(Bool())
 }
 
-class Ready_Board extends Module {
-    val io = IO(new Ready_Board_IO)
+class ReadyBoard extends Module {
+    val io = IO(new ReadyBoardIO)
 
-    val board = RegInit(VecInit.fill(npreg)((new Ready_Board_Entry)(true.B, 0.U)))
+    val board = RegInit(VecInit.fill(npreg)((new ReadyBoardEntry)(true.B, 0.U)))
 
     for (i <- 0 until ndcd) {
         board(io.pinfo(i).prd).ready := false.B
     }
     for (i <- 0 until nis) {
-        board(io.wake_bus(i).prd) := (new Ready_Board_Entry)(true.B, io.wake_bus(i).lpv)
+        board(io.wakeBus(i).prd) := (new ReadyBoardEntry)(true.B, io.wakeBus(i).lpv)
     }
-    board(io.rply_bus.prd).ready := true.B
+    board(io.rplyBus.prd).ready := true.B
     board.foreach{case(e) => 
         when(e.lpv.orR){
-            e.lpv := e.lpv << !io.rply_bus.replay
-            e.ready := !io.rply_bus.replay
+            e.lpv := e.lpv << !io.rplyBus.replay
+            e.ready := !io.rplyBus.replay
         }
     }
-    board(0) := (new Ready_Board_Entry)(true.B, 0.U)
+    board(0) := (new ReadyBoardEntry)(true.B, 0.U)
 
     when(io.flush){
-        board := VecInit.fill(npreg)((new Ready_Board_Entry)(true.B, 0.U))
+        board := VecInit.fill(npreg)((new ReadyBoardEntry)(true.B, 0.U))
     }
 
-    io.prj_info.zip(io.pinfo).foreach{case(e, p) => e := board(p.prj)}
-    io.prk_info.zip(io.pinfo).foreach{case(e, p) => e := board(p.prk)}
+    io.prjInfo.zip(io.pinfo).foreach{case(e, p) => e := board(p.prj)}
+    io.prkInfo.zip(io.pinfo).foreach{case(e, p) => e := board(p.prk)}
 
     
 }

@@ -1,13 +1,13 @@
 import spire.math.UInt
 
 import chiseltest._
-import Zircon_Config.Commit.ncommit
-import Zircon_Config.RegisterFile.npreg
+import ZirconConfig.Commit.ncommit
+import ZirconConfig.RegisterFile.npreg
 
 class Emulator{
-    private val base_addr = UInt(0x80000000)
-    private val memory      = new AXI_Memory(true)
-    private val rnm_table   = Array.fill(32)(UInt(0))
+    private val baseAddr = UInt(0x80000000)
+    private val memory      = new AXIMemory(true)
+    private val rnmTable   = Array.fill(32)(UInt(0))
     private val simulator   = new Simulator
     private val statistic   = new Statistic
     // private val cpu         = new CPU
@@ -16,46 +16,46 @@ class Emulator{
     val iring = new RingBuffer[(UInt, UInt)](8)
     // var cycle = 0
 
-    def sim_end(instruction: UInt): Boolean = {
+    def simEnd(instruction: UInt): Boolean = {
         instruction == UInt(0x80000000)
     }
 
     /* difftest */
-    def difftest_pc(pc_dut: UInt): Boolean = {
-        val pc_ref = simulator.pc_dump()
-        if(pc_ref != pc_dut){
-            println(s"PC mismatch at ref: ${pc_ref.toInt.toHexString}, dut: ${pc_dut.toInt.toHexString}")
+    def difftestPC(pcDut: UInt): Boolean = {
+        val pcRef = simulator.pcDump()
+        if(pcRef != pcDut){
+            println(s"PC mismatch at ref: ${pcRef.toInt.toHexString}, dut: ${pcDut.toInt.toHexString}")
             return false
         }
         true
     }
-    def difftest_rf(rd_idx: UInt, rd_data_dut: UInt, pc_dut: UInt): Boolean = {
-        val rf_ref = simulator.rf_dump()
-        if(rf_ref(rd_idx.toInt) != rd_data_dut){
-            println(s"RF mismatch at pc ${pc_dut.toInt.toHexString}, reg ${rd_idx.toInt}(preg: ${rnm_table(rd_idx.toInt).toInt}), ref: ${rf_ref(rd_idx.toInt).toLong.toHexString}, dut: ${rd_data_dut.toLong.toHexString}")
+    def difftestRf(rdIdx: UInt, rdDataDut: UInt, pcDut: UInt): Boolean = {
+        val rfRef = simulator.rfDump()
+        if(rfRef(rdIdx.toInt) != rdDataDut){
+            println(s"RF mismatch at pc ${pcDut.toInt.toHexString}, reg ${rdIdx.toInt}(preg: ${rnmTable(rdIdx.toInt).toInt}), ref: ${rfRef(rdIdx.toInt).toLong.toHexString}, dut: ${rdDataDut.toLong.toHexString}")
             return false
         }
         true
     }
-    def difftest_step(rd_idx: UInt, rd_data_dut: UInt, pc_dut: UInt, step: Int = 1): Boolean = {
-        if(!difftest_pc(pc_dut)){
+    def difftestStep(rdIdx: UInt, rdDataDut: UInt, pcDut: UInt, step: Int = 1): Boolean = {
+        if(!difftestPC(pcDut)){
             return false
         }
         for(i <- 0 until step){
             simulator.step(1)
         }
-        if(!difftest_rf(rd_idx, rd_data_dut, pc_dut)){
+        if(!difftestRf(rdIdx, rdDataDut, pcDut)){
             return false
         }
         true
     }
 
     
-    def rnm_table_update(rd: UInt, prd: UInt): Unit = {
-        rnm_table(rd.toInt) = prd
+    def rnmTableUpdate(rd: UInt, prd: UInt): Unit = {
+        rnmTable(rd.toInt) = prd
     }
     def step(cpu: CPU, num: Int = 1): Int = {
-        statistic.add_cycles(num)
+        statistic.addCycles(num)
         for(_ <- 0 until num){
             // commit check
             for(i <- 0 until ncommit){
@@ -63,25 +63,25 @@ class Emulator{
                 val dbg = cpu.io.dbg.peek()
                 if(cpu.io.dbg.cmt.deq(i).valid.peek().litToBoolean){
                     iring.push((UInt(cmt.fte.pc.litValue.toLong), UInt(cmt.fte.inst.litValue.toLong)))
-                    statistic.add_insts(1)
+                    statistic.addInsts(1)
                     println(s"${cmt.fte.pc.litValue.toLong.toHexString}: ${cmt.fte.rd.litValue.toLong.toHexString} ${cmt.fte.prd.litValue.toLong.toHexString}")
-                    if(sim_end(UInt(cmt.fte.inst.litValue.toLong))){
-                        println(s"Total cycles: ${statistic.get_total_cycles()}, Total insts: ${statistic.get_total_insts()}, IPC: ${statistic.get_ipc()}")
-                        return (if(UInt(dbg.rf.rf(rnm_table(10).toInt).litValue.toLong) == UInt(0)) 0 else -1)
+                    if(simEnd(UInt(cmt.fte.inst.litValue.toLong))){
+                        println(s"Total cycles: ${statistic.getTotalCycles()}, Total insts: ${statistic.getTotalInsts()}, IPC: ${statistic.getIpc()}")
+                        return (if(UInt(dbg.rf.rf(rnmTable(10).toInt).litValue.toLong) == UInt(0)) 0 else -1)
                     }
                     // update state
-                    rnm_table_update(UInt(cmt.fte.rd.litValue.toLong), UInt(cmt.fte.prd.litValue.toLong))
-                    val rd_idx = UInt(cmt.fte.rd.litValue.toLong)
-                    val rd_data_dut = UInt(dbg.rf.rf(rnm_table(rd_idx.toInt).toInt).litValue.toLong)
-                    val pc_dut = UInt(cmt.fte.pc.litValue.toLong)
-                    val test_res = difftest_step(rd_idx, rd_data_dut, pc_dut)
-                    if(!test_res){
+                    rnmTableUpdate(UInt(cmt.fte.rd.litValue.toLong), UInt(cmt.fte.prd.litValue.toLong))
+                    val rdIdx = UInt(cmt.fte.rd.litValue.toLong)
+                    val rdDataDut = UInt(dbg.rf.rf(rnmTable(rdIdx.toInt).toInt).litValue.toLong)
+                    val pcDut = UInt(cmt.fte.pc.litValue.toLong)
+                    val testRes = difftestStep(rdIdx, rdDataDut, pcDut)
+                    if(!testRes){
                         return -2
                     }
                 }
             }
             // memory bus
-            val w = memory.write(cpu.io.axi.peek(), statistic.get_total_cycles())
+            val w = memory.write(cpu.io.axi.peek(), statistic.getTotalCycles())
             val r = memory.read(cpu.io.axi.peek())
             cpu.io.axi.arready.poke(r.arready)
             cpu.io.axi.awready.poke(w.awready)
@@ -96,8 +96,8 @@ class Emulator{
         return 1
     }
     /* load the image from the file */
-    def mem_init(filename: String): Unit = {
-        memory.loadFromFile(filename, base_addr)
-        simulator.mem_init(filename)
+    def memInit(filename: String): Unit = {
+        memory.loadFromFile(filename, baseAddr)
+        simulator.memInit(filename)
     }
 }

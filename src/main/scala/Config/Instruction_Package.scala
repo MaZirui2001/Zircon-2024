@@ -1,82 +1,82 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.Issue._
-import Zircon_Config.Decode._
-import Zircon_Config.Commit._
-import Zircon_Config.RegisterFile._
+import ZirconConfig.Issue._
+import ZirconConfig.Decode._
+import ZirconConfig.Commit._
+import ZirconConfig.RegisterFile._
 
-class Predict_Info extends Bundle {
+class PredictInfo extends Bundle {
     val offset      = UInt(32.W)
-    val jump_en     = Bool()
+    val jumpEn     = Bool()
     val vld         = Bool()
 }
 
-class Frontend_Package extends Bundle {
+class FrontendPackage extends Bundle {
     val valid       = Bool()
     val pc          = UInt(32.W)
-    val pred_info   = new Predict_Info()
+    val predInfo   = new PredictInfo()
     val inst        = UInt(32.W)
     val op          = UInt(7.W)
     val imm         = UInt(32.W)
     val func        = UInt(niq.W)
-    val rinfo       = new Register_Info()
-    val pinfo       = new PRegister_Info()
-    val pred_offset = UInt(32.W)
+    val rinfo       = new RegisterInfo()
+    val pinfo       = new PRegisterInfo()
+    val predOffset = UInt(32.W)
 }
 
-class Backend_Package extends Bundle {
+class BackendPackage extends Bundle {
     val valid       = Bool()
     val pc          = UInt(32.W)
-    val pred_offset = UInt(32.W)
+    val predOffset = UInt(32.W)
     val prj         = UInt(wpreg.W)
     val prk         = UInt(wpreg.W)
     val prd         = UInt(wpreg.W)
-    val rd_vld      = Bool()
+    val rdVld      = Bool()
     val op          = UInt(7.W)
     val imm         = UInt(32.W)
-    val rob_idx     = new Cluster_Entry(wrob_q, wdecode)
-    val prj_wk      = Bool()
-    val prk_wk      = Bool()
+    val robIdx     = new ClusterEntry(wrobQ, wdecode)
+    val prjWk      = Bool()
+    val prkWk      = Bool()
 
     // for inferred wakeup
-    val prj_lpv     = UInt(3.W)
-    val prk_lpv     = UInt(3.W)
+    val prjLpv     = UInt(3.W)
+    val prkLpv     = UInt(3.W)
 
-    val is_latest   = Bool()
+    val isLatest   = Bool()
     val src1        = UInt(32.W)
     val src2        = UInt(32.W)
-    val rf_wdata    = UInt(32.W)
-    val jump_en     = Bool()
-    val pred_fail   = Bool()
+    val rfWdata    = UInt(32.W)
+    val jumpEn     = Bool()
+    val predFail   = Bool()
     val exception   = UInt(8.W)
     val result      = UInt(32.W)
-    val nxt_cmt_en  = Bool()
+    val nxtCmtEn  = Bool()
     
-    def apply(fte: Frontend_Package, rob_idx: Cluster_Entry, prj_info: Ready_Board_Entry, prk_info: Ready_Board_Entry): Backend_Package = {
-        val bke = Wire(new Backend_Package)
+    def apply(fte: FrontendPackage, robIdx: ClusterEntry, prjInfo: ReadyBoardEntry, prkInfo: ReadyBoardEntry): BackendPackage = {
+        val bke = Wire(new BackendPackage)
         bke.valid       := fte.valid
         bke.pc          := fte.pc
-        bke.pred_offset := fte.pred_offset
+        bke.predOffset := fte.predOffset
         bke.prj         := fte.pinfo.prj
         bke.prk         := fte.pinfo.prk
         bke.prd         := fte.pinfo.prd
-        bke.rd_vld      := fte.rinfo.rd_vld
+        bke.rdVld      := fte.rinfo.rdVld
         bke.op          := fte.op(6, 0)
         bke.imm         := fte.imm
-        bke.rob_idx     := rob_idx
-        bke.prj_wk      := prj_info.ready && fte.pinfo.prj_wk
-        bke.prk_wk      := prk_info.ready && fte.pinfo.prk_wk
-        bke.prj_lpv     := prj_info.lpv
-        bke.prk_lpv     := prk_info.lpv
-        bke.is_latest   := false.B
+        bke.robIdx     := robIdx
+        bke.prjWk      := prjInfo.ready && fte.pinfo.prjWk
+        bke.prkWk      := prkInfo.ready && fte.pinfo.prkWk
+        bke.prjLpv     := prjInfo.lpv
+        bke.prkLpv     := prkInfo.lpv
+        bke.isLatest   := false.B
         bke.src1        := 0.U
         bke.src2        := 0.U
         bke.result      := 0.U
-        bke.rf_wdata    := 0.U
-        bke.jump_en     := false.B
-        bke.pred_fail   := false.B
+        bke.rfWdata    := 0.U
+        bke.jumpEn     := false.B
+        bke.predFail   := false.B
         bke.exception   := 0.U
-        bke.nxt_cmt_en  := false.B
+        bke.nxtCmtEn  := false.B
         bke
     }
 }

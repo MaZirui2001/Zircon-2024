@@ -20,7 +20,7 @@ object Exception{
     val TLBR    = 0x3f.U(7.W) // TLB refill
 }
 
-object CSR_NAME{
+object CSRNAME{
     val CRMD        = 0x0.U(14.W)
     val PRMD        = 0x1.U(14.W)
     val EUEN        = 0x2.U(14.W)

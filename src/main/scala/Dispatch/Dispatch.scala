@@ -1,46 +1,46 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.Decode._
-import Zircon_Config.Issue._
-import Zircon_Util._
+import ZirconConfig.Decode._
+import ZirconConfig.Issue._
+import ZirconUtil._
 
 
-class Dispatch_IO extends Bundle {
-    val cmt     = Flipped(new ROB_Dispatch_IO)
-    val fte     = Flipped(new Frontend_Dispatch_IO)
-    val bke     = Flipped(new Backend_Dispatch_IO)
+class DispatchIO extends Bundle {
+    val cmt     = Flipped(new ROBDispatchIO)
+    val fte     = Flipped(new FrontendDispatchIO)
+    val bke     = Flipped(new BackendDispatchIO)
 }
 
 class Dispatch extends Module {
-    val io = IO(new Dispatch_IO)
+    val io = IO(new DispatchIO)
 
     val dsp = Module(new Dispatcher)
-    val rboard = Module(new Ready_Board)
+    val rboard = Module(new ReadyBoard)
 
     // ready board
-    rboard.io.pinfo     := io.fte.inst_pkg.map(_.bits.pinfo)
-    rboard.io.wake_bus  := io.bke.wake_bus
-    rboard.io.rply_bus  := io.bke.rply_bus
+    rboard.io.pinfo     := io.fte.instPkg.map(_.bits.pinfo)
+    rboard.io.wakeBus   := io.bke.wakeBus
+    rboard.io.rplyBus   := io.bke.rplyBus
     rboard.io.flush     := io.cmt.flush
 
-    val fte_pkg = VecInit.tabulate(ndcd){ i => Mux(io.cmt.enq(0).ready, 
-        (new Backend_Package)(io.fte.inst_pkg(i).bits, io.cmt.enq_idx(i), rboard.io.prj_info(i), rboard.io.prk_info(i)), 
-        0.U.asTypeOf(new Backend_Package))
+    val ftePkg = VecInit.tabulate(ndcd){ i => Mux(io.cmt.enq(0).ready, 
+        (new BackendPackage)(io.fte.instPkg(i).bits, io.cmt.enqIdx(i), rboard.io.prjInfo(i), rboard.io.prkInfo(i)), 
+        0.U.asTypeOf(new BackendPackage))
     }
 
     // dispatcher
-    dsp.io.fte_pkg.zipWithIndex.foreach{ case (d, i) =>
-        d.valid := io.fte.inst_pkg(i).valid
-        d.bits := fte_pkg(i)
-        io.fte.inst_pkg(i).ready := d.ready && io.cmt.enq.map(_.ready).reduce(_ && _)
+    dsp.io.ftePkg.zipWithIndex.foreach{ case (d, i) =>
+        d.valid := io.fte.instPkg(i).valid
+        d.bits := ftePkg(i)
+        io.fte.instPkg(i).ready := d.ready && io.cmt.enq.map(_.ready).reduce(_ && _)
     }
     dsp.io.func.zipWithIndex.foreach{ case (func, i) =>
-        func := io.fte.inst_pkg(i).bits.func
+        func := io.fte.instPkg(i).bits.func
     }
-    dsp.io.bke_pkg <> io.bke.inst_pkg
+    dsp.io.bkePkg <> io.bke.instPkg
     io.cmt.enq.zipWithIndex.foreach{ case (enq, i) =>
-        enq.valid := io.fte.inst_pkg(i).valid && dsp.io.fte_pkg(i).ready
-        enq.bits := (new ROB_Frontend_Entry)(io.fte.inst_pkg(i).bits)
+        enq.valid := io.fte.instPkg(i).valid && dsp.io.ftePkg(i).ready
+        enq.bits := (new ROBFrontendEntry)(io.fte.instPkg(i).bits)
     }
 }
 

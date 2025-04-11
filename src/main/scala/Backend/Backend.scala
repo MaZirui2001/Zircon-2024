@@ -1,141 +1,141 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.Issue._
-import Zircon_Config.Decode._
-import Zircon_Config.Commit._
+import ZirconConfig.Issue._
+import ZirconConfig.Decode._
+import ZirconConfig.Commit._
 
-class Backend_Dispatch_IO extends Bundle {
-    val inst_pkg = Vec(niq, Vec(ndcd, Flipped(Decoupled(new Backend_Package))))
-    val wake_bus = Output(Vec(nis, new Wakeup_Bus_Pkg))
-    val rply_bus = Output(new Replay_Bus_Pkg)
+class BackendDispatchIO extends Bundle {
+    val instPkg = Vec(niq, Vec(ndcd, Flipped(Decoupled(new BackendPackage))))
+    val wakeBus = Output(Vec(nis, new WakeupBusPkg))
+    val rplyBus = Output(new ReplayBusPkg)
 }
 
-class Backend_Commit_IO extends Bundle {
-    val widx    = Output(Vec(nis, new Cluster_Entry(nrob_q, ndcd)))
+class BackendCommitIO extends Bundle {
+    val widx    = Output(Vec(nis, new ClusterEntry(nrobQ, ndcd)))
     val wen     = Output(Vec(nis, Bool()))
-    val wdata   = Output(Vec(nis, new ROB_Backend_Entry))
-    val sb      = new D_Commit_IO
+    val wdata   = Output(Vec(nis, new ROBBackendEntry))
+    val sb      = new DCommitIO
     val flush   = Input(Vec(nis, Bool()))
 }
 
-class Backend_Memory_IO extends Bundle {
-    val l2 = Flipped(new L2_DCache_IO)
+class BackendMemoryIO extends Bundle {
+    val l2 = Flipped(new L2DCacheIO)
 }
-class Backend_Debug_IO extends Bundle {
-    val rf = new Regfile_DBG_IO
+class BackendDebugIO extends Bundle {
+    val rf = new RegfileDBGIO
 }
 
-class Backend_IO extends Bundle {
-    val dsp = new Backend_Dispatch_IO
-    val cmt = new Backend_Commit_IO
-    val mem = new Backend_Memory_IO
-    val dbg = new Backend_Debug_IO
+class BackendIO extends Bundle {
+    val dsp = new BackendDispatchIO
+    val cmt = new BackendCommitIO
+    val mem = new BackendMemoryIO
+    val dbg = new BackendDebugIO
 }
 
 class Backend extends Module {
-    val io = IO(new Backend_IO)
+    val io = IO(new BackendIO)
     
-    val ar_iq = Module(new Issue_Queue(ndcd, arith_nissue, arith_niq, false))
-    val md_iq = Module(new Issue_Queue(ndcd, muldiv_nissue, muldiv_niq, false))
-    val ls_iq = Module(new Issue_Queue(ndcd, lsu_nissue, lsu_niq, true))
+    val arIq = Module(new IssueQueue(ndcd, arithNissue, arithNiq, false))
+    val mdIq = Module(new IssueQueue(ndcd, muldivNissue, muldivNiq, false))
+    val lsIq = Module(new IssueQueue(ndcd, lsuNissue, lsuNiq, true))
 
     val rf    = Module(new Regfile)
 
     val fwd   = Module(new Forward)
 
-    val ar_pp = VecInit.fill(3)(Module(new Arith_Pipeline).io)
-    val md_pp = Module(new MulDiv_Pipeline)
-    val ls_pp = Module(new LS_Pipeline)
+    val arPp = VecInit.fill(3)(Module(new ArithPipeline).io)
+    val mdPp = Module(new MulDivPipeline)
+    val lsPp = Module(new LSPipeline)
 
-    val wake_bus = Wire(Vec(niq, Vec(nis, new Wakeup_Bus_Pkg)))
-    val rply_bus = Wire(new Replay_Bus_Pkg)
+    val wakeBus = Wire(Vec(niq, Vec(nis, new WakeupBusPkg)))
+    val rplyBus = Wire(new ReplayBusPkg)
 
     /* pipeline 0-2: arith and branch */
     // issue queue
-    ar_iq.io.enq.zip(io.dsp.inst_pkg(0)).foreach{case (enq, inst) => enq <> inst}
-    ar_iq.io.deq.zip(ar_pp).foreach{case (deq, pp) => deq <> pp.iq.inst_pkg}
-    ar_iq.io.wake_bus := wake_bus(0)
-    ar_iq.io.rply_bus := rply_bus
-    ar_iq.io.flush    := io.cmt.flush(0)
+    arIq.io.enq.zip(io.dsp.instPkg(0)).foreach{case (enq, inst) => enq <> inst}
+    arIq.io.deq.zip(arPp).foreach{case (deq, pp) => deq <> pp.iq.instPkg}
+    arIq.io.wakeBus := wakeBus(0)
+    arIq.io.rplyBus := rplyBus
+    arIq.io.flush    := io.cmt.flush(0)
 
     // pipeline
-    ar_pp.zipWithIndex.foreach{case(a, i) => 
+    arPp.zipWithIndex.foreach{case(a, i) => 
         a.rf            <> rf.io(i)
-        a.wk.rply_in    := rply_bus
-        fwd.io.inst_pkg_wb(i) := a.fwd.inst_pkg_wb
-        fwd.io.inst_pkg_ex(i) := a.fwd.inst_pkg_ex
-        a.fwd.src1_fwd  <> fwd.io.src1_fwd(i)
-        a.fwd.src2_fwd  <> fwd.io.src2_fwd(i)
+        a.wk.rplyIn    := rplyBus
+        fwd.io.instPkgWb(i) := a.fwd.instPkgWb
+        fwd.io.instPkgEx(i) := a.fwd.instPkgEx
+        a.fwd.src1Fwd  <> fwd.io.src1Fwd(i)
+        a.fwd.src2Fwd  <> fwd.io.src2Fwd(i)
         a.cmt.flush     := io.cmt.flush(i)
         io.cmt.widx(i)  := a.cmt.widx
         io.cmt.wen(i)   := a.cmt.wen
         io.cmt.wdata(i) := a.cmt.wdata
 
     }
-    wake_bus(0) := VecInit(
-        ar_pp(0).wk.wake_issue,
-        ar_pp(1).wk.wake_issue,
-        ar_pp(2).wk.wake_issue,
-        md_pp.io.wk.wake_ex3,
-        ls_pp.io.wk.wake_rf
+    wakeBus(0) := VecInit(
+        arPp(0).wk.wakeIssue,
+        arPp(1).wk.wakeIssue,
+        arPp(2).wk.wakeIssue,
+        mdPp.io.wk.wakeEx3,
+        lsPp.io.wk.wakeRf
     )
     /* pipeline 3: muldiv */
     // issue queue
-    md_iq.io.enq.zip(io.dsp.inst_pkg(1)).foreach{case (enq, inst) => enq <> inst}
-    md_iq.io.deq.foreach{case deq => deq <> md_pp.io.iq.inst_pkg}
-    md_iq.io.wake_bus := wake_bus(1)
-    md_iq.io.rply_bus := rply_bus
-    md_iq.io.flush    := io.cmt.flush(3)
+    mdIq.io.enq.zip(io.dsp.instPkg(1)).foreach{case (enq, inst) => enq <> inst}
+    mdIq.io.deq.foreach{case deq => deq <> mdPp.io.iq.instPkg}
+    mdIq.io.wakeBus := wakeBus(1)
+    mdIq.io.rplyBus := rplyBus
+    mdIq.io.flush    := io.cmt.flush(3)
 
     // pipeline
-    md_pp.io.rf             <> rf.io(3)
-    md_pp.io.wk.rply_in     := rply_bus
-    fwd.io.inst_pkg_wb(3)   := md_pp.io.fwd.inst_pkg_wb
-    fwd.io.inst_pkg_ex(3)   := md_pp.io.fwd.inst_pkg_ex
-    fwd.io.src1_fwd(3)      <> md_pp.io.fwd.src1_fwd
-    fwd.io.src2_fwd(3)      <> md_pp.io.fwd.src2_fwd
-    md_pp.io.cmt.flush      := io.cmt.flush(3)
-    io.cmt.widx(3)          := md_pp.io.cmt.widx
-    io.cmt.wen(3)           := md_pp.io.cmt.wen
-    io.cmt.wdata(3)         := md_pp.io.cmt.wdata
+    mdPp.io.rf             <> rf.io(3)
+    mdPp.io.wk.rplyIn     := rplyBus
+    fwd.io.instPkgWb(3)   := mdPp.io.fwd.instPkgWb
+    fwd.io.instPkgEx(3)   := mdPp.io.fwd.instPkgEx
+    fwd.io.src1Fwd(3)      <> mdPp.io.fwd.src1Fwd
+    fwd.io.src2Fwd(3)      <> mdPp.io.fwd.src2Fwd
+    mdPp.io.cmt.flush      := io.cmt.flush(3)
+    io.cmt.widx(3)          := mdPp.io.cmt.widx
+    io.cmt.wen(3)           := mdPp.io.cmt.wen
+    io.cmt.wdata(3)         := mdPp.io.cmt.wdata
 
-    wake_bus(1) := VecInit(
-        ar_pp(0).wk.wake_rf,
-        ar_pp(1).wk.wake_rf,
-        ar_pp(2).wk.wake_rf,
-        md_pp.io.wk.wake_ex3,
-        ls_pp.io.wk.wake_rf
+    wakeBus(1) := VecInit(
+        arPp(0).wk.wakeRf,
+        arPp(1).wk.wakeRf,
+        arPp(2).wk.wakeRf,
+        mdPp.io.wk.wakeEx3,
+        lsPp.io.wk.wakeRf
     )
 
     /* pipeline 4: lsu */
-    ls_iq.io.enq.zip(io.dsp.inst_pkg(2)).foreach{case (enq, inst) => enq <> inst}
-    ls_iq.io.deq.foreach{case deq => deq <> ls_pp.io.iq.inst_pkg}
-    ls_iq.io.wake_bus := wake_bus(2)
-    ls_iq.io.rply_bus := rply_bus
-    ls_iq.io.flush    := io.cmt.flush(4)
+    lsIq.io.enq.zip(io.dsp.instPkg(2)).foreach{case (enq, inst) => enq <> inst}
+    lsIq.io.deq.foreach{case deq => deq <> lsPp.io.iq.instPkg}
+    lsIq.io.wakeBus := wakeBus(2)
+    lsIq.io.rplyBus := rplyBus
+    lsIq.io.flush    := io.cmt.flush(4)
 
     // pipeline
-    ls_pp.io.rf             <> rf.io(4)
-    ls_pp.io.wk.rply_in     := rply_bus
-    fwd.io.inst_pkg_wb(4)   := ls_pp.io.fwd.inst_pkg_wb
-    ls_pp.io.cmt.flush      := io.cmt.flush(4)
-    ls_pp.io.cmt.dc         := io.cmt.sb
-    io.cmt.widx(4)          := ls_pp.io.cmt.widx
-    io.cmt.wen(4)           := ls_pp.io.cmt.wen
-    io.cmt.wdata(4)         := ls_pp.io.cmt.wdata
+    lsPp.io.rf             <> rf.io(4)
+    lsPp.io.wk.rplyIn     := rplyBus
+    fwd.io.instPkgWb(4)   := lsPp.io.fwd.instPkgWb
+    lsPp.io.cmt.flush      := io.cmt.flush(4)
+    lsPp.io.cmt.dc         := io.cmt.sb
+    io.cmt.widx(4)          := lsPp.io.cmt.widx
+    io.cmt.wen(4)           := lsPp.io.cmt.wen
+    io.cmt.wdata(4)         := lsPp.io.cmt.wdata
 
-    wake_bus(2) := VecInit(
-        ar_pp(0).wk.wake_rf,
-        ar_pp(1).wk.wake_rf,
-        ar_pp(2).wk.wake_rf,
-        md_pp.io.wk.wake_ex3,
-        ls_pp.io.wk.wake_d1
+    wakeBus(2) := VecInit(
+        arPp(0).wk.wakeRf,
+        arPp(1).wk.wakeRf,
+        arPp(2).wk.wakeRf,
+        mdPp.io.wk.wakeEx3,
+        lsPp.io.wk.wakeD1
     )
-    rply_bus := ls_pp.io.wk.rply_out
-    io.mem.l2 <> ls_pp.io.mem.l2
+    rplyBus := lsPp.io.wk.rplyOut
+    io.mem.l2 <> lsPp.io.mem.l2
 
-    io.dsp.wake_bus := wake_bus(0)
-    io.dsp.rply_bus := rply_bus
+    io.dsp.wakeBus := wakeBus(0)
+    io.dsp.rplyBus := rplyBus
 
     io.dbg.rf.rf := rf.dbg.rf
 }   

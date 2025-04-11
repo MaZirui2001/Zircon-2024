@@ -1,22 +1,22 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.Fetch._
-import Zircon_Config.Decode._
+import ZirconConfig.Fetch._
+import ZirconConfig.Decode._
 
-class Fetch_Queue_Commit_IO extends Bundle {
+class FetchQueueCommitIO extends Bundle {
     val flush   = Input(Bool())
 }
 
-class Fetch_Queue_IO extends Bundle {
-    val enq     = Vec(nfch, Flipped(Decoupled(new Frontend_Package)))
-    val deq     = Vec(ndcd, Decoupled(new Frontend_Package))
-    val cmt     = new Fetch_Queue_Commit_IO
+class FetchQueueIO extends Bundle {
+    val enq     = Vec(nfch, Flipped(Decoupled(new FrontendPackage)))
+    val deq     = Vec(ndcd, Decoupled(new FrontendPackage))
+    val cmt     = new FetchQueueCommitIO
 }
 
-class Fetch_Queue extends Module {
-    val io = IO(new Fetch_Queue_IO)
+class FetchQueue extends Module {
+    val io = IO(new FetchQueueIO)
 
-    val q = Module(new Cluster_Index_FIFO(new Frontend_Package, nfetch_q, nfch, ndcd, 0, 0))
+    val q = Module(new ClusterIndexFIFO(new FrontendPackage, nfq, nfch, ndcd, 0, 0))
 
     q.io.enq <> io.enq
     q.io.deq <> io.deq

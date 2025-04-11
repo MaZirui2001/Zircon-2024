@@ -4,7 +4,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.util._
 
 
-class FIFO_Dut(n: Int = 8) {
+class FIFODut(n: Int = 8) {
     // 用软件模拟一个FIFO
     val fifo = scala.collection.mutable.Queue[Int]()
     // 压入n个数据
@@ -24,13 +24,13 @@ class FIFO_Dut(n: Int = 8) {
     }
 }
 
-class FIFO_Test extends AnyFlatSpec with ChiselScalatestTester{
+class FIFOTest extends AnyFlatSpec with ChiselScalatestTester{
     behavior of "FIFO"
     it should "pass" in {
-        test(new Cluster_Index_FIFO(UInt(32.W), 16, 3, 4, 0, 0))
+        test(new ClusterIndexFIFO(UInt(32.W), 16, 3, 4, 0, 0))
         .withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation))
         { c =>
-            val fifo = new FIFO_Dut(8)
+            val fifo = new FIFODut(8)
             // push 6 data for both dut and ref
             var data = 1;
             for (i <- 0 until 20){

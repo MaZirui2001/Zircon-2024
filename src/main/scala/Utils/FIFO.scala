@@ -1,21 +1,21 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Util._
+import ZirconUtil._
 
-// is_flst: The FIFO is a free list for reg rename
-class FIFO_IO[T <: Data](gen: T, n: Int, preg: Boolean) extends Bundle {
+// isFlst: The FIFO is a free list for reg rename
+class FIFOIO[T <: Data](gen: T, n: Int, preg: Boolean) extends Bundle {
     val enq 	= Flipped(Decoupled(gen))
     val deq 	= Decoupled(gen)
 	val flush 	= Input(Bool())
 	val hptr 	= if(preg) Some(Input(UInt(n.W))) else None
 }
 
-class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int = 0) extends Module {
-	val io = IO(new FIFO_IO(gen, n, preg))
+class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, startNum: Int = 0) extends Module {
+	val io = IO(new FIFOIO(gen, n, preg))
 
 	val q = RegInit(
 		if(!preg && !iq) VecInit.fill(n)(0.U.asTypeOf(gen))
-		else VecInit.tabulate(n)(i => (start_num+i).U.asTypeOf(gen))
+		else VecInit.tabulate(n)(i => (startNum+i).U.asTypeOf(gen))
 	)
 	// full and empty flags
 	val fulln = RegInit(true.B)
@@ -26,21 +26,21 @@ class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int
 	val tptr = RegInit(1.U(n.W))
 
 	// pointer update logic
-	val hptr_nxt = Mux(io.deq.ready && eptyn, ShiftAdd1(hptr), hptr)
-	val tptr_nxt = Mux(io.enq.valid && fulln, ShiftAdd1(tptr), tptr)
+	val hptrNxt = Mux(io.deq.ready && eptyn, ShiftAdd1(hptr), hptr)
+	val tptrNxt = Mux(io.enq.valid && fulln, ShiftAdd1(tptr), tptr)
 
-	hptr := Mux(io.flush, if(preg) io.hptr.get else 1.U, hptr_nxt)
-	tptr := Mux(io.flush, if(preg) tptr_nxt else 1.U, tptr_nxt)
+	hptr := Mux(io.flush, if(preg) io.hptr.get else 1.U, hptrNxt)
+	tptr := Mux(io.flush, if(preg) tptrNxt else 1.U, tptrNxt)
 
 	// full and empty flag update logic
 	if(!preg && !iq){
 		when(io.flush){ fulln := true.B }
-		.elsewhen(io.enq.valid) { fulln := !(hptr_nxt & tptr_nxt) }
+		.elsewhen(io.enq.valid) { fulln := !(hptrNxt & tptrNxt) }
 		.elsewhen(io.deq.ready) { fulln := true.B }
 	} 
 
 	when(io.flush){ eptyn := (if(preg || iq) true.B else false.B) }
-	.elsewhen(io.deq.ready) { eptyn := !(hptr_nxt & tptr_nxt) }
+	.elsewhen(io.deq.ready) { eptyn := !(hptrNxt & tptrNxt) }
 	.elsewhen(io.enq.valid) { eptyn := true.B }
 
 	// write logic
@@ -49,7 +49,7 @@ class FIFO[T <: Data](gen: T, n: Int, preg: Boolean, iq: Boolean, start_num: Int
 	}
 
 	if(iq){
-		when(io.flush){ q.zipWithIndex.foreach{ case (qq, i) => qq := (start_num+i).U.asTypeOf(gen) } }
+		when(io.flush){ q.zipWithIndex.foreach{ case (qq, i) => qq := (startNum+i).U.asTypeOf(gen) } }
 	}
 
 	// read logic 

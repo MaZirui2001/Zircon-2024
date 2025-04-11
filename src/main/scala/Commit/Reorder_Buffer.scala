@@ -1,33 +1,33 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.RegisterFile._
-import Zircon_Config.Decode._
-import Zircon_Config.Commit._
-import Zircon_Config.Issue._
-import Zircon_Util._
-import Zircon_Config.Jump_Op._
-import Zircon_Config.EXE_Op._
+import ZirconConfig.RegisterFile._
+import ZirconConfig.Decode._
+import ZirconConfig.Commit._
+import ZirconConfig.Issue._
+import ZirconUtil._
+import ZirconConfig.JumpOp._
+import ZirconConfig.EXEOp._
 
-class ROB_Frontend_Entry extends Bundle{
-    val rd_vld      = Bool()
-    val inst        = UInt(32.W)
-    val rd          = UInt(wlreg.W)
-    val prd         = UInt(wpreg.W)
-    val pprd        = UInt(wpreg.W)
-    val pc          = UInt(32.W)
-    val pred_type   = UInt(2.W)
-    val is_store    = Bool()
+class ROBFrontendEntry extends Bundle{
+    val rdVld      = Bool()
+    val inst       = UInt(32.W)
+    val rd         = UInt(wlreg.W)
+    val prd        = UInt(wpreg.W)
+    val pprd       = UInt(wpreg.W)
+    val pc         = UInt(32.W)
+    val predType   = UInt(2.W)
+    val isStore    = Bool()
 
-    def apply(pkg: Frontend_Package): ROB_Frontend_Entry = {
-        val entry = Wire(new ROB_Frontend_Entry)
-        entry.rd_vld      := pkg.rinfo.rd_vld
-        entry.inst        := pkg.inst
-        entry.rd          := pkg.rinfo.rd
-        entry.prd         := pkg.pinfo.prd
-        entry.pprd        := pkg.pinfo.pprd
-        entry.pc          := pkg.pc
-        entry.is_store    := pkg.op(6) && pkg.func(2)
-        entry.pred_type   := Mux1H(Seq(
+    def apply(pkg: FrontendPackage): ROBFrontendEntry = {
+        val entry = Wire(new ROBFrontendEntry)
+        entry.rdVld      := pkg.rinfo.rdVld
+        entry.inst       := pkg.inst
+        entry.rd         := pkg.rinfo.rd
+        entry.prd        := pkg.pinfo.prd
+        entry.pprd       := pkg.pinfo.pprd
+        entry.pc         := pkg.pc
+        entry.isStore    := pkg.op(6) && pkg.func(2)
+        entry.predType   := Mux1H(Seq(
             ((pkg.op(4) && (pkg.op(2) || !pkg.op(1))) || (pkg.op(4, 0) === JAL && pkg.rinfo.rd === 0.U)) -> BR,
             (pkg.op(4) && !pkg.op(2) && pkg.op(1) && pkg.rinfo.rd =/= 0.U) -> CALL,
             (pkg.op(4, 0) === JALR && pkg.rinfo.rd === 0.U) -> RET,
@@ -36,62 +36,62 @@ class ROB_Frontend_Entry extends Bundle{
     }
 }
 
-class ROB_Backend_Entry extends Bundle{
-    val complete    = Bool()
-    val jump_en     = Bool()
-    val pred_fail   = Bool()
-    val exception   = UInt(8.W)
-    val result      = UInt(32.W)
-    val nxt_cmt_en  = Bool()
+class ROBBackendEntry extends Bundle{
+    val complete   = Bool()
+    val jumpEn     = Bool()
+    val predFail   = Bool()
+    val exception  = UInt(8.W)
+    val result     = UInt(32.W)
+    val nxtCmtEn   = Bool()
 
-    def apply(pkg: Backend_Package): ROB_Backend_Entry = {
-        val entry = Wire(new ROB_Backend_Entry)
-        entry.complete    := pkg.valid
-        entry.jump_en     := pkg.jump_en
-        entry.pred_fail   := pkg.pred_fail
-        entry.exception   := pkg.exception
-        entry.result      := pkg.result
-        entry.nxt_cmt_en  := pkg.nxt_cmt_en
+    def apply(pkg: BackendPackage): ROBBackendEntry = {
+        val entry = Wire(new ROBBackendEntry)
+        entry.complete   := pkg.valid
+        entry.jumpEn     := pkg.jumpEn
+        entry.predFail   := pkg.predFail
+        entry.exception  := pkg.exception
+        entry.result     := pkg.result
+        entry.nxtCmtEn   := pkg.nxtCmtEn
         entry
     }
 }
 
-class ROB_Entry extends Bundle{
-    val fte = new ROB_Frontend_Entry
-    val bke = new ROB_Backend_Entry
+class ROBEntry extends Bundle{
+    val fte = new ROBFrontendEntry
+    val bke = new ROBBackendEntry
     
-    def apply(fte: ROB_Frontend_Entry, bke: ROB_Backend_Entry): ROB_Entry = {
-        val entry = Wire(new ROB_Entry)
+    def apply(fte: ROBFrontendEntry, bke: ROBBackendEntry): ROBEntry = {
+        val entry = Wire(new ROBEntry)
         entry.fte := fte
         entry.bke := bke
         entry
     }
-    def flush_gen(): Bool = {
-        this.bke.pred_fail || this.bke.exception(7)
+    def flushGen(): Bool = {
+        this.bke.predFail || this.bke.exception(7)
     }
 }
 
-class ROB_Dispatch_IO extends Bundle{
-    val flush       = Output(Bool())
-    val enq         = Vec(ndcd, Flipped(Decoupled(new ROB_Frontend_Entry)))
-    val enq_idx     = Output(Vec(ndcd, new Cluster_Entry(wrob_q, wdecode)))
+class ROBDispatchIO extends Bundle{
+    val flush      = Output(Bool())
+    val enq        = Vec(ndcd, Flipped(Decoupled(new ROBFrontendEntry)))
+    val enqIdx     = Output(Vec(ndcd, new ClusterEntry(wrobQ, wdecode)))
 }
 
-class ROB_Commit_IO extends Bundle{
-    val deq         = Vec(ncommit, Decoupled(new ROB_Entry))
+class ROBCommitIO extends Bundle{
+    val deq = Vec(ncommit, Decoupled(new ROBEntry))
 }
-class Reorder_Buffer_IO extends Bundle{
-    val fte = Flipped(new Frontend_Commit_IO)
-    val bke = Flipped(new Backend_Commit_IO)
-    val cmt = new ROB_Commit_IO
-    val dsp = new ROB_Dispatch_IO
+class ReorderBufferIO extends Bundle{
+    val fte = Flipped(new FrontendCommitIO)
+    val bke = Flipped(new BackendCommitIO)
+    val cmt = new ROBCommitIO
+    val dsp = new ROBDispatchIO
 }
 
 
-class Reorder_Buffer extends Module{
-    val io = IO(new Reorder_Buffer_IO)
+class ReorderBuffer extends Module{
+    val io = IO(new ReorderBufferIO)
 
-    val q = Module(new Cluster_Index_FIFO(new ROB_Entry, nrob, ndcd, ncommit, 0, nis))
+    val q = Module(new ClusterIndexFIFO(new ROBEntry, nrob, ndcd, ncommit, 0, nis))
 
     // 1. frontend: in dispatch stage, each instruction will enqueue into the ROB
     q.io.enq.zip(io.dsp.enq).foreach{case (enq, fte) =>
@@ -100,7 +100,7 @@ class Reorder_Buffer extends Module{
         enq.valid := fte.valid
         fte.ready := enq.ready
     }
-    io.dsp.enq_idx.zip(q.io.enq_idx).foreach{ case(idx, enq) =>
+    io.dsp.enqIdx.zip(q.io.enqIdx).foreach{ case(idx, enq) =>
         idx.qidx    := OHToUInt(enq.qidx)
         idx.offset  := OHToUInt(enq.offset)
         idx.high    := enq.high
@@ -115,7 +115,7 @@ class Reorder_Buffer extends Module{
     // 3. commit: in commit stage, some instruction will be committed
     for(i <- 0 until ncommit){
         io.cmt.deq(i).bits := {
-            val entry = Wire(new ROB_Entry)
+            val entry = Wire(new ROBEntry)
             entry.fte := q.io.deq(i).bits.fte
             entry.bke := q.io.deq(i).bits.bke
             entry
@@ -124,28 +124,28 @@ class Reorder_Buffer extends Module{
             if(i == 0) q.io.deq(i).bits.bke.complete && q.io.deq(i).valid
             else q.io.deq.take(i+1).map(_.bits.bke.complete).reduce(_ && _) 
               && q.io.deq(i).valid
-              && q.io.deq(i-1).bits.bke.nxt_cmt_en
+              && q.io.deq(i-1).bits.bke.nxtCmtEn
         )
         q.io.deq(i).ready := io.cmt.deq(i).valid
     }
 
     // output
-    val last_cmt_index1H = Log2OH(io.cmt.deq.map(_.valid))
-    val last_cmt_item    = Mux1H(last_cmt_index1H, q.io.deq.map(_.bits))
-    val flush            = last_cmt_item.flush_gen()
+    val lastCmtIndex1H = Log2OH(io.cmt.deq.map(_.valid))
+    val lastCmtItem    = Mux1H(lastCmtIndex1H, q.io.deq.map(_.bits))
+    val flush          = lastCmtItem.flushGen()
     // self flush
     q.io.flush       := flush || ShiftRegister(flush, 1, false.B, true.B)
     // store buffer
-    io.bke.sb.st_cmt := ShiftRegister(last_cmt_item.fte.is_store, 1, false.B, true.B)
+    io.bke.sb.stCmt  := ShiftRegister(lastCmtItem.fte.isStore, 1, false.B, true.B)
     io.bke.sb.flush  := ShiftRegister(flush, 1, false.B, true.B)
     // rename
     io.fte.rnm.flst.enq.zipWithIndex.foreach{ case (enq, i) =>
-        enq.valid   := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rd_vld, 1, false.B, true.B)
+        enq.valid   := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
         enq.bits    := ShiftRegister(q.io.deq(i).bits.fte.pprd, 1, 0.U(wpreg.W), true.B)
     }
     io.fte.rnm.flst.flush   := ShiftRegister(flush, 1, false.B, true.B)
-    io.fte.rnm.srat.rd_vld.zipWithIndex.foreach{ case (rd_vld, i) =>
-        rd_vld      := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rd_vld, 1, false.B, true.B)
+    io.fte.rnm.srat.rdVld.zipWithIndex.foreach{ case (rdVld, i) =>
+        rdVld      := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
     }
     io.fte.rnm.srat.rd      := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.rd)), 1, VecInit.fill(ncommit)(0.U(wlreg.W)), true.B)
     io.fte.rnm.srat.prd     := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.prd)), 1, VecInit.fill(ncommit)(0.U(wpreg.W)), true.B)
@@ -155,9 +155,9 @@ class Reorder_Buffer extends Module{
     io.fte.fq.flush         := ShiftRegister(flush, 1, false.B, true.B) 
 
     // npc
-    io.fte.npc.flush        := ShiftRegister(flush, 1, false.B, true.B)
-    io.fte.npc.jump_en      := ShiftRegister(last_cmt_item.bke.jump_en, 1, false.B, true.B)
-    io.fte.npc.jump_tgt     := ShiftRegister(Mux(last_cmt_item.bke.jump_en, last_cmt_item.bke.result, last_cmt_item.fte.pc), 1, 0.U(32.W), true.B)
+    io.fte.npc.flush       := ShiftRegister(flush, 1, false.B, true.B)
+    io.fte.npc.jumpEn      := ShiftRegister(lastCmtItem.bke.jumpEn, 1, false.B, true.B)
+    io.fte.npc.jumpTgt     := ShiftRegister(Mux(lastCmtItem.bke.jumpEn, lastCmtItem.bke.result, lastCmtItem.fte.pc), 1, 0.U(32.W), true.B)
 
     // dispatch
     io.dsp.flush := ShiftRegister(flush, 1, false.B, true.B)

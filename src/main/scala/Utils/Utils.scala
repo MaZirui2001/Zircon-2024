@@ -1,5 +1,5 @@
 
-package Zircon_Util 
+package ZirconUtil 
 import chisel3._
 import chisel3.util._
 
@@ -34,9 +34,9 @@ object ESltu {
     def apply(src1: UInt, src2: UInt): Bool = {
         val n = src1.getWidth
         assert(n == src2.getWidth, "src1 and src2 must have the same width")
-        val sign_neq = src1(n-1) ^ src2(n-1)
-        val src1_lt_src2 = src1(n-2, 0) < src2(n-2, 0)
-        Mux(sign_neq, !src1_lt_src2, src1_lt_src2)
+        val signNeq = src1(n-1) ^ src2(n-1)
+        val src1LtSrc2 = src1(n-2, 0) < src2(n-2, 0)
+        Mux(signNeq, !src1LtSrc2, src1LtSrc2)
     }
 }
 object Slt1H {
@@ -44,9 +44,9 @@ object Slt1H {
     def apply(src1: UInt, src2: UInt): Bool = {
         val n = src1.getWidth
         assert(n == src2.getWidth, "src1 and src2 must have the same width")
-        val src1_acc = VecInit.tabulate(n)(i => src1.take(i).orR)
-        val src2_acc = VecInit.tabulate(n)(i => src2.take(i).orR)
-        val diff = src1_acc.zip(src2_acc).map{ case (s1, s2) => s1 & !s2 }
+        val src1Acc = VecInit.tabulate(n)(i => src1.take(i).orR)
+        val src2Acc = VecInit.tabulate(n)(i => src2.take(i).orR)
+        val diff = src1Acc.zip(src2Acc).map{ case (s1, s2) => s1 & !s2 }
         diff.reduce(_ | _)
     }
 }
@@ -137,16 +137,16 @@ object RotateRightOH {
     def apply(x: UInt, nOH: UInt): UInt = {
         val width = x.getWidth
         assert(width == nOH.getWidth, "two operators must have the same width")
-        val x_shifts = VecInit.tabulate(width)(i => ShiftSubN(x, i))
-        Mux1H(nOH, x_shifts)
+        val xShifts = VecInit.tabulate(width)(i => ShiftSubN(x, i))
+        Mux1H(nOH, xShifts)
     }
 }
 object RotateLeftOH {
     def apply(x: UInt, nOH: UInt): UInt = {  
         val width = x.getWidth
         assert(width == nOH.getWidth, "two operators must have the same width")
-        val x_shifts = VecInit.tabulate(width)(i => ShiftAddN(x, i))
-        Mux1H(nOH, x_shifts)
+        val xShifts = VecInit.tabulate(width)(i => ShiftAddN(x, i))
+        Mux1H(nOH, xShifts)
     }
 }
 object Transpose {
@@ -158,15 +158,15 @@ object Transpose {
 object Lshift1H {
     def apply(x: UInt, nOH: UInt): UInt = {
         val width = nOH.getWidth
-        val x_shifts = VecInit.tabulate(width)(i => x << i)
-        Mux1H(nOH, x_shifts)
+        val xShifts = VecInit.tabulate(width)(i => x << i)
+        Mux1H(nOH, xShifts)
     }
 }
 object Rshift1H {
     def apply(x: UInt, nOH: UInt): UInt = {
         val width = nOH.getWidth
-        val x_shifts = VecInit.tabulate(width)(i => x >> i)
-        Mux1H(nOH, x_shifts)
+        val xShifts = VecInit.tabulate(width)(i => x >> i)
+        Mux1H(nOH, xShifts)
     }
 }
 

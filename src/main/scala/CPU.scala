@@ -1,30 +1,30 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.Issue._
-import Zircon_Config.Decode._
-import Zircon_Config.Commit._
+import ZirconConfig.Issue._
+import ZirconConfig.Decode._
+import ZirconConfig.Commit._
 
-class CPU_Debug_IO extends Bundle {
-    val cmt = new ROB_Commit_IO
-    val rf  = new Regfile_DBG_IO
+class CPUDebugIO extends Bundle {
+    val cmt = new ROBCommitIO
+    val rf  = new RegfileDBGIO
 }
 
 
-class CPU_IO extends Bundle {
-    val axi = new AXI_IO
-    val dbg = new CPU_Debug_IO
+class CPUIO extends Bundle {
+    val axi = new AXIIO
+    val dbg = new CPUDebugIO
 }
 
 class CPU extends Module {
-    val io = IO(new CPU_IO)
+    val io = IO(new CPUIO)
 
     val fte = Module(new Frontend)
     val dsp = Module(new Dispatch)
     val bke = Module(new Backend)
-    val rob = Module(new Reorder_Buffer)
+    val rob = Module(new ReorderBuffer)
 
     val l2  = Module(new L2Cache)
-    val arb = Module(new AXI_Arbiter)
+    val arb = Module(new AXIArbiter)
 
     fte.io.dsp <> dsp.io.fte
     dsp.io.bke <> bke.io.dsp

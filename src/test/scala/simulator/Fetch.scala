@@ -1,8 +1,8 @@
 
 import spire.math.UInt
 
-class Fetch(mem: Memory, base_addr: UInt) {
-    private var pc = base_addr
+class Fetch(mem: Memory, baseAddr: UInt) {
+    private var pc = baseAddr
 
     def getPC(): UInt = {
         pc
@@ -13,7 +13,7 @@ class Fetch(mem: Memory, base_addr: UInt) {
     }
     
     def reset(): Unit = {
-        pc = base_addr
+        pc = baseAddr
     }
 
     def fetch(): UInt = {

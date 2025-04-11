@@ -2,7 +2,7 @@ import chisel3._
 import chisel3.util._
 
 object Shifter {
-    class Shifter_IO(n: Int) extends Bundle{
+    class ShifterIO(n: Int) extends Bundle{
         val src = Input(UInt(n.W))
         val shf = Input(UInt(log2Ceil(n).W))
         val sgn = Input(Bool())
@@ -10,7 +10,7 @@ object Shifter {
     }
 
     class Shifter extends Module{
-        val io = IO(new Shifter_IO(32))
+        val io = IO(new ShifterIO(32))
         // 桶形移位器，实现右移
         val candidates = Wire(Vec(32, UInt(32.W)))
         for (i <- 0 until 32){

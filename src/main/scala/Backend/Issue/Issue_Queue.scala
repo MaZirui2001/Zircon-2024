@@ -1,37 +1,37 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.RegisterFile._
-import Zircon_Config.ReserveQueue._
-import Zircon_Config.Issue._   
-import Zircon_Config.Commit._
-import Zircon_Config.Decode._
-import Zircon_Util._
+import ZirconConfig.RegisterFile._
+import ZirconConfig.ReserveQueue._
+import ZirconConfig.Issue._   
+import ZirconConfig.Commit._
+import ZirconConfig.Decode._
+import ZirconUtil._
 import Log2OH._
 
-class Replay_Bus_Pkg extends Bundle {
+class ReplayBusPkg extends Bundle {
     val prd     = UInt(wpreg.W)
     val replay  = Bool()
 }
-class Wakeup_Bus_Pkg extends Bundle {
+class WakeupBusPkg extends Bundle {
     val prd = UInt(wpreg.W)
     val lpv = UInt(3.W)
-    def apply(pkg: Backend_Package, rply_bus: Replay_Bus_Pkg, is_mem: Boolean = false): Wakeup_Bus_Pkg = {
-        val wk = Wire(new Wakeup_Bus_Pkg)
-        wk.prd := Mux(rply_bus.replay && (pkg.prj_lpv | pkg.prk_lpv).orR, 0.U, pkg.prd)
-        wk.lpv := (if(is_mem) pkg.prj_lpv | pkg.prk_lpv | 0x1.U else pkg.prj_lpv | pkg.prk_lpv)
+    def apply(pkg: BackendPackage, rplyBus: ReplayBusPkg, isMem: Boolean = false): WakeupBusPkg = {
+        val wk = Wire(new WakeupBusPkg)
+        wk.prd := Mux(rplyBus.replay && (pkg.prjLpv | pkg.prkLpv).orR, 0.U, pkg.prd)
+        wk.lpv := (if(isMem) pkg.prjLpv | pkg.prkLpv | 0x1.U else pkg.prjLpv | pkg.prkLpv)
         wk
     }
 }
 
-class Select_Item(len: Int, age_len: Int) extends Bundle {
+class SelectItem(len: Int, ageLen: Int) extends Bundle {
     val idx_1h = UInt(len.W)
     val vld = Bool()
-    val age = UInt(age_len.W)
+    val age = UInt(ageLen.W)
 }
 
-object Select_Item{
-    def apply(idx_1h: UInt, vld: Bool, age: UInt): Select_Item = {
-        val si = Wire(new Select_Item(idx_1h.getWidth, age.getWidth))
+object SelectItem{
+    def apply(idx_1h: UInt, vld: Bool, age: UInt): SelectItem = {
+        val si = Wire(new SelectItem(idx_1h.getWidth, age.getWidth))
         si.idx_1h := idx_1h & Fill(idx_1h.getWidth, vld)
         si.vld := vld
         si.age := age
@@ -40,59 +40,59 @@ object Select_Item{
 }
 
 
-class IQ_Entry(num: Int) extends Bundle {
-    val inst_exi    = Bool()
-    val item        = new Backend_Package()
+class IQEntry(num: Int) extends Bundle {
+    val instExi    = Bool()
+    val item        = new BackendPackage()
     // for memory access partial unordered execution
-    // for load, st_before is the number of load instructions in the queue
-    // for store, st_before is the number of instructions in the queue
-    val st_before   = UInt(log2Ceil(num).W)
+    // for load, stBefore is the number of load instructions in the queue
+    // for store, stBefore is the number of instructions in the queue
+    val stBefore   = UInt(log2Ceil(num).W)
 
-    def apply(item: Backend_Package, st_before: UInt): IQ_Entry = {
-        val e = Wire(new IQ_Entry(num))
-        e.inst_exi := true.B
+    def apply(item: BackendPackage, stBefore: UInt): IQEntry = {
+        val e = Wire(new IQEntry(num))
+        e.instExi := true.B
         e.item := item
-        e.st_before := st_before
+        e.stBefore := stBefore
         e
     }
 
-    def state_update(wake_bus: Vec[Wakeup_Bus_Pkg], rply_bus: Replay_Bus_Pkg, deq_item: Seq[DecoupledIO[Backend_Package]], is_mem: Boolean): IQ_Entry = {
-        if(is_mem){ val e = this.wakeup(wake_bus, rply_bus).lpv_update(wake_bus, rply_bus).st_before_update(deq_item); e}
-        else{ val e = this.wakeup(wake_bus, rply_bus).lpv_update(wake_bus, rply_bus); e}
+    def stateUpdate(wakeBus: Vec[WakeupBusPkg], rplyBus: ReplayBusPkg, deqItem: Seq[DecoupledIO[BackendPackage]], isMem: Boolean): IQEntry = {
+        if(isMem){ val e = this.wakeup(wakeBus, rplyBus).lpvUpdate(wakeBus, rplyBus).stBeforeUpdate(deqItem); e}
+        else{ val e = this.wakeup(wakeBus, rplyBus).lpvUpdate(wakeBus, rplyBus); e}
     }
     
-    def wakeup(wake_bus: Vec[Wakeup_Bus_Pkg], rply_bus: Replay_Bus_Pkg): IQ_Entry = {
+    def wakeup(wakeBus: Vec[WakeupBusPkg], rplyBus: ReplayBusPkg): IQEntry = {
         val e = WireDefault(this)
-        e.item.prj_wk := Mux(this.item.prj_lpv.orR && rply_bus.replay, this.item.prj === 0.U, this.item.prj_wk || wake_bus.map(_.prd === this.item.prj).reduce(_ || _) || rply_bus.prd === this.item.prj)
-        e.item.prk_wk := Mux(this.item.prk_lpv.orR && rply_bus.replay, this.item.prk === 0.U, this.item.prk_wk || wake_bus.map(_.prd === this.item.prk).reduce(_ || _) || rply_bus.prd === this.item.prk)
+        e.item.prjWk := Mux(this.item.prjLpv.orR && rplyBus.replay, this.item.prj === 0.U, this.item.prjWk || wakeBus.map(_.prd === this.item.prj).reduce(_ || _) || rplyBus.prd === this.item.prj)
+        e.item.prkWk := Mux(this.item.prkLpv.orR && rplyBus.replay, this.item.prk === 0.U, this.item.prkWk || wakeBus.map(_.prd === this.item.prk).reduce(_ || _) || rplyBus.prd === this.item.prk)
         e
     }
 
-    def lpv_update(wake_bus: Vec[Wakeup_Bus_Pkg], rply_bus: Replay_Bus_Pkg): IQ_Entry = {
+    def lpvUpdate(wakeBus: Vec[WakeupBusPkg], rplyBus: ReplayBusPkg): IQEntry = {
         val e = WireDefault(this)
-        e.item.prj_lpv := Mux(this.item.prj_lpv.orR || this.item.prj === 0.U, this.item.prj_lpv << !rply_bus.replay, Mux1H(wake_bus.map(_.prd === this.item.prj), wake_bus.map(_.lpv << 1)))
-        e.item.prk_lpv := Mux(this.item.prk_lpv.orR || this.item.prk === 0.U, this.item.prk_lpv << !rply_bus.replay, Mux1H(wake_bus.map(_.prd === this.item.prk), wake_bus.map(_.lpv << 1)))
+        e.item.prjLpv := Mux(this.item.prjLpv.orR || this.item.prj === 0.U, this.item.prjLpv << !rplyBus.replay, Mux1H(wakeBus.map(_.prd === this.item.prj), wakeBus.map(_.lpv << 1)))
+        e.item.prkLpv := Mux(this.item.prkLpv.orR || this.item.prk === 0.U, this.item.prkLpv << !rplyBus.replay, Mux1H(wakeBus.map(_.prd === this.item.prk), wakeBus.map(_.lpv << 1)))
         e
     }
-    def st_before_update(st_item: Seq[DecoupledIO[Backend_Package]]): IQ_Entry = {
+    def stBeforeUpdate(stItem: Seq[DecoupledIO[BackendPackage]]): IQEntry = {
         val e = WireDefault(this)
-        e.st_before := this.st_before - PopCount(st_item.map{case s => s.valid && s.ready && Mux(this.item.op(6), true.B, s.bits.op(6))})
+        e.stBefore := this.stBefore - PopCount(stItem.map{case s => s.valid && s.ready && Mux(this.item.op(6), true.B, s.bits.op(6))})
         e
     }
 }
 
 
-class Issue_Queue_IO(ew: Int, dw: Int, num: Int) extends Bundle {
-    val enq         = Vec(ew, Flipped(DecoupledIO(new Backend_Package)))
-    val deq         = Vec(dw, DecoupledIO(new Backend_Package))
-    val wake_bus    = Input(Vec(nis, new Wakeup_Bus_Pkg))
-    val rply_bus    = Input(new Replay_Bus_Pkg)
-    val st_left     = Output(UInt(log2Ceil(num).W))
+class IssueQueueIO(ew: Int, dw: Int, num: Int) extends Bundle {
+    val enq         = Vec(ew, Flipped(DecoupledIO(new BackendPackage)))
+    val deq         = Vec(dw, DecoupledIO(new BackendPackage))
+    val wakeBus    = Input(Vec(nis, new WakeupBusPkg))
+    val rplyBus    = Input(new ReplayBusPkg)
+    val stLeft     = Output(UInt(log2Ceil(num).W))
     val flush       = Input(Bool())
 }
 
-class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends Module {
-    val io = IO(new Issue_Queue_IO(ew, dw, num))
+class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Module {
+    val io = IO(new IssueQueueIO(ew, dw, num))
     assert(ew >= dw, "enq width must be greater than or equal to deq width")
     assert(num % dw == 0, "Issue Queue length must be a multiple of deq width")
     assert(num % ew == 0, "Issue Queue length must be a multiple of enq width")
@@ -101,10 +101,10 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     val n = dw
 
     val iq = RegInit(
-        VecInit.fill(n)(VecInit.fill(len)(0.U.asTypeOf(new IQ_Entry(num))))
+        VecInit.fill(n)(VecInit.fill(len)(0.U.asTypeOf(new IQEntry(num))))
     )
     
-    val flst = Module(new Cluster_Index_FIFO(
+    val flst = Module(new ClusterIndexFIFO(
         UInt((log2Ceil(n)+log2Ceil(len)).W), num, dw, ew, 0, 0, true, 
         Some(Seq.tabulate(num)(i => ((i / len) << log2Ceil(len) | (i % len)).U((log2Ceil(n) + log2Ceil(len)).W
     )))))
@@ -113,46 +113,46 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     flst.io.enq.foreach(_.bits := DontCare)
     flst.io.deq.foreach(_.ready := false.B)
     
-    val st_left = RegInit(0.U(log2Ceil(num).W))
-    val st_left_next = WireDefault(VecInit.fill(ew)(0.U(log2Ceil(num).W)))
-    val mem_left = RegInit(0.U(log2Ceil(num).W))
-    val mem_left_next = WireDefault(VecInit.fill(ew)(0.U(log2Ceil(num).W)))
-    if(is_mem){
-        st_left_next.zipWithIndex.foreach{ case (e, i) =>
-            e := st_left + PopCount(io.enq.take(i).map{case (e) => e.bits.op(6) && e.valid && e.ready}) 
+    val stLeft      = RegInit(0.U(log2Ceil(num).W))
+    val stLeftNext  = WireDefault(VecInit.fill(ew)(0.U(log2Ceil(num).W)))
+    val memLeft     = RegInit(0.U(log2Ceil(num).W))
+    val memLeftNext = WireDefault(VecInit.fill(ew)(0.U(log2Ceil(num).W)))
+    if(isMem){
+        stLeftNext.zipWithIndex.foreach{ case (e, i) =>
+            e := stLeft + PopCount(io.enq.take(i).map{case (e) => e.bits.op(6) && e.valid && e.ready}) 
         }
-        st_left := Mux(io.flush, 0.U, st_left + PopCount(io.enq.take(ew).map{case (e) => e.bits.op(6) && e.valid && e.ready}) - PopCount(io.deq.map{case (e) => e.bits.op(6) && e.valid && e.ready}))
-        mem_left_next.zipWithIndex.foreach{ case (e, i) =>
-            e := mem_left + PopCount(io.enq.take(i).map{case (e) => e.valid && e.ready}) 
+        stLeft := Mux(io.flush, 0.U, stLeft + PopCount(io.enq.take(ew).map{case (e) => e.bits.op(6) && e.valid && e.ready}) - PopCount(io.deq.map{case (e) => e.bits.op(6) && e.valid && e.ready}))
+        memLeftNext.zipWithIndex.foreach{ case (e, i) =>
+            e := memLeft + PopCount(io.enq.take(i).map{case (e) => e.valid && e.ready}) 
         }
-        mem_left := Mux(io.flush, 0.U, mem_left + PopCount(io.enq.take(ew).map{case (e) => e.valid && e.ready}) - PopCount(io.deq.map{case (e) => e.valid && e.ready}))
+        memLeft := Mux(io.flush, 0.U, memLeft + PopCount(io.enq.take(ew).map{case (e) => e.valid && e.ready}) - PopCount(io.deq.map{case (e) => e.valid && e.ready}))
     }
-    io.st_left := st_left
+    io.stLeft := stLeft
 
     /* insert into iq */
     // allocate free item in iq
     flst.io.deq.zipWithIndex.foreach{ case (deq, i) => 
         deq.ready := io.enq(i).valid
     }
-    val free_iq     = flst.io.deq.map((_.bits >> log2Ceil(len)))
-    val free_item   = flst.io.deq.map(_.bits(log2Ceil(len)-1, 0))
-    val enq_entries = WireDefault(VecInit(io.enq.map(_.bits)))
+    val freeIq      = flst.io.deq.map((_.bits >> log2Ceil(len)))
+    val freeItem    = flst.io.deq.map(_.bits(log2Ceil(len)-1, 0))
+    val enqEntries  = WireDefault(VecInit(io.enq.map(_.bits)))
     flst.io.flush   := false.B
 
     /* wake up */
     iq.foreach{case (qq) =>
         qq.foreach{case (e) =>
-            e := e.state_update(io.wake_bus, io.rply_bus, io.deq, is_mem)
+            e := e.stateUpdate(io.wakeBus, io.rplyBus, io.deq, isMem)
         }
     }
     /* write to iq */
     for (i <- 0 until ew){
         when(io.enq(i).valid && flst.io.deq(0).valid){
-            iq(free_iq(i))(free_item(i)) := (new IQ_Entry(len))(
-                enq_entries(i), 
-                if(is_mem) Mux(enq_entries(i).op(6), mem_left_next(i), st_left_next(i)) 
+            iq(freeIq(i))(freeItem(i)) := (new IQEntry(len))(
+                enqEntries(i), 
+                if(isMem) Mux(enqEntries(i).op(6), memLeftNext(i), stLeftNext(i)) 
                 else 0.U
-            ).state_update(io.wake_bus, io.rply_bus, io.deq, is_mem)
+            ).stateUpdate(io.wakeBus, io.rplyBus, io.deq, isMem)
         }
     }
 
@@ -161,64 +161,64 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     flst.io.enq.foreach(_.bits := DontCare)
     for(i <- 0 until dw){
         // get the oldest valid existing instruction
-        val issue_valid = iq(i).map{ case (e) => e.item.prj_wk && e.item.prk_wk && e.inst_exi && (if(is_mem) e.st_before === 0.U else true.B)}
-        val issue_age = iq(i).map{ case (e) => e.item.rob_idx.get_age }
-        val select_item = VecInit.tabulate(len)(j => Select_Item(
+        val issueValid = iq(i).map{ case (e) => e.item.prjWk && e.item.prkWk && e.instExi && (if(isMem) e.stBefore === 0.U else true.B)}
+        val issueAge   = iq(i).map{ case (e) => e.item.robIdx.getAge }
+        val selectItem = VecInit.tabulate(len)(j => SelectItem(
             idx_1h = (1 << j).U(len.W),
-            vld = issue_valid(j),
-            age = issue_age(j)
+            vld = issueValid(j),
+            age = issueAge(j)
         )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(ESltu(a.age, b.age), a, b), a), b))
         
-        io.deq(i).valid := select_item.vld
-        io.deq(i).bits := Mux1H(select_item.idx_1h, iq(i).map(_.item))
+        io.deq(i).valid := selectItem.vld
+        io.deq(i).bits := Mux1H(selectItem.idx_1h, iq(i).map(_.item))
         // caculate if the selected instruction is the latest, just for load instructions
-        if(is_mem){
-            val load_in_queue = iq(i).map{ case (e) => e.inst_exi }
-            val select_latest = VecInit.tabulate(len)(j => Select_Item(
+        if(isMem){
+            val loadInQueue = iq(i).map{ case (e) => e.instExi }
+            val selectLatest = VecInit.tabulate(len)(j => SelectItem(
                 idx_1h = (1 << j).U(len.W),
-                vld = load_in_queue(j),
-                age = issue_age(j)
+                vld = loadInQueue(j),
+                age = issueAge(j)
             )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(ESltu(a.age, b.age), a, b), a), b))
-            io.deq(i).bits.is_latest := select_item.idx_1h === select_latest.idx_1h
+            io.deq(i).bits.isLatest := selectItem.idx_1h === selectLatest.idx_1h
         }
 
         // make the selected instruction not exist
         iq(i).zipWithIndex.foreach{ case (e, j) =>
-            when(select_item.idx_1h(j) && io.deq(i).ready){ 
-                e.inst_exi := false.B 
-                // e.item.prj_wk := false.B
-                // e.item.prk_wk := false.B
+            when(selectItem.idx_1h(j) && io.deq(i).ready){ 
+                e.instExi := false.B 
+                // e.item.prjWk := false.B
+                // e.item.prkWk := false.B
             }
         }
     }
     /* replay */
     iq.foreach{case (qq) =>
         qq.foreach{case (e) =>
-            when(e.item.prj_lpv.orR && io.rply_bus.replay && e.item.valid){
-                e.inst_exi := true.B
+            when(e.item.prjLpv.orR && io.rplyBus.replay && e.item.valid){
+                e.instExi := true.B
             }
-            when(e.item.prk_lpv.orR && io.rply_bus.replay && e.item.valid){
-                e.inst_exi := true.B
+            when(e.item.prkLpv.orR && io.rplyBus.replay && e.item.valid){
+                e.instExi := true.B
             }
         }
     }
 
-    var flst_insert_ptr     = 1.U(n.W)
-    val port_map_flst       = VecInit.fill(dw)(0.U(dw.W))
-    val port_map_trans_flst = Transpose(port_map_flst)
-    val ready_to_recycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.inst_exi || e.item.prj_lpv.orR || e.item.prk_lpv.orR) } }
-    val select_recycle_idx  = ready_to_recycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
+    var flstInsertPtr     = 1.U(n.W)
+    val portMapFlst       = VecInit.fill(dw)(0.U(dw.W))
+    val portMapTransFlst  = Transpose(portMapFlst)
+    val readyToRecycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.instExi || e.item.prjLpv.orR || e.item.prkLpv.orR) } }
+    val selectRecycleIdx  = readyToRecycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
     for(i <- 0 until dw) {
-        port_map_flst(i) := Mux(select_recycle_idx(i).orR, flst_insert_ptr, 0.U)
-        flst_insert_ptr = Mux(select_recycle_idx(i).orR, ShiftAdd1(flst_insert_ptr), flst_insert_ptr)
+        portMapFlst(i) := Mux(selectRecycleIdx(i).orR, flstInsertPtr, 0.U)
+        flstInsertPtr = Mux(selectRecycleIdx(i).orR, ShiftAdd1(flstInsertPtr), flstInsertPtr)
     }
     flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
-        e.valid := port_map_trans_flst(i).orR
-        e.bits  := Mux1H(port_map_trans_flst(i), VecInit.tabulate(dw)(j => j.U(log2Ceil(dw).W))) ## OHToUInt(Mux1H(port_map_trans_flst(i), select_recycle_idx)).take(log2Ceil(len))
+        e.valid := portMapTransFlst(i).orR
+        e.bits  := Mux1H(portMapTransFlst(i), VecInit.tabulate(dw)(j => j.U(log2Ceil(dw).W))) ## OHToUInt(Mux1H(portMapTransFlst(i), selectRecycleIdx)).take(log2Ceil(len))
     }
     iq.zipWithIndex.foreach{ case (qq, i) =>
         qq.zipWithIndex.foreach{ case (e, j) =>
-            when(select_recycle_idx(i)(j)){
+            when(selectRecycleIdx(i)(j)){
                 e.item.valid := false.B
             }
         }
@@ -228,7 +228,7 @@ class Issue_Queue(ew: Int, dw: Int, num: Int, is_mem: Boolean = false) extends M
     when(io.flush){
         iq.foreach{case (qq) =>
             qq.foreach{case (e) =>
-                e.inst_exi := false.B
+                e.instExi := false.B
             }
         }
     }

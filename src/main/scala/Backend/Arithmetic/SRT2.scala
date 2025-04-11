@@ -1,9 +1,9 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Util._
-import Zircon_Config.EXE_Op._
+import ZirconUtil._
+import ZirconConfig.EXEOp._
 
-class SRT2_IO extends Bundle {
+class SRT2IO extends Bundle {
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
     val op   = Input(UInt(4.W))
@@ -13,7 +13,7 @@ class SRT2_IO extends Bundle {
 }
 
 class SRT2 extends Module {
-    val io = IO(new SRT2_IO)
+    val io = IO(new SRT2IO)
 
     /* Stage 1: Initialization */
     // calculate the number of iterations
@@ -21,102 +21,102 @@ class SRT2 extends Module {
     val iter = RegInit(63.U(6.W))
     
     io.busy := !iter(5)
-    val sign_src1 = io.src1(31)
-    val sign_src2 = io.src2(31)
-    val res_sign  = Mux(io.op === DIV, sign_src1 ^ sign_src2, sign_src1)
-    val rmd_reg   = RegInit(0.U(65.W))
-    val rmd_m_reg = RegInit(0.U(33.W))
-    val div_reg   = RegInit(0.U(33.W))
-    val adder     = BLevel_PAdder33(rmd_reg(63, 31), div_reg, 0.U)
-    val src1_neg  = BLevel_PAdder32(~io.src1, 0.U, 1.U).io.res
-    val src2_neg  = BLevel_PAdder32(~io.src2, 0.U, 1.U).io.res 
-    val src1_abs  = Mux((io.op === DIV || io.op === REM) && sign_src1, src1_neg, io.src1)
-    val src2_abs  = Mux((io.op === DIV || io.op === REM) && sign_src2, src2_neg, io.src2)
+    val signSrc1 = io.src1(31)
+    val signSrc2 = io.src2(31)
+    val resSign  = Mux(io.op === DIV, signSrc1 ^ signSrc2, signSrc1)
+    val rmdReg   = RegInit(0.U(65.W))
+    val rmdMReg  = RegInit(0.U(33.W))
+    val divReg   = RegInit(0.U(33.W))
+    val adder    = BLevelPAdder33(rmdReg(63, 31), divReg, 0.U)
+    val src1Neg  = BLevelPAdder32(~io.src1, 0.U, 1.U).io.res
+    val src2Neg  = BLevelPAdder32(~io.src2, 0.U, 1.U).io.res 
+    val src1Abs  = Mux((io.op === DIV || io.op === REM) && signSrc1, src1Neg, io.src1)
+    val src2Abs  = Mux((io.op === DIV || io.op === REM) && signSrc2, src2Neg, io.src2)
 
-    def count_leading_zeros(x: UInt): UInt = {
+    def countLeadingZeros(x: UInt): UInt = {
         Log2Rev(Reverse(x))(4, 0)
     }
 
-    val src1_leading_zeros = count_leading_zeros(src1_abs)
-    val src2_leading_zeros = count_leading_zeros(src2_abs)
+    val src1LeadingZeros = countLeadingZeros(src1Abs)
+    val src2LeadingZeros = countLeadingZeros(src2Abs)
     
     when(io.busy){
         iter := iter - 1.U
     }.elsewhen(en){
-        when(src1_leading_zeros > src2_leading_zeros){
+        when(src1LeadingZeros > src2LeadingZeros){
             iter := 63.U
         }.otherwise{
-            iter := src2_leading_zeros - src1_leading_zeros
+            iter := src2LeadingZeros - src1LeadingZeros
         }
     }
     /* stage 2: calculate the quotient */
-    val op_s2                 = ShiftRegister(io.op, 1, 0.U, en && iter(5))
-    val res_sign_s2           = ShiftRegister(res_sign, 1, false.B, en && iter(5))
-    val src1_s2               = ShiftRegister(io.src1, 1, 0.U, en && iter(5))
-    val src1_leading_zeros_s2 = ShiftRegister(src1_leading_zeros, 1, 0.U, en && iter(5))
-    val src2_leading_zeros_s2 = ShiftRegister(src2_leading_zeros, 1, 0.U, en && iter(5))
+    val opS2               = ShiftRegister(io.op, 1, 0.U, en && iter(5))
+    val resSignS2          = ShiftRegister(resSign, 1, false.B, en && iter(5))
+    val src1S2             = ShiftRegister(io.src1, 1, 0.U, en && iter(5))
+    val src1LeadingZerosS2 = ShiftRegister(src1LeadingZeros, 1, 0.U, en && iter(5))
+    val src2LeadingZerosS2 = ShiftRegister(src2LeadingZeros, 1, 0.U, en && iter(5))
 
     when(en && iter(5)){
-        div_reg     := src2_abs << src2_leading_zeros
+        divReg     := src2Abs << src2LeadingZeros
     }
     when(io.busy){
         // 3 cases, scan the top 2 bits of the remainder
-        val top2 = rmd_reg(63, 62)
+        val top2 = rmdReg(63, 62)
         // if the top 2 bits are the same, q = 0, and shift the remainder left
         when(top2 === 0.U || top2 === 3.U){
             adder.io.src2 := 0.U
-            rmd_reg := (adder.io.res ## rmd_reg(30, 0) ## 0.U)
-            rmd_m_reg := rmd_m_reg << 1
+            rmdReg  := (adder.io.res ## rmdReg(30, 0) ## 0.U)
+            rmdMReg := rmdMReg << 1
         }.otherwise{
             when(top2(1) === 1.U){
                 // if the top 2 bits are not the same and is negative, q = -1, shift and add the divisor
-                adder.io.src2 := div_reg
-                rmd_reg       := (adder.io.res ## rmd_reg(30, 0) ## 0.U)
-                rmd_m_reg     := (rmd_m_reg << 1) | 1.U
+                adder.io.src2 := divReg
+                rmdReg        := (adder.io.res ## rmdReg(30, 0) ## 0.U)
+                rmdMReg       := (rmdMReg << 1) | 1.U
             }.otherwise{
                 // if the top 2 bits are not the same and is positive, q = 1, shift and sub the divisor
-                adder.io.src2 := ~div_reg
+                adder.io.src2 := ~divReg
                 adder.io.cin  := 1.U
-                rmd_reg       := (adder.io.res ## rmd_reg(30, 0) ## 1.U) 
-                rmd_m_reg     := rmd_m_reg << 1
+                rmdReg        := (adder.io.res ## rmdReg(30, 0) ## 1.U) 
+                rmdMReg       := rmdMReg << 1
             }
         }
 
     }.elsewhen(en){
-        adder.io.src1 := rmd_reg
-        adder.io.src2 := ~rmd_m_reg
+        adder.io.src1 := rmdReg
+        adder.io.src2 := ~rmdMReg
         adder.io.cin  := 1.U
-        rmd_reg       := Mux(src1_leading_zeros > src2_leading_zeros, (src1_abs ## 0.U(32.W)) << src2_leading_zeros, (src1_abs ## 0.U(32.W)) << src1_leading_zeros >> 1)
-        rmd_m_reg     := 0.U
+        rmdReg        := Mux(src1LeadingZeros > src2LeadingZeros, (src1Abs ## 0.U(32.W)) << src2LeadingZeros, (src1Abs ## 0.U(32.W)) << src1LeadingZeros >> 1)
+        rmdMReg       := 0.U
     }.otherwise{
-        adder.io.src1 := rmd_reg
-        adder.io.src2 := ~rmd_m_reg
+        adder.io.src1 := rmdReg
+        adder.io.src2 := ~rmdMReg
         adder.io.cin  := 1.U
     }
 
-    val quotient_s2       = BLevel_PAdder32(adder.io.res, Mux(rmd_reg(64), 0xFFFFFFFFL.U(32.W), 0.U), 0.U).io.res
-    val remainder_s2      = BLevel_PAdder32(rmd_reg(63, 32), Mux(rmd_reg(64), div_reg, 0.U), 0.U).io.res >> src2_leading_zeros_s2
+    val quotientS2       = BLevelPAdder32(adder.io.res, Mux(rmdReg(64), 0xFFFFFFFFL.U(32.W), 0.U), 0.U).io.res
+    val remainderS2      = BLevelPAdder32(rmdReg(63, 32), Mux(rmdReg(64), divReg, 0.U), 0.U).io.res >> src2LeadingZerosS2
     
     /* stage 3: calculate the result */
-    val quotient_s3       = ShiftRegister(quotient_s2, 1, 0.U, iter(5))
-    val remainder_s3      = ShiftRegister(remainder_s2, 1, 0.U, iter(5))
-    val res_sign_s3       = ShiftRegister(res_sign_s2, 1, false.B, iter(5))
-    val src1_s3           = ShiftRegister(src1_s2, 1, 0.U, iter(5))
-    val div_s3_is_zero    = ShiftRegister(div_reg === 0.U, 1, false.B, iter(5))
-    val op_s3             = ShiftRegister(op_s2, 1, 0.U, iter(5))
-    val ready_s3          = ShiftRegister(iter(5) && op_s2(2), 1, false.B, true.B)
+    val quotientS3       = ShiftRegister(quotientS2, 1, 0.U, iter(5))
+    val remainderS3      = ShiftRegister(remainderS2, 1, 0.U, iter(5))
+    val resSignS3        = ShiftRegister(resSignS2, 1, false.B, iter(5))
+    val src1S3           = ShiftRegister(src1S2, 1, 0.U, iter(5))
+    val divS3IsZero      = ShiftRegister(divReg === 0.U, 1, false.B, iter(5))
+    val opS3             = ShiftRegister(opS2, 1, 0.U, iter(5))
+    val readyS3          = ShiftRegister(iter(5) && opS2(2), 1, false.B, true.B)
 
-    val result_adder      = Module(new BLevel_PAdder32)
+    val resultAdder      = Module(new BLevelPAdder32)
     // for div, if the divisor is 0, the result is 0xffffffff according to the RISC-V spec
     // for rem, if the divisor is 0, the result is the divident
-    result_adder.io.src1  := Mux1H(Seq(
-        (op_s3 === DIV, Mux(div_s3_is_zero, 0xffffffffL.U, Mux(res_sign_s3, ~quotient_s3, quotient_s3))),
-        (op_s3 === DIVU, Mux(div_s3_is_zero, 0xffffffffL.U, quotient_s3)),
-        (op_s3 === REM, Mux(div_s3_is_zero, src1_s3, Mux(res_sign_s3, ~remainder_s3, remainder_s3))),
-        (op_s3 === REMU, Mux(div_s3_is_zero, src1_s3, remainder_s3))
+    resultAdder.io.src1  := Mux1H(Seq(
+        (opS3 === DIV,  Mux(divS3IsZero, 0xffffffffL.U, Mux(resSignS3, ~quotientS3, quotientS3))),
+        (opS3 === DIVU, Mux(divS3IsZero, 0xffffffffL.U, quotientS3)),
+        (opS3 === REM,  Mux(divS3IsZero, src1S3, Mux(resSignS3, ~remainderS3, remainderS3))),
+        (opS3 === REMU, Mux(divS3IsZero, src1S3, remainderS3))
     ))
-    result_adder.io.src2 := 0.U
-    result_adder.io.cin  := (op_s3 === DIV || op_s3 === REM) && res_sign_s3 && !div_s3_is_zero
-    io.res               := result_adder.io.res
-    io.ready             := ready_s3
+    resultAdder.io.src2 := 0.U
+    resultAdder.io.cin  := (opS3 === DIV || opS3 === REM) && resSignS3 && !divS3IsZero
+    io.res              := resultAdder.io.res
+    io.ready            := readyS3
 }

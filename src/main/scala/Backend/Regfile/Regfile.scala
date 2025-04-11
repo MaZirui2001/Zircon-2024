@@ -1,41 +1,41 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.RegisterFile._
-import Zircon_Config.Issue._
-import Zircon_Util._
+import ZirconConfig.RegisterFile._
+import ZirconConfig.Issue._
+import ZirconUtil._
 
-class Regfile_RD_IO extends Bundle{
+class RegfileRDIO extends Bundle{
     val prj         = Input(UInt(wpreg.W))
     val prk         = Input(UInt(wpreg.W))
-    val prj_data    = Output(UInt(32.W))
-    val prk_data    = Output(UInt(32.W))
+    val prjData    = Output(UInt(32.W))
+    val prkData    = Output(UInt(32.W))
 }
-class Regfile_WR_IO extends Bundle{
+class RegfileWRIO extends Bundle{
     val prd         = Input(UInt(wpreg.W))
-    val prd_vld     = Input(Bool())
-    val prd_data    = Input(UInt(32.W))
+    val prdVld     = Input(Bool())
+    val prdData    = Input(UInt(32.W))
 }
 
-class Regfile_DBG_IO extends Bundle{
+class RegfileDBGIO extends Bundle{
     val rf = Output(Vec(npreg, UInt(32.W)))
 }
 
-class Regfile_Single_IO extends Bundle{
-    val rd = new Regfile_RD_IO
-    val wr = new Regfile_WR_IO
+class RegfileSingleIO extends Bundle{
+    val rd = new RegfileRDIO
+    val wr = new RegfileWRIO
 }
 
 class Regfile extends Module {
-    val io  = IO(Vec(nis, new Regfile_Single_IO))
-    val dbg = IO(new Regfile_DBG_IO)
+    val io  = IO(Vec(nis, new RegfileSingleIO))
+    val dbg = IO(new RegfileDBGIO)
 
     val regfile = RegInit(VecInit.tabulate(npreg)(i => 0.U(32.W)))
 
     for(i <- 0 until nis){
-        io(i).rd.prj_data := WFirstRead(regfile(io(i).rd.prj), io(i).rd.prj, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
-        io(i).rd.prk_data := WFirstRead(regfile(io(i).rd.prk), io(i).rd.prk, io.map(_.wr.prd), io.map(_.wr.prd_data), io.map(_.wr.prd_vld))
-        when(io(i).wr.prd_vld){
-            regfile(io(i).wr.prd) := io(i).wr.prd_data
+        io(i).rd.prjData := WFirstRead(regfile(io(i).rd.prj), io(i).rd.prj, io.map(_.wr.prd), io.map(_.wr.prdData), io.map(_.wr.prdVld))
+        io(i).rd.prkData := WFirstRead(regfile(io(i).rd.prk), io(i).rd.prk, io.map(_.wr.prd), io.map(_.wr.prdData), io.map(_.wr.prdVld))
+        when(io(i).wr.prdVld){
+            regfile(io(i).wr.prd) := io(i).wr.prdData
         }
     }
     dbg.rf := regfile

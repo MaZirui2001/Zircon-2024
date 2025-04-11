@@ -1,18 +1,18 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.StoreBuffer._
-import Zircon_Config.ReserveQueue._
-import Zircon_Util._
+import ZirconConfig.StoreBuffer._
+import ZirconConfig.ReserveQueue._
+import ZirconUtil._
 
-class sb_entry extends Bundle{
+class sbEntry extends Bundle{
     val paddr = UInt(32.W)
     val wdata = UInt(32.W)
     val wstrb = UInt(4.W)
     val uncache = Bool()
     val commit = Bool()
 
-    def apply(paddr: UInt, wdata: UInt, mtype: UInt, uncache: Bool): sb_entry = {
-        val entry = Wire(new sb_entry)
+    def apply(paddr: UInt, wdata: UInt, mtype: UInt, uncache: Bool): sbEntry = {
+        val entry = Wire(new sbEntry)
         entry.paddr := paddr
         entry.wdata := (wdata << (paddr(1, 0) << 3.U))(31, 0)
         entry.wstrb := (MTypeDecode(mtype(1, 0)) << paddr(1, 0))(3, 0)
@@ -22,34 +22,34 @@ class sb_entry extends Bundle{
     }
 }
 
-class Store_Buffer_IO extends Bundle {
+class StoreBufferIO extends Bundle {
     // first time: store write itself into sb
-    val enq             = Flipped(Decoupled(new sb_entry))
-    val enq_idx         = Output(UInt(wsb.W))
+    val enq             = Flipped(Decoupled(new sbEntry))
+    val enqIdx          = Output(UInt(wsb.W))
 
     // second time: store commit from sb
-    val deq             = Decoupled(new sb_entry)
-    val deq_idx         = Output(UInt(wsb.W))
-    val st_cmt          = Input(Bool())
-    val st_finish       = Input(Bool())
+    val deq             = Decoupled(new sbEntry)
+    val deqIdx          = Output(UInt(wsb.W))
+    val stCmt           = Input(Bool())
+    val stFinish        = Input(Bool())
     
     // load read
-    val ld_sb_hit       = Output(UInt(4.W))
-    val ld_hit_data     = Output(UInt(32.W))
+    val ldSbHit         = Output(UInt(4.W))
+    val ldHitData       = Output(UInt(32.W))
 
 	val flush 	        = Input(Bool()) // only when all entries have been committed
     val lock            = Input(Bool()) // stop the sb from committing to the dcache
     val clear           = Output(Bool())
 }
-class Store_Buffer extends Module {
-    val io = IO(new Store_Buffer_IO)
+class StoreBuffer extends Module {
+    val io = IO(new StoreBufferIO)
 
-    val q = RegInit(VecInit.fill(nsb)(0.U.asTypeOf(new sb_entry)))
+    val q = RegInit(VecInit.fill(nsb)(0.U.asTypeOf(new sbEntry)))
 
     // full and empty flags
     val fulln = RegInit(true.B)
     val eptyn = RegInit(false.B) // ready to commit but not issue to dcache
-    val all_clear = RegInit(true.B) // all entries have been committed
+    val allClear = RegInit(true.B) // all entries have been committed
 
     // pointers
     val hptr = RegInit(1.U(nsb.W))
@@ -57,65 +57,65 @@ class Store_Buffer extends Module {
     val tptr = RegInit(1.U(nsb.W))
     val cptr = RegInit(1.U(nsb.W)) // commit ptr: points to the latest entry has been committed
 
-    val hptr_nxt = Mux(io.deq.ready && eptyn && !io.lock, ShiftSub1(hptr), hptr)
-    val rptr_nxt = Mux(io.st_cmt, ShiftSub1(rptr), rptr)
-    val tptr_nxt = Mux(io.enq.valid && fulln, ShiftSub1(tptr), tptr)
-    val cptr_nxt = Mux(io.st_finish, ShiftSub1(cptr), cptr)
+    val hptrNxt = Mux(io.deq.ready && eptyn && !io.lock, ShiftSub1(hptr), hptr)
+    val rptrNxt = Mux(io.stCmt, ShiftSub1(rptr), rptr)
+    val tptrNxt = Mux(io.enq.valid && fulln, ShiftSub1(tptr), tptr)
+    val cptrNxt = Mux(io.stFinish, ShiftSub1(cptr), cptr)
 
-    hptr := hptr_nxt
-    rptr := rptr_nxt
-    tptr := Mux(io.flush, rptr_nxt, tptr_nxt)
-    cptr := cptr_nxt
+    hptr := hptrNxt
+    rptr := rptrNxt
+    tptr := Mux(io.flush, rptrNxt, tptrNxt)
+    cptr := cptrNxt
 
     // full and empty flags update logic
-    when(io.flush){ fulln := Mux(io.st_finish , true.B, !q.map(_.commit).reduce(_ && _)) }
-    .elsewhen(io.enq.valid) { fulln := !(cptr_nxt & tptr_nxt) }
-    .elsewhen(io.st_finish) { fulln := true.B }
+    when(io.flush){ fulln := Mux(io.stFinish , true.B, !q.map(_.commit).reduce(_ && _)) }
+    .elsewhen(io.enq.valid) { fulln := !(cptrNxt & tptrNxt) }
+    .elsewhen(io.stFinish) { fulln := true.B }
 
     when(io.lock){ eptyn := eptyn }
-    .elsewhen(io.deq.ready){ eptyn := !(hptr_nxt & rptr_nxt) }
-    .elsewhen(io.st_cmt) { eptyn := true.B }
+    .elsewhen(io.deq.ready){ eptyn := !(hptrNxt & rptrNxt) }
+    .elsewhen(io.stCmt) { eptyn := true.B }
 
-    when(io.flush){ all_clear := Mux(io.st_finish, (rptr_nxt & cptr_nxt).orR, !q.map(_.commit).reduce(_ || _)) }
-    .elsewhen(io.st_finish){ all_clear := (tptr_nxt & cptr_nxt).orR }
-    .elsewhen(io.enq.valid){ all_clear := false.B }
+    when(io.flush){ allClear := Mux(io.stFinish, (rptrNxt & cptrNxt).orR, !q.map(_.commit).reduce(_ || _)) }
+    .elsewhen(io.stFinish){ allClear := (tptrNxt & cptrNxt).orR }
+    .elsewhen(io.enq.valid){ allClear := false.B }
     
     // write logic
     q.zipWithIndex.foreach{ case (qq, i) => 
-        when(rptr(i) && io.st_cmt){ qq.commit := true.B }
+        when(rptr(i) && io.stCmt){ qq.commit := true.B }
         .elsewhen(io.flush){ qq.wstrb := Mux(qq.commit, qq.wstrb, 0.U(4.W)) }
 		.elsewhen(tptr(i) && io.enq.valid && fulln) { qq := io.enq.bits }
         
 	}
-    io.enq_idx := OHToUInt(tptr)
+    io.enqIdx := OHToUInt(tptr)
 
     // read logic
     io.deq.bits  := Mux1H(hptr, q)
-    io.deq_idx   := OHToUInt(hptr)
+    io.deqIdx    := OHToUInt(hptr)
     io.enq.ready := fulln
     io.deq.valid := eptyn && !io.lock
-    io.clear     := all_clear
+    io.clear     := allClear
     q.zipWithIndex.foreach{ case(qq, i) => 
-        when(cptr(i) && io.st_finish){
+        when(cptr(i) && io.stFinish){
             qq.commit := false.B
         }
     }
 
     // load read: read for each byte
-    val load_bytes = WireDefault(VecInit.fill(4)(0.U(8.W)))
-    val load_hit = WireDefault(VecInit.fill(4)(false.B))
+    val loadBytes = WireDefault(VecInit.fill(4)(0.U(8.W)))
+    val loadHit = WireDefault(VecInit.fill(4)(false.B))
     // 1. match the address(31, 2) with store buffer
-    val sb_word_addr_match = VecInit.tabulate(nsb){i => 
+    val sbWordAddrMatch = VecInit.tabulate(nsb){i => 
         Mux(q(i).paddr(31, 2) === io.enq.bits.paddr(31, 2), 1.U(1.W), 0.U(1.W))
     }.asUInt
     // 2. for each byte in the word, check each wstrb, get the match item
     for(i <- 0 until 4){
-        val byte_hit = Log2OHRev(RotateRightOH(sb_word_addr_match & VecInit(q.map(_.wstrb(i))).asUInt, ShiftAdd1(tptr)))
-        load_hit(i) := byte_hit.orR
-        load_bytes(i) := Mux1H(RotateLeftOH((byte_hit), ShiftAdd1(tptr)), q.map(_.wdata(i*8+7, i*8)))
+        val byteHit = Log2OHRev(RotateRightOH(sbWordAddrMatch & VecInit(q.map(_.wstrb(i))).asUInt, ShiftAdd1(tptr)))
+        loadHit(i) := byteHit.orR
+        loadBytes(i) := Mux1H(RotateLeftOH((byteHit), ShiftAdd1(tptr)), q.map(_.wdata(i*8+7, i*8)))
     }
     // 3. shift the result
-    io.ld_sb_hit := load_hit.asUInt >> io.enq.bits.paddr(1, 0)
-    io.ld_hit_data := load_bytes.asUInt >> (io.enq.bits.paddr(1, 0) << 3.U)
+    io.ldSbHit := loadHit.asUInt >> io.enq.bits.paddr(1, 0)
+    io.ldHitData := loadBytes.asUInt >> (io.enq.bits.paddr(1, 0) << 3.U)
     
 }

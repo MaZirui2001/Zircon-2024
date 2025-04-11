@@ -1,10 +1,10 @@
 import chisel3._
 import chisel3.util._
-import Zircon_Config.EXE_Op._
+import ZirconConfig.EXEOp._
 import Shifter._
 
 
-class ALU_IO extends Bundle {
+class ALUIO extends Bundle {
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
     val op = Input(UInt(5.W))
@@ -12,46 +12,46 @@ class ALU_IO extends Bundle {
 }
 
 class ALU extends Module {
-    val io = IO(new ALU_IO)
+    val io = IO(new ALUIO)
 
     // adder
-    val adder_src1 = WireDefault(io.src1)
-    val adder_src2 = WireDefault(4.U(32.W))
-    val adder_cin  = WireDefault(0.U)
+    val adderSrc1 = WireDefault(io.src1)
+    val adderSrc2 = WireDefault(4.U(32.W))
+    val adderCin  = WireDefault(0.U)
 
-    val adder = BLevel_PAdder32(adder_src1, adder_src2, adder_cin)
+    val adder = BLevelPAdder32(adderSrc1, adderSrc2, adderCin)
 
-    val adder_res = adder.io.res
-    val adder_cout = adder.io.cout
+    val adderRes = adder.io.res
+    val adderCout = adder.io.cout
 
     // shifter
-    val sfter_src = Mux(io.op === SLL, Reverse(io.src1), io.src1)
-    val sfter_shf = io.src2(4, 0)
-    val sfter_sgn = io.op === SRA
+    val sfterSrc = Mux(io.op === SLL, Reverse(io.src1), io.src1)
+    val sfterShf = io.src2(4, 0)
+    val sfterSgn = io.op === SRA
 
-    val shifter = Shifter(sfter_src, sfter_shf, sfter_sgn)
+    val shifter = Shifter(sfterSrc, sfterShf, sfterSgn)
 
-    val sfter_res = shifter.io.res
+    val sfterRes = shifter.io.res
 
-    io.res := adder_res
+    io.res := adderRes
     // result select
     switch(io.op){
         is(ADD){
-            adder_src2 := io.src2
+            adderSrc2 := io.src2
         }
         is(SUB){
-            adder_src2 := ~io.src2
-            adder_cin := 1.U
+            adderSrc2 := ~io.src2
+            adderCin := 1.U
         }
         is(SLTU){
-            adder_src2 := ~io.src2
-            adder_cin := 1.U
-            io.res := !adder_cout
+            adderSrc2 := ~io.src2
+            adderCin := 1.U
+            io.res := !adderCout
         }
         is(SLT){
-            adder_src2 := ~io.src2
-            adder_cin := 1.U
-            io.res := io.src1(31) && !io.src2(31) || !(io.src1(31) ^ io.src2(31)) && adder_res(31)
+            adderSrc2 := ~io.src2
+            adderCin := 1.U
+            io.res := io.src1(31) && !io.src2(31) || !(io.src1(31) ^ io.src2(31)) && adderRes(31)
         }
         is(AND){
             io.res := io.src1 & io.src2
@@ -66,10 +66,10 @@ class ALU extends Module {
             io.res := Reverse(shifter.io.res)
         }
         is(SRL){
-            io.res := sfter_res
+            io.res := sfterRes
         }
         is(SRA){
-            io.res := sfter_res
+            io.res := sfterRes
         }
     }
 }

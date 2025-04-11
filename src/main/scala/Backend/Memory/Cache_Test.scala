@@ -1,16 +1,16 @@
 import chisel3._
 import chisel3.util._
 
-class L2Cache_Test_IO extends Bundle {
-    val ic = new L2_ICache_IO
-    val dc = new L2_DCache_IO
-    val axi = new AXI_IO
+class L2CacheTestIO extends Bundle {
+    val ic = new L2ICacheIO
+    val dc = new L2DCacheIO
+    val axi = new AXIIO
 }
-class L2Cache_Test extends Module{
-    val io = IO(new L2Cache_Test_IO)
+class L2CacheTest extends Module{
+    val io = IO(new L2CacheTestIO)
 
     val l2cache = Module(new L2Cache)
-    val arb = Module(new AXI_Arbiter)
+    val arb = Module(new AXIArbiter)
 
     l2cache.io.ic <> io.ic
     l2cache.io.dc <> io.dc
@@ -18,31 +18,31 @@ class L2Cache_Test extends Module{
     arb.io.axi <> io.axi
 }
 
-class Cache_Test_IO extends Bundle {
-    val i_pp = new I_Pipeline_IO
-    val i_mmu = new I_MMU_IO
-    val d_pp = new D_Pipeline_IO
-    val d_mmu = new D_MMU_IO
-    val d_cmt = new D_Commit_IO
+class CacheTestIO extends Bundle {
+    val iPp = new IPipelineIO
+    val iMmu = new IMMUIO
+    val dPp = new DPipelineIO
+    val dMmu = new DMMUIO
+    val dCmt = new DCommitIO
 
-    val axi = new AXI_IO
+    val axi = new AXIIO
 }
 
-class Cache_Test extends Module {
-    val io = IO(new Cache_Test_IO)
+class CacheTest extends Module {
+    val io = IO(new CacheTestIO)
 
     val icache = Module(new ICache)
     val dcache = Module(new DCache)
     val l2cache = Module(new L2Cache)
-    val arb = Module(new AXI_Arbiter)
+    val arb = Module(new AXIArbiter)
 
-    icache.io.pp <> io.i_pp
-    icache.io.mmu <> io.i_mmu
+    icache.io.pp <> io.iPp
+    icache.io.mmu <> io.iMmu
     icache.io.l2 <> l2cache.io.ic
 
-    dcache.io.pp <> io.d_pp
-    dcache.io.mmu <> io.d_mmu
-    dcache.io.cmt <> io.d_cmt
+    dcache.io.pp <> io.dPp
+    dcache.io.mmu <> io.dMmu
+    dcache.io.cmt <> io.dCmt
     dcache.io.l2 <> l2cache.io.dc
 
     

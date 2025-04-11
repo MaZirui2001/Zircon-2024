@@ -1,8 +1,8 @@
-package Zircon_Config
+package ZirconConfig
 import chisel3._
 import chisel3.util._
 
-object EXE_Op {
+object EXEOp {
     // alu
     val ADD     = 0x0.U(5.W)
     val SLL     = 0x1.U(5.W)
@@ -36,7 +36,7 @@ object EXE_Op {
     val REMU    = 0x7.U(4.W)
 }
 
-object Jump_Op{
+object JumpOp{
     val NOP     = 0x0.U(4.W)
     val BR      = 0x1.U(4.W)
     val CALL    = 0x2.U(4.W)
@@ -57,16 +57,16 @@ object ReserveQueue{
 object Issue{
     val niq           = 3
     val nis        = 5
-    val arith_niq     = 24
-    val arith_nissue  = 3
-    val muldiv_niq    = 9
-    val muldiv_nissue = 1
-    val lsu_niq       = 9
-    val lsu_nissue    = 1
+    val arithNiq     = 24
+    val arithNissue  = 3
+    val muldivNiq    = 9
+    val muldivNissue = 1
+    val lsuNiq       = 9
+    val lsuNissue    = 1
 }
 object Fetch{
     val nfch = 4
-    val nfetch_q = 16
+    val nfq = 16
 }
 object Decode{
     val ndcd = 3
@@ -82,31 +82,31 @@ object Commit{
     assert(ncommit <= ndcd, "ncommit must be less than or equal to ndcd")
     val nrob = 60
     assert(nrob % ndcd == 0, "nrob must be divisible by ndcd")
-    val nrob_q = nrob / ndcd
+    val nrobQ = nrob / ndcd
     val wrob = log2Ceil(nrob)
-    val wrob_q = log2Ceil(nrob_q)
+    val wrobQ = log2Ceil(nrobQ)
 }
 object Cache{
     import Fetch._
-    val l1_way          = 2
-    val l1_offset       = 5
-    val l1_index        = 5
-    val l1_index_num    = 1 << l1_index
-    val l1_tag          = 32 - l1_offset - l1_index
-    val l1_line         = (1 << l1_offset)
-    val l1_line_bits    = l1_line * 8
-    val ic_line         = l1_line + nfch * 4
-    val ic_line_bits    = ic_line * 8
-    val fetch_offset    = 2 + log2Ceil(nfch)
-    assert(l1_offset >= fetch_offset, "l1_offset must be greater than fetch_offset")
-    val l2_offset       = 6
-    val l2_index        = 6
-    val l2_index_num    = 1 << l2_index
-    val l2_tag          = 32 - l2_offset - l2_index
-    val l2_way          = 2 * l1_way
-    val l2_line         = (1 << l2_offset)
-    val l2_line_bits    = l2_line * 8
+    val l1Way          = 2
+    val l1Offset       = 5
+    val l1Index        = 5
+    val l1IndexNum    = 1 << l1Index
+    val l1Tag          = 32 - l1Offset - l1Index
+    val l1Line         = (1 << l1Offset)
+    val l1LineBits    = l1Line * 8
+    val icLine         = l1Line + nfch * 4
+    val icLineBits    = icLine * 8
+    val fetchOffset    = 2 + log2Ceil(nfch)
+    assert(l1Offset >= fetchOffset, "l1Offset must be greater than fetchOffset")
+    val l2Offset       = 6
+    val l2Index        = 6
+    val l2IndexNum    = 1 << l2Index
+    val l2Tag          = 32 - l2Offset - l2Index
+    val l2Way          = 2 * l1Way
+    val l2Line         = (1 << l2Offset)
+    val l2LineBits    = l2Line * 8
 }
 object TLB{
-    val ENTRY_NUM = 16
+    val ENTRYNUM = 16
 }

@@ -24,10 +24,10 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
             val emu = new Emulator()
             val imgPath = Option(System.getenv("IMG"))
             imgPath match {
-                case Some(path) => emu.mem_init(path)
+                case Some(path) => emu.memInit(path)
                 case None => 
                     println("没有提供镜像文件路径，使用默认镜像")
-                    emu.mem_init(null)
+                    emu.memInit(null)
             }
             breakable {
                 while(true){

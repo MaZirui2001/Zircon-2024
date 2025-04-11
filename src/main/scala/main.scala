@@ -2,7 +2,7 @@ import chisel3._
 import circt.stage.ChiselStage
 import chisel3.stage.ChiselOption
 object Main extends App {
-    var firtool_options = Array(
+    var firtoolOptions = Array(
         "-disable-all-randomization", 
         "-strip-debug-info",
         "-strip-fir-debug-info",
@@ -16,6 +16,6 @@ object Main extends App {
     ChiselStage.emitSystemVerilogFile(
         new CPU,
         Array("-td", "build/"),
-        firtoolOpts = firtool_options,
+        firtoolOpts = firtoolOptions,
     )
 }

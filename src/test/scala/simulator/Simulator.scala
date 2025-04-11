@@ -3,18 +3,18 @@ import spire.math.UInt
 class Simulator {
 
     // config
-    private val base_addr = UInt(0x80000000)
+    private val baseAddr = UInt(0x80000000)
     // soc
     private val mem     = new Memory()
     private val rf      = new LogicRegFile()
-    private val fetch   = new Fetch(mem, base_addr)
+    private val fetch   = new Fetch(mem, baseAddr)
     private val decoder = new InstDecoder(rf, mem, fetch)
 
     // debug
     private val iring = new RingBuffer[(UInt, UInt)](8)
 
     // test if the program is end
-    def sim_end(instruction: UInt): Boolean = {
+    def simEnd(instruction: UInt): Boolean = {
         instruction == UInt(0x80000000)
     }
 
@@ -24,7 +24,7 @@ class Simulator {
             val instruction = fetch.fetch()
             iring.push((fetch.getPC(), instruction))
             // 十六进制，打印
-            if (sim_end(instruction)) {
+            if (simEnd(instruction)) {
                 return (if(rf(10) == UInt(0)) 0 else -1)
             }
             decoder.decodeAndExecute(instruction)
@@ -34,21 +34,21 @@ class Simulator {
     }
 
     // load the program from the file
-    def mem_init(filename: String): Unit = {
-        mem.loadFromFile(filename, base_addr)
+    def memInit(filename: String): Unit = {
+        mem.loadFromFile(filename, baseAddr)
     }
 
     // dump the register file
-    def rf_dump(): Array[UInt] = {
+    def rfDump(): Array[UInt] = {
         rf.dump()
     }
     // dump the pc
-    def pc_dump(): UInt = {
+    def pcDump(): UInt = {
         fetch.getPC()
     }
 
     // dump the instruction ring buffer
-    def iring_dump(): Array[(UInt, UInt)] = {
+    def iringDump(): Array[(UInt, UInt)] = {
         iring.toArray
     }
     

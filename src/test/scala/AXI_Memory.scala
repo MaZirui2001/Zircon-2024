@@ -10,38 +10,38 @@ object WriteState extends Enumeration {
     val IDLE, AW, W, B = Value
 }
 
-class Memory_Item(var data: UInt, var last_write: Array[Int])
-class AXI_Read_Config(var araddr: Int, var arlen: Int, var arsize: Int, var arburst: Int, var state: ReadState.Value)
-class AXI_Read_Item(var arready: Boolean, var rdata: UInt, var rvalid: Boolean, var rlast: Boolean)
-class AXI_Write_Config(var awaddr: Int, var awlen: Int, var awsize: Int, var awburst: Int, var wstrb: Int, var wlast: Boolean, var state: WriteState.Value)
-class AXI_Write_Item(var awready: Boolean, var wready: Boolean, var bvalid: Boolean)
+class MemoryItem(var data: UInt, var lastWrite: Array[Int])
+class AXIReadConfig(var araddr: Int, var arlen: Int, var arsize: Int, var arburst: Int, var state: ReadState.Value)
+class AXIReadItem(var arready: Boolean, var rdata: UInt, var rvalid: Boolean, var rlast: Boolean)
+class AXIWriteConfig(var awaddr: Int, var awlen: Int, var awsize: Int, var awburst: Int, var wstrb: Int, var wlast: Boolean, var state: WriteState.Value)
+class AXIWriteItem(var awready: Boolean, var wready: Boolean, var bvalid: Boolean)
 
 
-class AXI_Memory(rand_delay: Boolean){
-    private var mem: mutable.Map[UInt, Memory_Item] = mutable.Map()
-    private var mem_ref: mutable.Map[UInt, Memory_Item] = mutable.Map()
+class AXIMemory(randDelay: Boolean){
+    private var mem: mutable.Map[UInt, MemoryItem] = mutable.Map()
+    private var memRef: mutable.Map[UInt, MemoryItem] = mutable.Map()
     
     // 2. 缓存一些常用的掩码和移位值
-    private val BYTE_MASK = 0xffL
-    private val WORD_MASK = 0xffffffffL
+    private val BYTEMASK = 0xffL
+    private val WORDMASK = 0xffffffffL
     
-    var readConfig: AXI_Read_Config = new AXI_Read_Config(0, 0, 0, 0, ReadState.IDLE)
-    var writeConfig: AXI_Write_Config = new AXI_Write_Config(0, 0, 0, 0, 0, false, WriteState.IDLE)
+    var readConfig: AXIReadConfig = new AXIReadConfig(0, 0, 0, 0, ReadState.IDLE)
+    var writeConfig: AXIWriteConfig = new AXIWriteConfig(0, 0, 0, 0, 0, false, WriteState.IDLE)
 
     // 添加共享的Random对象
     private val rand = new Random()
 
     // read from the memory
     def read(
-        axi: AXI_IO
-    ): AXI_Read_Item = {
-        val readItem = new AXI_Read_Item(false, UInt(0), false, false)
+        axi: AXIIO
+    ): AXIReadItem = {
+        val readItem = new AXIReadItem(false, UInt(0), false, false)
         readConfig.state match {
             // record the read configuration
             case ReadState.IDLE => {
                 assert(axi.arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
                 if(axi.arvalid.litToBoolean){
-                    readConfig = new AXI_Read_Config(
+                    readConfig = new AXIReadConfig(
                         axi.araddr.litValue.toInt,
                         axi.arlen.litValue.toInt, 
                         1 << axi.arsize.litValue.toInt, 
@@ -53,7 +53,7 @@ class AXI_Memory(rand_delay: Boolean){
             // address handshaking
             case ReadState.AR => {
                 // 使用共享的rand对象
-                readItem.arready = if(rand_delay) (rand.nextInt(4) != 0) else true
+                readItem.arready = if(randDelay) (rand.nextInt(4) != 0) else true
                 // println("arready: " + readItem.arready.litToBoolean + " arvalid: " + arvalid.litToBoolean)
                 if(readItem.arready && axi.arvalid.litToBoolean){
                     readConfig.state = ReadState.R
@@ -61,15 +61,15 @@ class AXI_Memory(rand_delay: Boolean){
             }
             case ReadState.R => {
                 // 使用共享的rand对象
-                readItem.rvalid = if(rand_delay) (rand.nextInt(4) != 0) else true
+                readItem.rvalid = if(randDelay) (rand.nextInt(4) != 0) else true
                 if(readItem.rvalid) {
-                    val word_addr = UInt(readConfig.araddr) >> 2  // 使用右移替代除法
-                    val word_offset = readConfig.araddr & 0x3  // 使用与操作替代取模
-                    val shift_amount = word_offset << 3
-                    if(!mem.contains(word_addr)){
-                        mem(word_addr) = new Memory_Item(UInt(0), Array.fill(4)(0))
+                    val wordAddr = UInt(readConfig.araddr) >> 2  // 使用右移替代除法
+                    val wordOffset = readConfig.araddr & 0x3  // 使用与操作替代取模
+                    val shiftAmount = wordOffset << 3
+                    if(!mem.contains(wordAddr)){
+                        mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
                     }
-                    readItem.rdata = ((mem(word_addr).data >> shift_amount))
+                    readItem.rdata = ((mem(wordAddr).data >> shiftAmount))
                     // check if the last read
                     if(readConfig.arlen == 0){
                         readItem.rlast = true
@@ -89,16 +89,16 @@ class AXI_Memory(rand_delay: Boolean){
     }
     // write to the memory
     def write(
-        axi: AXI_IO,
+        axi: AXIIO,
         cycle: Int
-    ): AXI_Write_Item = {
-        val writeItem = new AXI_Write_Item(false, false, false)
+    ): AXIWriteItem = {
+        val writeItem = new AXIWriteItem(false, false, false)
         writeConfig.state match {
             // record the write configuration
             case WriteState.IDLE => {
                 assert(axi.arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
                 if(axi.awvalid.litToBoolean){
-                    writeConfig = new AXI_Write_Config(
+                    writeConfig = new AXIWriteConfig(
                         axi.awaddr.litValue.toInt,
                         axi.awlen.litValue.toInt, 
                         1 << axi.awsize.litValue.toInt, 
@@ -112,36 +112,36 @@ class AXI_Memory(rand_delay: Boolean){
             // address handshaking
             case WriteState.AW => {
                 // 使用共享的rand对象
-                writeItem.awready = if(rand_delay) (rand.nextInt(4) != 0) else true
+                writeItem.awready = if(randDelay) (rand.nextInt(4) != 0) else true
                 if(writeItem.awready && axi.awvalid.litToBoolean){
                     writeConfig.state = WriteState.W
                 }
             }
             case WriteState.W => {
-                writeItem.wready = if(rand_delay) (rand.nextInt(4) != 0) else true
+                writeItem.wready = if(randDelay) (rand.nextInt(4) != 0) else true
                 if(writeItem.wready) {
-                    val word_addr = UInt(writeConfig.awaddr) >> 2
-                    val word_offset = writeConfig.awaddr & 0x3
-                    val shift_amount = word_offset << 3
-                    val wstrb = writeConfig.wstrb << word_offset
+                    val wordAddr = UInt(writeConfig.awaddr) >> 2
+                    val wordOffset = writeConfig.awaddr & 0x3
+                    val shiftAmount = wordOffset << 3
+                    val wstrb = writeConfig.wstrb << wordOffset
                     
-                    if(!mem.contains(word_addr)) {
-                        // println(s"word_addr: ${word_addr.toInt}")
-                        mem(word_addr) = new Memory_Item(UInt(0), Array.fill(4)(0))
+                    if(!mem.contains(wordAddr)) {
+                        // println(s"wordAddr: ${wordAddr.toInt}")
+                        mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
                     }
                     
                     if(writeConfig.wstrb != 0) {
-                        val wdata_shift = axi.wdata.litValue.toInt << shift_amount
+                        val wdataShift = axi.wdata.litValue.toInt << shiftAmount
                         (0 until 4).foreach{ i =>
                             if((wstrb & (1 << i)) != 0){
-                                mem(word_addr).data = (mem(word_addr).data & UInt(~(0xff << (i * 8))) | UInt(wdata_shift) & UInt(0xff << (i * 8)))
-                                mem(word_addr).last_write(i) = cycle
+                                mem(wordAddr).data = (mem(wordAddr).data & UInt(~(0xff << (i * 8))) | UInt(wdataShift) & UInt(0xff << (i * 8)))
+                                mem(wordAddr).lastWrite(i) = cycle
                             }
                         }
-                        // val wmask = BYTE_MASK << shift_amount
-                        // mem(word_addr).data = (mem(word_addr).data & ~wmask) | (wdata_shift & wmask)
-                        // println(wdata_shift.toHexString)
-                        mem(word_addr).last_write(word_offset) = cycle
+                        // val wmask = BYTEMASK << shiftAmount
+                        // mem(wordAddr).data = (mem(wordAddr).data & ~wmask) | (wdataShift & wmask)
+                        // println(wdataShift.toHexString)
+                        mem(wordAddr).lastWrite(wordOffset) = cycle
                     }
                     
                     if(axi.wlast.litToBoolean) {
@@ -152,7 +152,7 @@ class AXI_Memory(rand_delay: Boolean){
             }
             case WriteState.B => {
                 // 使用共享的rand对象
-                writeItem.bvalid = if(rand_delay) (rand.nextInt(4) != 0) else true
+                writeItem.bvalid = if(randDelay) (rand.nextInt(4) != 0) else true
                 if(writeItem.bvalid && axi.bready.litToBoolean){
                     writeConfig.state = WriteState.IDLE
                 }
@@ -161,39 +161,39 @@ class AXI_Memory(rand_delay: Boolean){
         writeItem
     }
 
-    def debug_read(addr: Int): (Int, Int) = {
-        val word_addr = UInt(addr) / UInt(4)
-        val word_offset = addr % 4
-        assert(mem_ref.contains(word_addr), f"Address ${addr}%x is not in the memory")
-        ((mem_ref(word_addr).data >> (word_offset * 8)).toInt, mem_ref(word_addr).last_write(word_offset))
+    def debugRead(addr: Int): (Int, Int) = {
+        val wordAddr = UInt(addr) / UInt(4)
+        val wordOffset = addr % 4
+        assert(memRef.contains(wordAddr), f"Address ${addr}%x is not in the memory")
+        ((memRef(wordAddr).data >> (wordOffset * 8)).toInt, memRef(wordAddr).lastWrite(wordOffset))
     }
-    def debug_write(addr: Int, wdata: Int, wstrb: Int, cycle: Int): Unit = {
+    def debugWrite(addr: Int, wdata: Int, wstrb: Int, cycle: Int): Unit = {
         assert(addr % 4 == 0, "The address must be aligned to 4 bytes")
-        val word_addr = UInt(addr) / UInt(4)
-        val word_offset = addr % 4
-        if(!mem.contains(word_addr)){
-            mem_ref(word_addr) = new Memory_Item(UInt(0), Array.fill(4)(0))
+        val wordAddr = UInt(addr) / UInt(4)
+        val wordOffset = addr % 4
+        if(!mem.contains(wordAddr)){
+            memRef(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
         }
         // println(f"addr: ${addr}%x, data: ${wdata}%x, strb: ${wstrb}%x")
         (0 until 4).foreach{ i =>
             if((wstrb & (1 << i)) != 0){
-                mem_ref(word_addr).data = (mem_ref(word_addr).data & UInt(~(0xff << (i * 8))) | UInt(wdata) & UInt(0xff << (i * 8)))
-                mem_ref(word_addr).last_write(i) = cycle
-                // if(word_addr == 0x58c >> 2) println(cycle)
+                memRef(wordAddr).data = (memRef(wordAddr).data & UInt(~(0xff << (i * 8))) | UInt(wdata) & UInt(0xff << (i * 8)))
+                memRef(wordAddr).lastWrite(i) = cycle
+                // if(wordAddr == 0x58c >> 2) println(cycle)
             }
         }
     }
     def initialize(size: Int, load: Boolean): Unit = {
         // 使用Array.tabulate更高效地初始化
         for(i <- 0 until size) {
-            mem(UInt(i)) = new Memory_Item(UInt(i << 2), Array.fill(4)(0))
-            mem_ref(UInt(i)) = new Memory_Item(UInt(i << 2), Array.fill(4)(0))
+            mem(UInt(i)) = new MemoryItem(UInt(i << 2), Array.fill(4)(0))
+            memRef(UInt(i)) = new MemoryItem(UInt(i << 2), Array.fill(4)(0))
         }
     }
     def loadFromFile(filename: String, baseAddr: UInt): Unit = {
         if(filename == "" || filename == null) {
             // println("没有提供镜像文件路径，使用默认镜像")
-            mem(baseAddr) = new Memory_Item(UInt(0x80000000L), new Array[Int](4))
+            mem(baseAddr) = new MemoryItem(UInt(0x80000000L), new Array[Int](4))
             return
         }
         import java.nio.file.{Files, Paths}
@@ -205,8 +205,8 @@ class AXI_Memory(rand_delay: Boolean){
             UInt(value)
         })
         uints.foreach(uint => {
-            mem(currentAddr) = new Memory_Item(uint, new Array[Int](4))
-            mem_ref(currentAddr) = new Memory_Item(uint, new Array[Int](4))
+            mem(currentAddr) = new MemoryItem(uint, new Array[Int](4))
+            memRef(currentAddr) = new MemoryItem(uint, new Array[Int](4))
             currentAddr = currentAddr + UInt(1)
         })
     }
