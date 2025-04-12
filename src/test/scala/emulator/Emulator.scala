@@ -34,7 +34,7 @@ class Emulator{
         }
         true
     }
-    def difftestRf(rdIdx: UInt, rdDataDut: UInt, pcDut: UInt): Boolean = {
+    def difftestRF(rdIdx: UInt, rdDataDut: UInt, pcDut: UInt): Boolean = {
         val rfRef = simulator.rfDump()
         if(rfRef(rdIdx.toInt) != rdDataDut){
             println(s"RF mismatch at pc ${pcDut.toInt.toHexString}, reg ${rdIdx.toInt}(preg: ${rnmTable(rdIdx.toInt).toInt}), ref: ${rfRef(rdIdx.toInt).toLong.toHexString}, dut: ${rdDataDut.toLong.toHexString}")
@@ -49,7 +49,7 @@ class Emulator{
         for(i <- 0 until step){
             simulator.step(1)
         }
-        if(!difftestRf(rdIdx, rdDataDut, pcDut)){
+        if(!difftestRF(rdIdx, rdDataDut, pcDut)){
             return false
         }
         true

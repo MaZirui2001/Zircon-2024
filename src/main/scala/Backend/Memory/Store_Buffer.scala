@@ -34,7 +34,7 @@ class StoreBufferIO extends Bundle {
     val stFinish        = Input(Bool())
     
     // load read
-    val ldSbHit         = Output(UInt(4.W))
+    val ldSBHit         = Output(UInt(4.W))
     val ldHitData       = Output(UInt(32.W))
 
 	val flush 	        = Input(Bool()) // only when all entries have been committed
@@ -115,7 +115,7 @@ class StoreBuffer extends Module {
         loadBytes(i) := Mux1H(RotateLeftOH((byteHit), ShiftAdd1(tptr)), q.map(_.wdata(i*8+7, i*8)))
     }
     // 3. shift the result
-    io.ldSbHit := loadHit.asUInt >> io.enq.bits.paddr(1, 0)
+    io.ldSBHit := loadHit.asUInt >> io.enq.bits.paddr(1, 0)
     io.ldHitData := loadBytes.asUInt >> (io.enq.bits.paddr(1, 0) << 3.U)
     
 }

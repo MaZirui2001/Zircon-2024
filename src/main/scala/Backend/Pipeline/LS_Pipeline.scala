@@ -13,13 +13,13 @@ class LSIQIO extends PipelineIQIO
 // class LSRegfileIO extends PipelineRegfileIO
 
 class LSWakeupIO extends Bundle {
-    val wakeRf    = Output(new WakeupBusPkg)
+    val wakeRF    = Output(new WakeupBusPkg)
     val wakeD1    = Output(new WakeupBusPkg)
     val rplyIn    = Input(new ReplayBusPkg)
     val rplyOut   = Output(new ReplayBusPkg)
 }
 class LSForwardIO extends Bundle {
-    val instPkgWb  = Output(new BackendPackage)
+    val instPkgWB  = Output(new BackendPackage)
 }
 
 class LSMemoryIO extends Bundle {
@@ -52,34 +52,34 @@ class LSPipeline extends Module {
     instPkgIs.prkLpv := io.iq.instPkg.bits.prkLpv << 1
     
     /* Regfile Stage */
-    val instPkgRf = WireDefault(ShiftRegister(
+    val instPkgRF = WireDefault(ShiftRegister(
         Mux(segFlush(instPkgIs), 0.U.asTypeOf(new BackendPackage), instPkgIs), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         !(dc.io.pp.miss || dc.io.pp.sbFull) || io.cmt.flush
     ))
     // regfile read
-    io.rf.rd.prj      := instPkgRf.prj
-    io.rf.rd.prk      := instPkgRf.prk
+    io.rf.rd.prj      := instPkgRF.prj
+    io.rf.rd.prk      := instPkgRF.prk
     // agu
     agu.io.src1       := io.rf.rd.prjData
-    agu.io.src2       := instPkgRf.imm
+    agu.io.src2       := instPkgRF.imm
     agu.io.cin        := 0.U
-    instPkgRf.src1    := agu.io.res
-    instPkgRf.src2    := io.rf.rd.prkData
+    instPkgRF.src1    := agu.io.res
+    instPkgRF.src2    := io.rf.rd.prkData
     // wakeup
-    io.wk.wakeRf := (new WakeupBusPkg)(instPkgRf, io.wk.rplyIn, 1)
+    io.wk.wakeRF := (new WakeupBusPkg)(instPkgRF, io.wk.rplyIn, 1)
 
-    dc.io.pp.rreq       := instPkgRf.op(5)
-    dc.io.pp.mtype      := instPkgRf.op(2, 0)
-    dc.io.pp.isLatest   := instPkgRf.isLatest
-    dc.io.pp.wreq       := instPkgRf.op(6)
-    dc.io.pp.wdata      := instPkgRf.src2
-    dc.io.pp.vaddr      := instPkgRf.src1
+    dc.io.pp.rreq       := instPkgRF.op(5)
+    dc.io.pp.mtype      := instPkgRF.op(2, 0)
+    dc.io.pp.isLatest   := instPkgRF.isLatest
+    dc.io.pp.wreq       := instPkgRF.op(6)
+    dc.io.pp.wdata      := instPkgRF.src2
+    dc.io.pp.vaddr      := instPkgRF.src1
 
     /* DCache Stage 1 */
     val instPkgD1 = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgRf), 
+        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgRF), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         !(dc.io.pp.miss || dc.io.pp.sbFull) || io.cmt.flush
@@ -107,23 +107,23 @@ class LSPipeline extends Module {
     io.wk.rplyOut.replay   := (dc.io.pp.miss || dc.io.pp.sbFull) && instPkgD2.valid
 
     /* Write Back Stage */
-    val instPkgWb = WireDefault(ShiftRegister(
+    val instPkgWB = WireDefault(ShiftRegister(
         Mux(io.cmt.flush || dc.io.pp.miss || dc.io.pp.sbFull, 0.U.asTypeOf(new BackendPackage), instPkgD2), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
-    instPkgWb.rfWdata := dc.io.pp.rdata
+    instPkgWB.rfWdata := dc.io.pp.rdata
     // rob
-    io.cmt.widx.offset  := UIntToOH(instPkgWb.robIdx.offset)
-    io.cmt.widx.qidx    := UIntToOH(instPkgWb.robIdx.qidx)
+    io.cmt.widx.offset  := UIntToOH(instPkgWB.robIdx.offset)
+    io.cmt.widx.qidx    := UIntToOH(instPkgWB.robIdx.qidx)
     io.cmt.widx.high    := DontCare
-    io.cmt.wen          := instPkgWb.valid
-    io.cmt.wdata        := (new ROBBackendEntry)(instPkgWb) 
+    io.cmt.wen          := instPkgWB.valid
+    io.cmt.wdata        := (new ROBBackendEntry)(instPkgWB) 
     // regfile
-    io.rf.wr.prd        := instPkgWb.prd
-    io.rf.wr.prdVld    := instPkgWb.rdVld
-    io.rf.wr.prdData   := instPkgWb.rfWdata
+    io.rf.wr.prd        := instPkgWB.prd
+    io.rf.wr.prdVld     := instPkgWB.rdVld
+    io.rf.wr.prdData    := instPkgWB.rfWdata
     // forward
-    io.fwd.instPkgWb  := instPkgWb
+    io.fwd.instPkgWB   := instPkgWB
 }

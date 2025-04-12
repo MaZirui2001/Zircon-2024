@@ -5,12 +5,12 @@ import ZirconConfig.StoreBuffer._
 import ZirconUtil._
 
 class DChannel1Stage1Signal extends Bundle {
-    val rreq        = Bool()
-    val vaddr       = UInt(32.W)
-    val mtype       = UInt(3.W)
+    val rreq       = Bool()
+    val vaddr      = UInt(32.W)
+    val mtype      = UInt(3.W)
     val isLatest   = Bool()
-    val wreq        = Bool()
-    val wdata       = UInt(32.W)
+    val wreq       = Bool()
+    val wdata      = UInt(32.W)
 
     def apply(pp: DPipelineIO): DChannel1Stage1Signal = {
         val c = Wire(new DChannel1Stage1Signal)
@@ -41,8 +41,8 @@ class DChannel1Stage2Signal extends DChannel1Stage1Signal {
 
 class DChannel1Stage3Signal extends DChannel1Stage2Signal {
     val sbHitData = UInt(32.W)
-    val memData    = UInt(32.W)
-    val sbHit      = UInt(4.W)
+    val memData   = UInt(32.W)
+    val sbHit     = UInt(4.W)
 
     def apply(C: DChannel1Stage2Signal, sbHitData: UInt, memData: UInt, sbHit: UInt): DChannel1Stage3Signal = {
         val c = Wire(new DChannel1Stage3Signal)
@@ -55,11 +55,11 @@ class DChannel1Stage3Signal extends DChannel1Stage2Signal {
 }
 
 class DChannel2Stage1Signal extends Bundle {
-    val wreq        = Bool()
-    val wdata       = UInt(32.W)
-    val paddr       = UInt(32.W)
-    val mtype       = UInt(3.W)
-    val uncache     = Bool()
+    val wreq       = Bool()
+    val wdata      = UInt(32.W)
+    val paddr      = UInt(32.W)
+    val mtype      = UInt(3.W)
+    val uncache    = Bool()
     val sbIdx      = UInt(wsb.W)
 
     def apply(sbEntry: sbEntry, sbValid: Bool, sbIdx: UInt): DChannel2Stage1Signal = {
@@ -86,18 +86,18 @@ class DChannel2Stage2Signal extends DChannel2Stage1Signal {
 }
 
 class DPipelineIO extends Bundle {
-    val rreq        = Input(Bool())
-    val mtype       = Input(UInt(3.W))
+    val rreq       = Input(Bool())
+    val mtype      = Input(UInt(3.W))
     val isLatest   = Input(Bool()) // inform the rrequest is issued in order
-    val wreq        = Input(Bool())
-    val wdata       = Input(UInt(32.W))
-    val vaddr       = Input(UInt(32.W))
-    val rdata       = Output(UInt(32.W))
-    val miss        = Output(Bool()) // not latest but uncache
-    val rrsp        = Output(Bool())
+    val wreq       = Input(Bool())
+    val wdata      = Input(UInt(32.W))
+    val vaddr      = Input(UInt(32.W))
+    val rdata      = Output(UInt(32.W))
+    val miss       = Output(Bool()) // not latest but uncache
+    val rrsp       = Output(Bool())
     val loadReplay = Output(Bool())
     val sbFull     = Output(Bool())
-    val wrsp        = Output(Bool())
+    val wrsp       = Output(Bool())
 }
 
 class DCommitIO extends Bundle {
@@ -113,9 +113,9 @@ class DMMUIO extends Bundle {
 
 class DCacheIO extends Bundle {
     val mmu = new DMMUIO
-    val pp = new DPipelineIO
+    val pp  = new DPipelineIO
     val cmt = new DCommitIO
-    val l2 = Flipped(new L2DCacheIO)
+    val l2  = Flipped(new L2DCacheIO)
 }
 
 class DCache extends Module {
@@ -134,17 +134,17 @@ class DCache extends Module {
     val lruTab     = Module(new AsyncRegRam(UInt(2.W), l1IndexNum, 1, 1, 1.U(2.W))).io
 
     // Utils
-    def index(addr: UInt)      = addr(l1Index+l1Offset-1, l1Offset)
-    def offset(addr: UInt)     = addr(l1Offset-1, 0)
-    def tag(addr: UInt)        = addr(31, l1Index+l1Offset)
+    def index(addr: UInt)     = addr(l1Index+l1Offset-1, l1Offset)
+    def offset(addr: UInt)    = addr(l1Offset-1, 0)
+    def tag(addr: UInt)       = addr(31, l1Index+l1Offset)
     def tagIndex(addr: UInt)  = addr(31, l1Offset)
 
     // Control modules
-    val fsm         = Module(new DCacheFSM)
-    val sb          = Module(new StoreBuffer)
+    val fsm        = Module(new DCacheFSM)
+    val sb         = Module(new StoreBuffer)
     val missC1     = RegInit(false.B)
     val hitC1      = RegInit(0.U(l1Way.W))
-    val rbuf        = RegInit(VecInit.fill(l1Line)(0.U(8.W)))
+    val rbuf       = RegInit(VecInit.fill(l1Line)(0.U(8.W)))
     val rbufMask   = RegInit(0.U(l1Line.W))
 
     // Channel 1 pipeline stages
@@ -172,7 +172,7 @@ class DCache extends Module {
     missC1 := Mux(fsm.io.cc.cmiss, false.B, Mux(missC1 || sbFull, missC1, (readMiss || writeMiss) && !io.cmt.flush))
 
     // stage 3
-    val c1s3        = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new DChannel1Stage2Signal), c1s3In), 1, 0.U.asTypeOf(new DChannel1Stage2Signal), !(missC1 || sbFull))
+    val c1s3       = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new DChannel1Stage2Signal), c1s3In), 1, 0.U.asTypeOf(new DChannel1Stage2Signal), !(missC1 || sbFull))
     assert(!c1s3.rreq || PopCount(c1s3.hit) <= 1.U, "DCache: channel 1: multiple hits")
     c1s3Wreq       := c1s3.wreq
     val lruC1s3    = lruTab.rdata(0)
@@ -180,8 +180,8 @@ class DCache extends Module {
     val sbEnq = (new sbEntry)(c1s3.paddr, c1s3.wdata, c1s3.mtype, c1s3.uncache)
     sb.io.enq.valid     := c1s3.wreq && !missC1 && !io.cmt.flush
     sb.io.enq.bits      := sbEnq
-    sb.io.stCmt        := io.cmt.stCmt
-    sb.io.stFinish     := io.l2.wrsp
+    sb.io.stCmt         := io.cmt.stCmt
+    sb.io.stFinish      := io.l2.wrsp
     sb.io.flush         := io.cmt.flush
     sb.io.lock          := fsm.io.cc.sbLock
     // fsm
@@ -224,11 +224,11 @@ class DCache extends Module {
         vldt.waddr(0) := index(c1s3.vaddr)
         vldt.wdata(0) := true.B
     }
-    io.pp.miss          := missC1
+    io.pp.miss         := missC1
     io.pp.loadReplay   := c1s3.uncache && c1s3.rreq && !c1s3.isLatest
     io.pp.sbFull       := sbFull
     val memData        = Mux(c1s3.uncache, rbuf.asUInt(31, 0), (Mux1H(fsm.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf.asUInt)).asTypeOf(Vec(l1Line / 4, UInt(32.W))))(offset(c1s3.vaddr) >> 2) >> (offset(c1s3.vaddr)(1, 0) << 3))
-    val c1s4In = (new DChannel1Stage3Signal)(c1s3, sb.io.ldHitData, memData, sb.io.ldSbHit)
+    val c1s4In = (new DChannel1Stage3Signal)(c1s3, sb.io.ldHitData, memData, sb.io.ldSBHit)
     val c1s4    = ShiftRegister(Mux(missC1 || sbFull || io.cmt.flush || io.pp.loadReplay, 0.U.asTypeOf(new DChannel1Stage3Signal), c1s4In), 1, 0.U.asTypeOf(new DChannel1Stage3Signal), true.B)
     val rdata   = VecInit.tabulate(4)(i => Mux(c1s4.sbHit(i) && !c1s4.uncache, c1s4.sbHitData(i*8+7, i*8), c1s4.memData(i*8+7, i*8))).asUInt
     io.pp.rdata := MuxLookup(c1s4.mtype(1, 0), 0.U(32.W))(Seq(

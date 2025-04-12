@@ -9,8 +9,8 @@ class L2CacheFSMCacheIO(ic: Boolean) extends Bundle {
     val uncache = Input(Bool())
     val hit     = Input(UInt(l2Way.W))
     val cmiss   = Output(Bool())
-    val tagvWe = Output(Vec(l1Way, Bool()))
-    val memWe  = Output(Vec(l1Way, Bool()))
+    val tagvWe  = Output(Vec(l1Way, Bool()))
+    val memWe   = Output(Vec(l1Way, Bool()))
     val addr_1H = Output(UInt(3.W))
     val r1H     = Output(UInt(2.W))
     // write buffer
@@ -36,7 +36,7 @@ class L2CacheFSMMEMIO(ic: Boolean) extends Bundle {
 }
 
 class L2CacheFSMIO(ic: Boolean) extends Bundle {
-    val cc   = new L2CacheFSMCacheIO(ic)
+    val cc      = new L2CacheFSMCacheIO(ic)
     val mem     = new L2CacheFSMMEMIO(ic)
 }
 
@@ -49,14 +49,14 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
     val mIdle :: mMiss :: mRefill :: mWait :: mPause :: Nil = Enum(5)
     val mState     = RegInit(mIdle)
 
-    val cmiss       = WireDefault(false.B)
+    val cmiss      = WireDefault(false.B)
     val tagvWe     = WireDefault(VecInit.fill(l1Way)(false.B))
     val memWe      = WireDefault(VecInit.fill(l1Way)(false.B))
     val lruUpd     = WireDefault(0.U(2.W))
     val drtyWe     = WireDefault(VecInit.fill(l1Way)(false.B))
     val drtyD      = WireDefault(VecInit.fill(l1Way)(false.B))
-    val addr_1H     = WireDefault(1.U(3.W)) // choose s1 addr
-    val r1H         = WireDefault(1.U(2.W)) // choose mem
+    val addr_1H    = WireDefault(1.U(3.W)) // choose s1 addr
+    val r1H        = WireDefault(1.U(2.W)) // choose mem
     val vldInv     = WireDefault(VecInit.fill(l1Way)(false.B))
 
     val wfsmEn     = WireDefault(false.B)

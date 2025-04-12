@@ -11,14 +11,14 @@ class MulDivIQIO extends PipelineIQIO
 // class MulDivRegfileIO extends PipelineRegfileIO
 
 class MulDivForwardIO extends Bundle {
-    val instPkgWb  = Output(new BackendPackage)
-    val instPkgEx  = Output(new BackendPackage)
+    val instPkgWB  = Output(new BackendPackage)
+    val instPkgEX  = Output(new BackendPackage)
     val src1Fwd    = Flipped(Decoupled(UInt(32.W)))
     val src2Fwd    = Flipped(Decoupled(UInt(32.W)))
 }
 class MulDivWakeupIO extends Bundle {
-    val wakeEx2 = Output(new WakeupBusPkg)
-    // val wakeEx3 = Output(new WakeupBusPkg)
+    val wakeEX2 = Output(new WakeupBusPkg)
+    // val wakeEX3 = Output(new WakeupBusPkg)
     val rplyIn  = Input(new ReplayBusPkg)
 }
 
@@ -47,81 +47,81 @@ class MulDivPipeline extends Module {
     instPkgIs.prkLpv := io.iq.instPkg.bits.prkLpv << 1
 
     /* Regfile Stage */
-    val instPkgRf = WireDefault(ShiftRegister(
+    val instPkgRF = WireDefault(ShiftRegister(
         Mux(segFlush(io.iq.instPkg.bits), 0.U.asTypeOf(new BackendPackage), instPkgIs), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         io.cmt.flush || io.wk.rplyIn.replay || !div.io.busy
     ))
-    io.rf.rd.prj := instPkgRf.prj
-    io.rf.rd.prk := instPkgRf.prk
-    instPkgRf.src1 := io.rf.rd.prjData
-    instPkgRf.src2 := io.rf.rd.prkData
+    io.rf.rd.prj := instPkgRF.prj
+    io.rf.rd.prk := instPkgRF.prk
+    instPkgRF.src1 := io.rf.rd.prjData
+    instPkgRF.src2 := io.rf.rd.prkData
 
     /* Execute Stage 1 */
-    val instPkgEx1 = WireDefault(ShiftRegister(
-        Mux(segFlush(instPkgRf), 0.U.asTypeOf(new BackendPackage), instPkgRf), 
+    val instPkgEX1 = WireDefault(ShiftRegister(
+        Mux(segFlush(instPkgRF), 0.U.asTypeOf(new BackendPackage), instPkgRF), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         io.cmt.flush || io.wk.rplyIn.replay || !div.io.busy
     ))
 
     // multiply
-    mul.io.src1 := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEx1.src1)
-    mul.io.src2 := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEx1.src2)
-    mul.io.op   := instPkgEx1.op(3, 0)
+    mul.io.src1 := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEX1.src1)
+    mul.io.src2 := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEX1.src2)
+    mul.io.op   := instPkgEX1.op(3, 0)
     mul.io.divBusy := div.io.busy
 
     // divide
-    div.io.src1 := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEx1.src1)
-    div.io.src2 := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEx1.src2)
-    div.io.op   := instPkgEx1.op(3, 0)
+    div.io.src1 := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEX1.src1)
+    div.io.src2 := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEX1.src2)
+    div.io.op   := instPkgEX1.op(3, 0)
 
     // forward
-    io.fwd.instPkgEx := instPkgEx1
+    io.fwd.instPkgEX := instPkgEX1
     io.fwd.src1Fwd.ready := DontCare
     io.fwd.src2Fwd.ready := DontCare
 
     /* Execute Stage 2 */
-    val instPkgEx2 = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEx1), 
+    val instPkgEX2 = WireDefault(ShiftRegister(
+        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEX1), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         io.cmt.flush || !div.io.busy
     ))
 
-    val instPkgEx2ForWakeup = WireDefault(instPkgEx2)
-    instPkgEx2ForWakeup.prd := Mux(div.io.busy, 0.U, instPkgEx2.prd)
-    io.wk.wakeEx2 := (new WakeupBusPkg)(instPkgEx2ForWakeup, 0.U.asTypeOf(new ReplayBusPkg))
+    val instPkgEX2ForWakeup = WireDefault(instPkgEX2)
+    instPkgEX2ForWakeup.prd := Mux(div.io.busy, 0.U, instPkgEX2.prd)
+    io.wk.wakeEX2 := (new WakeupBusPkg)(instPkgEX2ForWakeup, 0.U.asTypeOf(new ReplayBusPkg))
 
     /* Execute Stage 3 */
-    val instPkgEx3 = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush || div.io.busy, 0.U.asTypeOf(new BackendPackage), instPkgEx2), 
+    val instPkgEX3 = WireDefault(ShiftRegister(
+        Mux(io.cmt.flush || div.io.busy, 0.U.asTypeOf(new BackendPackage), instPkgEX2), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
-    instPkgEx3.rfWdata := Mux(instPkgEx3.op(2), div.io.res, mul.io.res)
-    // io.wk.wakeEx3 := (new WakeupBusPkg)(instPkgEx3, 0.U.asTypeOf(new ReplayBusPkg))
+    instPkgEX3.rfWdata := Mux(instPkgEX3.op(2), div.io.res, mul.io.res)
+    // io.wk.wakeEX3 := (new WakeupBusPkg)(instPkgEX3, 0.U.asTypeOf(new ReplayBusPkg))
 
     /* Write Back Stage */
-    val instPkgWb = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEx3), 
+    val instPkgWB = WireDefault(ShiftRegister(
+        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEX3), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
     // rob
-    io.cmt.widx.offset := UIntToOH(instPkgWb.robIdx.offset)
-    io.cmt.widx.qidx   := UIntToOH(instPkgWb.robIdx.qidx)
+    io.cmt.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
+    io.cmt.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
     io.cmt.widx.high   := DontCare
-    io.cmt.wen         := instPkgWb.valid
-    io.cmt.wdata       := (new ROBBackendEntry)(instPkgWb)
+    io.cmt.wen         := instPkgWB.valid
+    io.cmt.wdata       := (new ROBBackendEntry)(instPkgWB)
     // regfile
-    io.rf.wr.prd       := instPkgWb.prd
-    io.rf.wr.prdVld    := instPkgWb.rdVld
-    io.rf.wr.prdData   := instPkgWb.rfWdata
+    io.rf.wr.prd       := instPkgWB.prd
+    io.rf.wr.prdVld    := instPkgWB.rdVld
+    io.rf.wr.prdData   := instPkgWB.rfWdata
     // forward
-    io.fwd.instPkgWb   := instPkgWb
+    io.fwd.instPkgWB   := instPkgWB
 
 }

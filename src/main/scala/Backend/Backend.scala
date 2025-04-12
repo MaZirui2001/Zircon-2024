@@ -39,9 +39,9 @@ class Backend extends Module {
     val mdIq = Module(new IssueQueue(ndcd, muldivNissue, muldivNiq, false))
     val lsIq = Module(new IssueQueue(ndcd, lsuNissue, lsuNiq, true))
 
-    val rf    = Module(new Regfile)
+    val rf   = Module(new Regfile)
 
-    val fwd   = Module(new Forward)
+    val fwd  = Module(new Forward)
 
     val arPp = VecInit.fill(3)(Module(new ArithPipeline).io)
     val mdPp = Module(new MulDivPipeline)
@@ -56,16 +56,16 @@ class Backend extends Module {
     arIq.io.deq.zip(arPp).foreach{case (deq, pp) => deq <> pp.iq.instPkg}
     arIq.io.wakeBus := wakeBus(0)
     arIq.io.rplyBus := rplyBus
-    arIq.io.flush    := io.cmt.flush(0)
+    arIq.io.flush   := io.cmt.flush(0)
 
     // pipeline
     arPp.zipWithIndex.foreach{case(a, i) => 
         a.rf            <> rf.io(i)
-        a.wk.rplyIn    := rplyBus
-        fwd.io.instPkgWb(i) := a.fwd.instPkgWb
-        fwd.io.instPkgEx(i) := a.fwd.instPkgEx
-        a.fwd.src1Fwd  <> fwd.io.src1Fwd(i)
-        a.fwd.src2Fwd  <> fwd.io.src2Fwd(i)
+        a.wk.rplyIn     := rplyBus
+        fwd.io.instPkgWB(i) := a.fwd.instPkgWB
+        fwd.io.instPkgEX(i) := a.fwd.instPkgEX
+        a.fwd.src1Fwd   <> fwd.io.src1Fwd(i)
+        a.fwd.src2Fwd   <> fwd.io.src2Fwd(i)
         a.cmt.flush     := io.cmt.flush(i)
         io.cmt.widx(i)  := a.cmt.widx
         io.cmt.wen(i)   := a.cmt.wen
@@ -76,8 +76,8 @@ class Backend extends Module {
         arPp(0).wk.wakeIssue,
         arPp(1).wk.wakeIssue,
         arPp(2).wk.wakeIssue,
-        mdPp.io.wk.wakeEx2,
-        lsPp.io.wk.wakeRf
+        mdPp.io.wk.wakeEX2,
+        lsPp.io.wk.wakeRF
     )
     /* pipeline 3: muldiv */
     // issue queue
@@ -85,26 +85,26 @@ class Backend extends Module {
     mdIq.io.deq.foreach{case deq => deq <> mdPp.io.iq.instPkg}
     mdIq.io.wakeBus := wakeBus(1)
     mdIq.io.rplyBus := rplyBus
-    mdIq.io.flush    := io.cmt.flush(3)
+    mdIq.io.flush   := io.cmt.flush(3)
 
     // pipeline
-    mdPp.io.rf             <> rf.io(3)
+    mdPp.io.rf            <> rf.io(3)
     mdPp.io.wk.rplyIn     := rplyBus
-    fwd.io.instPkgWb(3)   := mdPp.io.fwd.instPkgWb
-    fwd.io.instPkgEx(3)   := mdPp.io.fwd.instPkgEx
-    fwd.io.src1Fwd(3)      <> mdPp.io.fwd.src1Fwd
-    fwd.io.src2Fwd(3)      <> mdPp.io.fwd.src2Fwd
-    mdPp.io.cmt.flush      := io.cmt.flush(3)
-    io.cmt.widx(3)          := mdPp.io.cmt.widx
-    io.cmt.wen(3)           := mdPp.io.cmt.wen
-    io.cmt.wdata(3)         := mdPp.io.cmt.wdata
+    fwd.io.instPkgWB(3)   := mdPp.io.fwd.instPkgWB
+    fwd.io.instPkgEX(3)   := mdPp.io.fwd.instPkgEX
+    fwd.io.src1Fwd(3)     <> mdPp.io.fwd.src1Fwd
+    fwd.io.src2Fwd(3)     <> mdPp.io.fwd.src2Fwd
+    mdPp.io.cmt.flush     := io.cmt.flush(3)
+    io.cmt.widx(3)        := mdPp.io.cmt.widx
+    io.cmt.wen(3)         := mdPp.io.cmt.wen
+    io.cmt.wdata(3)       := mdPp.io.cmt.wdata
 
     wakeBus(1) := VecInit(
-        arPp(0).wk.wakeRf,
-        arPp(1).wk.wakeRf,
-        arPp(2).wk.wakeRf,
-        mdPp.io.wk.wakeEx2,
-        lsPp.io.wk.wakeRf
+        arPp(0).wk.wakeRF,
+        arPp(1).wk.wakeRF,
+        arPp(2).wk.wakeRF,
+        mdPp.io.wk.wakeEX2,
+        lsPp.io.wk.wakeRF
     )
 
     /* pipeline 4: lsu */
@@ -112,23 +112,23 @@ class Backend extends Module {
     lsIq.io.deq.foreach{case deq => deq <> lsPp.io.iq.instPkg}
     lsIq.io.wakeBus := wakeBus(2)
     lsIq.io.rplyBus := rplyBus
-    lsIq.io.flush    := io.cmt.flush(4)
+    lsIq.io.flush   := io.cmt.flush(4)
 
     // pipeline
-    lsPp.io.rf             <> rf.io(4)
+    lsPp.io.rf            <> rf.io(4)
     lsPp.io.wk.rplyIn     := rplyBus
-    fwd.io.instPkgWb(4)   := lsPp.io.fwd.instPkgWb
-    lsPp.io.cmt.flush      := io.cmt.flush(4)
-    lsPp.io.cmt.dc         := io.cmt.sb
-    io.cmt.widx(4)          := lsPp.io.cmt.widx
-    io.cmt.wen(4)           := lsPp.io.cmt.wen
-    io.cmt.wdata(4)         := lsPp.io.cmt.wdata
+    fwd.io.instPkgWB(4)   := lsPp.io.fwd.instPkgWB
+    lsPp.io.cmt.flush     := io.cmt.flush(4)
+    lsPp.io.cmt.dc        := io.cmt.sb
+    io.cmt.widx(4)        := lsPp.io.cmt.widx
+    io.cmt.wen(4)         := lsPp.io.cmt.wen
+    io.cmt.wdata(4)       := lsPp.io.cmt.wdata
 
     wakeBus(2) := VecInit(
-        arPp(0).wk.wakeRf,
-        arPp(1).wk.wakeRf,
-        arPp(2).wk.wakeRf,
-        mdPp.io.wk.wakeEx2,
+        arPp(0).wk.wakeRF,
+        arPp(1).wk.wakeRF,
+        arPp(2).wk.wakeRF,
+        mdPp.io.wk.wakeEX2,
         lsPp.io.wk.wakeD1
     )
     rplyBus := lsPp.io.wk.rplyOut

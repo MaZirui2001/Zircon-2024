@@ -22,15 +22,15 @@ class ArithIQIO extends PipelineIQIO
 
 
 class ArithForwardIO extends Bundle {
-    val instPkgWb  = Output(new BackendPackage)
-    val instPkgEx  = Output(new BackendPackage)
-    val src1Fwd     = Flipped(Decoupled(UInt(32.W)))
-    val src2Fwd     = Flipped(Decoupled(UInt(32.W)))
+    val instPkgWB  = Output(new BackendPackage)
+    val instPkgEX  = Output(new BackendPackage)
+    val src1Fwd    = Flipped(Decoupled(UInt(32.W)))
+    val src2Fwd    = Flipped(Decoupled(UInt(32.W)))
 }
 
 class ArithWakeupIO extends Bundle {
     val wakeIssue = Output(new WakeupBusPkg)
-    val wakeRf    = Output(new WakeupBusPkg)
+    val wakeRF    = Output(new WakeupBusPkg)
     val rplyIn    = Input(new ReplayBusPkg)
 }
 
@@ -62,69 +62,69 @@ class ArithPipeline extends Module {
     io.wk.wakeIssue := (new WakeupBusPkg)(io.iq.instPkg.bits, io.wk.rplyIn)
     
     /* Regfile Stage */
-    val instPkgRf = WireDefault(ShiftRegister(
+    val instPkgRF = WireDefault(ShiftRegister(
         Mux(segFlush(io.iq.instPkg.bits), 0.U.asTypeOf(new BackendPackage), instPkgIs), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
-    io.rf.rd.prj         := instPkgRf.prj
-    io.rf.rd.prk         := instPkgRf.prk
-    instPkgRf.src1       := io.rf.rd.prjData
-    instPkgRf.src2       := io.rf.rd.prkData
+    io.rf.rd.prj         := instPkgRF.prj
+    io.rf.rd.prk         := instPkgRF.prk
+    instPkgRF.src1       := io.rf.rd.prjData
+    instPkgRF.src2       := io.rf.rd.prkData
 
     // wakeup
-    io.wk.wakeRf := (new WakeupBusPkg)(instPkgRf, io.wk.rplyIn)
+    io.wk.wakeRF := (new WakeupBusPkg)(instPkgRF, io.wk.rplyIn)
     
     /* Execute Stage */
-    val instPkgEx = WireDefault(ShiftRegister(
-        Mux(segFlush(instPkgRf), 0.U.asTypeOf(new BackendPackage), instPkgRf), 
+    val instPkgEX = WireDefault(ShiftRegister(
+        Mux(segFlush(instPkgRF), 0.U.asTypeOf(new BackendPackage), instPkgRF), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
 
     // alu
-    alu.io.op               := instPkgEx.op(4, 0)
-    alu.io.src1             := Mux(instPkgEx.op(6), instPkgEx.pc,  Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEx.src1))
-    alu.io.src2             := Mux(instPkgEx.op(5), Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEx.src2), instPkgEx.imm)
+    alu.io.op               := instPkgEX.op(4, 0)
+    alu.io.src1             := Mux(instPkgEX.op(6), instPkgEX.pc,  Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEX.src1))
+    alu.io.src2             := Mux(instPkgEX.op(5), Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEX.src2), instPkgEX.imm)
 
     // branch
-    branch.io.op            := instPkgEx.op(4, 0)
-    branch.io.src1          := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEx.src1)
-    branch.io.src2          := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEx.src2)
-    branch.io.pc            := instPkgEx.pc
-    branch.io.imm           := instPkgEx.imm
-    branch.io.predOffset   := instPkgEx.predOffset
+    branch.io.op            := instPkgEX.op(4, 0)
+    branch.io.src1          := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEX.src1)
+    branch.io.src2          := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEX.src2)
+    branch.io.pc            := instPkgEX.pc
+    branch.io.imm           := instPkgEX.imm
+    branch.io.predOffset   := instPkgEX.predOffset
 
-    instPkgEx.rfWdata    := alu.io.res
-    instPkgEx.result      := branch.io.jumpTgt
-    instPkgEx.jumpEn     := branch.io.realJp
-    instPkgEx.predFail   := branch.io.predFail
-    instPkgEx.nxtCmtEn  := !instPkgEx.op(4)
+    instPkgEX.rfWdata    := alu.io.res
+    instPkgEX.result      := branch.io.jumpTgt
+    instPkgEX.jumpEn     := branch.io.realJp
+    instPkgEX.predFail   := branch.io.predFail
+    instPkgEX.nxtCmtEn  := !instPkgEX.op(4)
 
     // forward
-    io.fwd.instPkgEx      := instPkgEx
+    io.fwd.instPkgEX      := instPkgEX
     io.fwd.src1Fwd.ready   := DontCare
     io.fwd.src2Fwd.ready   := DontCare 
 
     /* Write Back Stage */
-    val instPkgWb = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEx), 
+    val instPkgWB = WireDefault(ShiftRegister(
+        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEX), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
     // rob
-    io.cmt.widx.offset  := UIntToOH(instPkgWb.robIdx.offset)
-    io.cmt.widx.qidx    := UIntToOH(instPkgWb.robIdx.qidx)
+    io.cmt.widx.offset  := UIntToOH(instPkgWB.robIdx.offset)
+    io.cmt.widx.qidx    := UIntToOH(instPkgWB.robIdx.qidx)
     io.cmt.widx.high    := DontCare
-    io.cmt.wen          := instPkgWb.valid
-    io.cmt.wdata        := (new ROBBackendEntry)(instPkgWb)
+    io.cmt.wen          := instPkgWB.valid
+    io.cmt.wdata        := (new ROBBackendEntry)(instPkgWB)
     // regfile
-    io.rf.wr.prd        := instPkgWb.prd
-    io.rf.wr.prdVld    := instPkgWb.rdVld
-    io.rf.wr.prdData   := instPkgWb.rfWdata
+    io.rf.wr.prd        := instPkgWB.prd
+    io.rf.wr.prdVld    := instPkgWB.rdVld
+    io.rf.wr.prdData   := instPkgWB.rfWdata
     // forward
-    io.fwd.instPkgWb  := instPkgWb
+    io.fwd.instPkgWB  := instPkgWB
 }
