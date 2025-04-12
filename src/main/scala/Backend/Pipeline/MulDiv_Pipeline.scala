@@ -17,7 +17,8 @@ class MulDivForwardIO extends Bundle {
     val src2Fwd    = Flipped(Decoupled(UInt(32.W)))
 }
 class MulDivWakeupIO extends Bundle {
-    val wakeEx3 = Output(new WakeupBusPkg)
+    val wakeEx2 = Output(new WakeupBusPkg)
+    // val wakeEx3 = Output(new WakeupBusPkg)
     val rplyIn  = Input(new ReplayBusPkg)
 }
 
@@ -42,12 +43,12 @@ class MulDivPipeline extends Module {
     def segFlush(instPkg: BackendPackage): Bool = {
         io.cmt.flush || io.wk.rplyIn.replay && (instPkg.prjLpv | instPkg.prkLpv).orR
     }
-    instPkgIs.prjLpv := io.iq.instPkg.bits.prjLpv 
-    instPkgIs.prkLpv := io.iq.instPkg.bits.prkLpv
+    instPkgIs.prjLpv := io.iq.instPkg.bits.prjLpv << 1
+    instPkgIs.prkLpv := io.iq.instPkg.bits.prkLpv << 1
 
     /* Regfile Stage */
     val instPkgRf = WireDefault(ShiftRegister(
-        Mux(segFlush(instPkgIs), 0.U.asTypeOf(new BackendPackage), instPkgIs), 
+        Mux(segFlush(io.iq.instPkg.bits), 0.U.asTypeOf(new BackendPackage), instPkgIs), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         io.cmt.flush || io.wk.rplyIn.replay || !div.io.busy
@@ -89,6 +90,10 @@ class MulDivPipeline extends Module {
         io.cmt.flush || !div.io.busy
     ))
 
+    val instPkgEx2ForWakeup = WireDefault(instPkgEx2)
+    instPkgEx2ForWakeup.prd := Mux(div.io.busy, 0.U, instPkgEx2.prd)
+    io.wk.wakeEx2 := (new WakeupBusPkg)(instPkgEx2ForWakeup, 0.U.asTypeOf(new ReplayBusPkg))
+
     /* Execute Stage 3 */
     val instPkgEx3 = WireDefault(ShiftRegister(
         Mux(io.cmt.flush || div.io.busy, 0.U.asTypeOf(new BackendPackage), instPkgEx2), 
@@ -97,7 +102,7 @@ class MulDivPipeline extends Module {
         true.B
     ))
     instPkgEx3.rfWdata := Mux(instPkgEx3.op(2), div.io.res, mul.io.res)
-    io.wk.wakeEx3 := (new WakeupBusPkg)(instPkgEx3, 0.U.asTypeOf(new ReplayBusPkg))
+    // io.wk.wakeEx3 := (new WakeupBusPkg)(instPkgEx3, 0.U.asTypeOf(new ReplayBusPkg))
 
     /* Write Back Stage */
     val instPkgWb = WireDefault(ShiftRegister(

@@ -23,6 +23,7 @@ class DCacheFSMCacheIO extends Bundle {
 
     val sbClear     = Input(Bool())
     val sbFull      = Input(Bool())
+    val c2Wreq      = Input(Bool())
     val sbLock      = Output(Bool())
     val flush       = Input(Bool())
 }
@@ -69,7 +70,7 @@ class DCacheFSM extends Module {
                     mState := Mux(io.cc.uncache, mHold, Mux(io.cc.hit.orR, mIdle, mMiss))
                 }.otherwise {
                     // not latest and uncache must !miss
-                    mState := Mux(io.cc.uncache, mIdle, Mux(io.cc.hit.orR, mIdle, mHold))
+                    mState := Mux(io.cc.uncache, mIdle, Mux(io.cc.hit.orR, mIdle, mMiss))
                 }
                 lruReg := io.cc.lru
                 when(!io.cc.uncache && io.cc.hit.orR) {
@@ -102,10 +103,10 @@ class DCacheFSM extends Module {
 
         is(mRefill) {
             // lock the sb, and when the c2 is empty, refill the cache line
-            mState := mWait
+            mState := Mux(io.cc.c2Wreq, mRefill, mWait)
             io.cc.sbLock := true.B
             io.cc.addr_1H := 4.U  // choose s3 addr
-            when(io.cc.rreq) {
+            when(io.cc.rreq && !io.cc.c2Wreq) {
                 io.cc.lruUpd := ~lruReg
                 io.cc.tagvWe := lruReg.asBools
                 io.cc.memWe := lruReg.asBools

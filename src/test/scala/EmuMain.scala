@@ -19,7 +19,7 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
                 "--no-MMD", "--cc", "--exe"
             ))))
         { c =>
-            c.clock.setTimeout(10000)
+            c.clock.setTimeout(0)
             println("开始仿真")
             val emu = new Emulator()
             val imgPath = Option(System.getenv("IMG"))
@@ -33,22 +33,23 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
                 while(true){
                     val end = emu.step(c)
                     if(end == 0){
+                        emu.printIRing()
                         println(Console.GREEN + "程序正常退出" + Console.RESET)
                         break()
                     } else if (end == -1){
+                        emu.printIRing()
                         println(Console.RED + "程序异常退出" + Console.RESET)
-                        break()
+                        throw new Exception("程序异常退出")
                     } else if (end == -2){
+                        emu.printIRing()
                         println(Console.YELLOW + "Difftest失败" + Console.RESET)
-                        break()
+                        throw new Exception("Difftest失败")
+                    } else if (end == -3){
+                        emu.printIRing()
+                        println(Console.YELLOW + "CPU过久没有提交指令" + Console.RESET)
+                        throw new Exception("CPU过久没有提交指令")
                     }
                 }
-            }
-            println("指令环缓冲区:")
-            val iring = emu.iring.toArray
-            for (i <- 0 until iring.length) {
-                // 十六进制补充前导0到32位
-                println(f"${iring(i)._1.toInt.toHexString.reverse.padTo(8, '0').reverse.mkString}: ${iring(i)._2.toInt.toHexString.reverse.padTo(8, '0').reverse.mkString}")
             }
         }
 

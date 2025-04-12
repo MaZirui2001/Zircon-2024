@@ -189,13 +189,13 @@ class DCache extends Module {
     fsm.io.cc.wreq      := c1s3.wreq
     fsm.io.cc.uncache   := c1s3.uncache
     fsm.io.cc.hit       := c1s3.hit
-    fsm.io.cc.isLatest := c1s3.isLatest
+    fsm.io.cc.isLatest  := c1s3.isLatest
     fsm.io.cc.lru       := lruC1s3
-    fsm.io.cc.sbClear  := sb.io.clear
+    fsm.io.cc.sbClear   := sb.io.clear
     fsm.io.cc.flush     := io.cmt.flush
     fsm.io.l2.rrsp      := io.l2.rrsp
     fsm.io.l2.miss      := io.l2.miss
-    fsm.io.cc.sbFull   := sbFull
+    fsm.io.cc.sbFull    := sbFull
 
     // lru
     lruTab.raddr(0) := index(c1s3.paddr)
@@ -267,6 +267,7 @@ class DCache extends Module {
     
     val wdataShift = c2s3.wdata << (offset(c2s3.paddr) << 3)
     val wstrbShift = MTypeDecode(c2s3.mtype) << offset(c2s3.paddr)
+    fsm.io.cc.c2Wreq := c2s2.wreq || c2s3.wreq
     // tag and mem
     tagTab.zipWithIndex.foreach{ case (tagt, i) =>
         tagt.addrb := Mux(io.l2.miss || io.l2.rreq, index(c2s2.paddr), index(c2s1.paddr))

@@ -15,10 +15,11 @@ class ReplayBusPkg extends Bundle {
 class WakeupBusPkg extends Bundle {
     val prd = UInt(wpreg.W)
     val lpv = UInt(3.W)
-    def apply(pkg: BackendPackage, rplyBus: ReplayBusPkg, isMem: Boolean = false): WakeupBusPkg = {
+    def apply(pkg: BackendPackage, rplyBus: ReplayBusPkg, MemStage: Int = 0): WakeupBusPkg = {
+        assert(PopCount(MemStage.U) <= 1.U, "Correct MemStage must be 0 or one-hot.")
         val wk = Wire(new WakeupBusPkg)
-        wk.prd := Mux(rplyBus.replay && (pkg.prjLpv | pkg.prkLpv).orR, 0.U, pkg.prd)
-        wk.lpv := (if(isMem) pkg.prjLpv | pkg.prkLpv | 0x1.U else pkg.prjLpv | pkg.prkLpv)
+        wk.prd := Mux(rplyBus.replay && (if(MemStage != 0) true.B else (pkg.prjLpv | pkg.prkLpv).orR), 0.U, pkg.prd)
+        wk.lpv := pkg.prjLpv | pkg.prkLpv | MemStage.U
         wk
     }
 }

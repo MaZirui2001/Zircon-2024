@@ -55,8 +55,8 @@ object ReserveQueue{
     val wimq = log2Ceil(nimq)
 }
 object Issue{
-    val niq           = 3
-    val nis        = 5
+    val niq          = 3
+    val nis          = 5
     val arithNiq     = 24
     val arithNissue  = 3
     val muldivNiq    = 9

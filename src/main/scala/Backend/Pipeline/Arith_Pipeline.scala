@@ -68,8 +68,8 @@ class ArithPipeline extends Module {
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
-    io.rf.rd.prj           := instPkgRf.prj
-    io.rf.rd.prk           := instPkgRf.prk
+    io.rf.rd.prj         := instPkgRf.prj
+    io.rf.rd.prk         := instPkgRf.prk
     instPkgRf.src1       := io.rf.rd.prjData
     instPkgRf.src2       := io.rf.rd.prkData
 
