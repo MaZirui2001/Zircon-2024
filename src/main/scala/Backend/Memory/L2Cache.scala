@@ -203,15 +203,15 @@ class L2Cache extends Module {
     // tag and mem 
     tagTab.zipWithIndex.foreach{ case (tagt, i) =>
         tagt.clka   := clock
-        tagt.addra  := Mux1H(fsmC1.io.cc.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
-        tagt.ena    := Mux1H(fsmC1.io.cc.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
+        tagt.addra  := Mux1H(fsmC1.io.cc.addrOH, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
+        tagt.ena    := Mux1H(fsmC1.io.cc.addrOH, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
         tagt.dina   := tag(c1s3.paddr)
         tagt.wea    := (if(i < 2) fsmC1.io.cc.tagvWe(i) else false.B)
     }
     dataTab.zipWithIndex.foreach{ case (datat, i) =>
         datat.clka   := clock
-        datat.addra  := Mux1H(fsmC1.io.cc.addr_1H, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
-        datat.ena    := Mux1H(fsmC1.io.cc.addr_1H, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
+        datat.addra  := Mux1H(fsmC1.io.cc.addrOH, VecInit(index(c1s1.paddr), index(c1s2.paddr), index(c1s3.paddr)))
+        datat.ena    := Mux1H(fsmC1.io.cc.addrOH, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
         datat.dina   := rbufC1
         datat.wea    := (if(i < 2) Fill(l2Line, fsmC1.io.cc.memWe(i)) else Fill(l2Line, false.B))
     }
@@ -300,14 +300,14 @@ class L2Cache extends Module {
     }
     // tag and mem
     tagTab.zipWithIndex.foreach{ case (tagt, i) =>
-        tagt.addrb  := Mux1H(fsmC2.io.cc.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
-        tagt.enb    := Mux1H(fsmC2.io.cc.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
+        tagt.addrb  := Mux1H(fsmC2.io.cc.addrOH, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
+        tagt.enb    := Mux1H(fsmC2.io.cc.addrOH, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
         tagt.dinb   := tag(c2s3.paddr)
         tagt.web    := (if(i >= 2) fsmC2.io.cc.tagvWe(i-2) else false.B)
     }
     dataTab.zipWithIndex.foreach{ case (datat, i) =>
-        datat.addrb  := Mux1H(fsmC2.io.cc.addr_1H, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
-        datat.enb    := Mux1H(fsmC2.io.cc.addr_1H, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
+        datat.addrb  := Mux1H(fsmC2.io.cc.addrOH, VecInit(index(c2s1.paddr), index(c2s2.paddr), index(c2s3.paddr)))
+        datat.enb    := Mux1H(fsmC2.io.cc.addrOH, VecInit(c2s1.rreq || c2s1.wreq, c2s2.rreq || c2s2.wreq, c2s3.rreq || c2s3.wreq))
         datat.dinb   := Mux(!c2s3.hit(3, 2).orR, wdataRbuf, c2s3.wdata << (offset(c2s3.paddr) << 3))
         datat.web    := (if(i >= 2) Fill(l2Line, fsmC2.io.cc.memWe(i-2)) & Mux(!c2s3.hit(3, 2).orR, Fill(l2Line, fsmC2.io.cc.memWe(i-2)), mtype << offset(c2s3.paddr)) else Fill(l2Line, false.B))
     }

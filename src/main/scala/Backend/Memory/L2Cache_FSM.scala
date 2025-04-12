@@ -11,19 +11,19 @@ class L2CacheFSMCacheIO(ic: Boolean) extends Bundle {
     val cmiss   = Output(Bool())
     val tagvWe  = Output(Vec(l1Way, Bool()))
     val memWe   = Output(Vec(l1Way, Bool()))
-    val addr_1H = Output(UInt(3.W))
+    val addrOH  = Output(UInt(3.W))
     val r1H     = Output(UInt(2.W))
     // write buffer
-    val wbufWe = Output(Bool())
+    val wbufWe  = Output(Bool())
     // lru
     val lru     = Input(UInt(2.W))
-    val lruUpd = Output(UInt(2.W))
+    val lruUpd  = Output(UInt(2.W))
     // dirty
     val drty    = if(ic) None else Some(Input(Vec(l1Way, Bool())))
-    val drtyWe = if(ic) None else Some(Output(Vec(l1Way, Bool())))
-    val drtyD  = if(ic) None else Some(Output(Vec(l1Way, Bool())))
+    val drtyWe  = if(ic) None else Some(Output(Vec(l1Way, Bool())))
+    val drtyD   = if(ic) None else Some(Output(Vec(l1Way, Bool())))
     // valid for c1
-    val vldInv = if(ic) None else Some(Output(Vec(l1Way, Bool())))
+    val vldInv  = if(ic) None else Some(Output(Vec(l1Way, Bool())))
 }
 class L2CacheFSMMEMIO(ic: Boolean) extends Bundle {
     val rreq    = Output(Bool())
@@ -55,7 +55,7 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
     val lruUpd     = WireDefault(0.U(2.W))
     val drtyWe     = WireDefault(VecInit.fill(l1Way)(false.B))
     val drtyD      = WireDefault(VecInit.fill(l1Way)(false.B))
-    val addr_1H    = WireDefault(1.U(3.W)) // choose s1 addr
+    val addrOH     = WireDefault(1.U(3.W)) // choose s1 addr
     val r1H        = WireDefault(1.U(2.W)) // choose mem
     val vldInv     = WireDefault(VecInit.fill(l1Way)(false.B))
 
@@ -64,11 +64,11 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
     val wfsmOk     = WireDefault(false.B)
     val wbufWe     = WireDefault(false.B)
 
-    val lru         = RegInit(0.U(2.W))
+    val lru        = RegInit(0.U(2.W))
 
-    io.mem.rreq     := false.B
+    io.mem.rreq    := false.B
     val hit        = (if(ic) ioc.hit.orR else ioc.hit(3, 2).orR)
-    val hitBits   = (if(ic) ioc.hit(1, 0) else ioc.hit(3, 2)) // for wen of mem, tag and lru
+    val hitBits    = (if(ic) ioc.hit(1, 0) else ioc.hit(3, 2)) // for wen of mem, tag and lru
     switch(mState){
         is(mIdle){
             when(ioc.rreq || iocWreq){
@@ -84,7 +84,7 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
                 }.otherwise{ // cache and hit
                     mState := mIdle
                     memWe  := hitBits.asBools.map(_ && iocWreq)
-                    addr_1H := Mux(iocWreq, 4.U, 1.U) // choose s3 addr when write
+                    addrOH := Mux(iocWreq, 4.U, 1.U) // choose s3 addr when write
                     if(ic){
                         lruUpd := Mux(hitBits.orR, ~hitBits, 0.U(2.W))
                     } else {
@@ -103,7 +103,7 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
         }
         is(mRefill){
             mState := mWait
-            addr_1H := 4.U // choose s3 addr
+            addrOH := 4.U // choose s3 addr
             lruUpd := ~lru
             tagvWe := lru.asBools
             memWe  := tagvWe
@@ -119,12 +119,12 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
             if(ic){
                 mState := mPause
                 cmiss   := true.B
-                addr_1H := 2.U // choose s2 addr
+                addrOH := 2.U // choose s2 addr
             } else {
                 when(wfsmOk){
                     mState := mPause
-                    cmiss   := true.B
-                    addr_1H := 2.U // choose s2 addr
+                    cmiss  := true.B
+                    addrOH := 2.U // choose s2 addr
                 }
             }
         }
@@ -133,12 +133,12 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
             r1H     := 2.U // choose rbuf
         }
     }
-    io.cc.cmiss      := cmiss
+    io.cc.cmiss     := cmiss
     io.cc.tagvWe    := tagvWe
     io.cc.memWe     := memWe
     io.cc.lruUpd    := lruUpd
-    io.cc.addr_1H    := addr_1H
-    io.cc.r1H        := r1H
+    io.cc.addrOH    := addrOH
+    io.cc.r1H       := r1H
     io.cc.wbufWe    := wbufWe
     if(!ic){
         io.cc.drtyWe.get    := drtyWe

@@ -206,15 +206,15 @@ class DCache extends Module {
     // tag and mem
     tagTab.zipWithIndex.foreach{ case (tagt, i) =>
         tagt.clka  := clock
-        tagt.addra := Mux1H(fsm.io.cc.addr_1H, VecInit(index(c1s1.vaddr), index(c1s2.vaddr), index(c1s3.vaddr)))
-        tagt.ena   := Mux1H(fsm.io.cc.addr_1H, VecInit(c1s1.rreq || c1s1.wreq, c1s2.rreq || c1s2.wreq, c1s3.rreq || c1s3.wreq))
+        tagt.addra := Mux1H(fsm.io.cc.addrOH, VecInit(index(c1s1.vaddr), index(c1s2.vaddr), index(c1s3.vaddr)))
+        tagt.ena   := Mux1H(fsm.io.cc.addrOH, VecInit(c1s1.rreq || c1s1.wreq, c1s2.rreq || c1s2.wreq, c1s3.rreq || c1s3.wreq))
         tagt.dina  := tag(c1s3.paddr)
         tagt.wea   := fsm.io.cc.tagvWe(i)
     }
     dataTab.zipWithIndex.foreach{ case (datat, i) =>
         datat.clka  := clock
-        datat.addra := Mux1H(fsm.io.cc.addr_1H, VecInit(index(c1s1.vaddr), index(c1s2.vaddr), index(c1s3.vaddr)))
-        datat.ena   := Mux1H(fsm.io.cc.addr_1H, VecInit(c1s1.rreq || c1s1.wreq, c1s2.rreq || c1s2.wreq, c1s3.rreq || c1s3.wreq))
+        datat.addra := Mux1H(fsm.io.cc.addrOH, VecInit(index(c1s1.vaddr), index(c1s2.vaddr), index(c1s3.vaddr)))
+        datat.ena   := Mux1H(fsm.io.cc.addrOH, VecInit(c1s1.rreq || c1s1.wreq, c1s2.rreq || c1s2.wreq, c1s3.rreq || c1s3.wreq))
         datat.dina  := rbuf.asUInt
         datat.wea   := Fill(l1Line, fsm.io.cc.memWe(i))
     }

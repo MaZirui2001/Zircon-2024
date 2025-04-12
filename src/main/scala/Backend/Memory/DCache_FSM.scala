@@ -13,7 +13,7 @@ class DCacheFSMCacheIO extends Bundle {
     val cmiss       = Output(Bool())
     val tagvWe      = Output(Vec(l1Way, Bool()))
     val memWe       = Output(Vec(l1Way, Bool()))
-    val addr_1H     = Output(UInt(3.W))
+    val addrOH      = Output(UInt(3.W))
     val r1H         = Output(UInt(2.W))
     val rbufClear   = Output(Bool())
     
@@ -53,7 +53,7 @@ class DCacheFSM extends Module {
     io.cc.cmiss        := false.B
     io.cc.tagvWe       := VecInit.fill(l1Way)(false.B)
     io.cc.memWe        := VecInit.fill(l1Way)(false.B)
-    io.cc.addr_1H      := 1.U  // default: s1 addr
+    io.cc.addrOH       := 1.U  // default: s1 addr
     io.cc.r1H          := 1.U      // default: mem
     io.cc.lruUpd       := 0.U
     io.cc.rbufClear    := false.B
@@ -80,7 +80,7 @@ class DCacheFSM extends Module {
                     io.cc.rbufClear := true.B
                 }
             }
-            io.cc.addr_1H := Mux(io.cc.sbFull, 2.U, 1.U)
+            io.cc.addrOH := Mux(io.cc.sbFull, 2.U, 1.U)
         }
 
         is(mHold) {
@@ -105,7 +105,7 @@ class DCacheFSM extends Module {
             // lock the sb, and when the c2 is empty, refill the cache line
             mState := Mux(io.cc.c2Wreq, mRefill, mWait)
             io.cc.sbLock := true.B
-            io.cc.addr_1H := 4.U  // choose s3 addr
+            io.cc.addrOH := 4.U  // choose s3 addr
             when(io.cc.rreq && !io.cc.c2Wreq) {
                 io.cc.lruUpd := ~lruReg
                 io.cc.tagvWe := lruReg.asBools
@@ -115,7 +115,7 @@ class DCacheFSM extends Module {
 
         is(mWait) {
             mState := mPause
-            io.cc.addr_1H := 2.U  // choose s2 addr
+            io.cc.addrOH := 2.U  // choose s2 addr
             io.cc.cmiss := true.B
         }
 

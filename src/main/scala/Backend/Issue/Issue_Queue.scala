@@ -25,15 +25,15 @@ class WakeupBusPkg extends Bundle {
 }
 
 class SelectItem(len: Int, ageLen: Int) extends Bundle {
-    val idx_1h = UInt(len.W)
+    val idxOH = UInt(len.W)
     val vld = Bool()
     val age = UInt(ageLen.W)
 }
 
 object SelectItem{
-    def apply(idx_1h: UInt, vld: Bool, age: UInt): SelectItem = {
-        val si = Wire(new SelectItem(idx_1h.getWidth, age.getWidth))
-        si.idx_1h := idx_1h & Fill(idx_1h.getWidth, vld)
+    def apply(idxOH: UInt, vld: Bool, age: UInt): SelectItem = {
+        val si = Wire(new SelectItem(idxOH.getWidth, age.getWidth))
+        si.idxOH := idxOH & Fill(idxOH.getWidth, vld)
         si.vld := vld
         si.age := age
         si
@@ -165,27 +165,27 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
         val issueValid = iq(i).map{ case (e) => e.item.prjWk && e.item.prkWk && e.instExi && (if(isMem) e.stBefore === 0.U else true.B)}
         val issueAge   = iq(i).map{ case (e) => e.item.robIdx.getAge }
         val selectItem = VecInit.tabulate(len)(j => SelectItem(
-            idx_1h = (1 << j).U(len.W),
+            idxOH = (1 << j).U(len.W),
             vld = issueValid(j),
             age = issueAge(j)
         )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(ESltu(a.age, b.age), a, b), a), b))
         
         io.deq(i).valid := selectItem.vld
-        io.deq(i).bits := Mux1H(selectItem.idx_1h, iq(i).map(_.item))
+        io.deq(i).bits := Mux1H(selectItem.idxOH, iq(i).map(_.item))
         // caculate if the selected instruction is the latest, just for load instructions
         if(isMem){
             val loadInQueue = iq(i).map{ case (e) => e.instExi }
             val selectLatest = VecInit.tabulate(len)(j => SelectItem(
-                idx_1h = (1 << j).U(len.W),
+                idxOH = (1 << j).U(len.W),
                 vld = loadInQueue(j),
                 age = issueAge(j)
             )).reduceTree((a, b) => Mux(a.vld, Mux(b.vld, Mux(ESltu(a.age, b.age), a, b), a), b))
-            io.deq(i).bits.isLatest := selectItem.idx_1h === selectLatest.idx_1h
+            io.deq(i).bits.isLatest := selectItem.idxOH === selectLatest.idxOH
         }
 
         // make the selected instruction not exist
         iq(i).zipWithIndex.foreach{ case (e, j) =>
-            when(selectItem.idx_1h(j) && io.deq(i).ready){ 
+            when(selectItem.idxOH(j) && io.deq(i).ready){ 
                 e.instExi := false.B 
                 // e.item.prjWk := false.B
                 // e.item.prkWk := false.B

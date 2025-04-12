@@ -71,14 +71,14 @@ class CRat(dw: Int, iw: Int) extends Module {
 
     // read rj-prj, rk-prk and rd-pprd mapping
     for(i <- 0 until dw){
-        val rjHit_1h = VecInit.tabulate(npreg)(j => rat(j).vld && rat(j).lr === io.rj(i))
-        val rkHit_1h = VecInit.tabulate(npreg)(j => rat(j).vld && rat(j).lr === io.rk(i))
-        val rdHit_1h = VecInit.tabulate(npreg)(j => rat(j).vld && rat(j).lr === io.rd(i))
-        io.prj(i)  := OHToUInt(rjHit_1h)
-        io.prk(i)  := OHToUInt(rkHit_1h)
-        io.pprd(i) := OHToUInt(rdHit_1h)
-        io.prjFree(i) := WFRead(Mux1H(rjHit_1h, rat.map(_.free)), io.prj(i), io.wkPreg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
-        io.prkFree(i) := WFRead(Mux1H(rkHit_1h, rat.map(_.free)), io.prk(i), io.wkPreg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
+        val rjHitOH = VecInit.tabulate(npreg)(j => rat(j).vld && rat(j).lr === io.rj(i))
+        val rkHitOH = VecInit.tabulate(npreg)(j => rat(j).vld && rat(j).lr === io.rk(i))
+        val rdHitOH = VecInit.tabulate(npreg)(j => rat(j).vld && rat(j).lr === io.rd(i))
+        io.prj(i)  := OHToUInt(rjHitOH)
+        io.prk(i)  := OHToUInt(rkHitOH)
+        io.pprd(i) := OHToUInt(rdHitOH)
+        io.prjFree(i) := WFRead(Mux1H(rjHitOH, rat.map(_.free)), io.prj(i), io.wkPreg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
+        io.prkFree(i) := WFRead(Mux1H(rkHitOH, rat.map(_.free)), io.prk(i), io.wkPreg, VecInit.fill(iw)(true.B), VecInit.fill(iw)(true.B))
     }
 
 }
