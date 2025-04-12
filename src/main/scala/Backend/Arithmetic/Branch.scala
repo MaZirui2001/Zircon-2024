@@ -3,11 +3,11 @@ import chisel3.util._
 import ZirconConfig.EXEOp._
 
 class BranchIO extends Bundle{
-    val src1        = Input(UInt(32.W))
-    val src2        = Input(UInt(32.W))
-    val op          = Input(UInt(5.W))
-    val pc          = Input(UInt(32.W))
-    val imm         = Input(UInt(32.W))
+    val src1       = Input(UInt(32.W))
+    val src2       = Input(UInt(32.W))
+    val op         = Input(UInt(5.W))
+    val pc         = Input(UInt(32.W))
+    val imm        = Input(UInt(32.W))
     val predOffset = Input(UInt(32.W))
     val realJp     = Output(Bool())
     val predFail   = Output(Bool())

@@ -97,8 +97,8 @@ class PreDecoder extends Module {
 
 class PreDecodersIO extends Bundle {
     val instPkg    = Input(Vec(nfch, new FrontendPackage))
-    val rinfo       = Vec(nfch, Decoupled(new RegisterInfo))
-    val npc         = Flipped(new NPCPreDecodeIO)
+    val rinfo      = Vec(nfch, Decoupled(new RegisterInfo))
+    val npc        = Flipped(new NPCPreDecodeIO)
     val predOffset = Vec(nfch, Output(UInt(32.W)))
 }
 

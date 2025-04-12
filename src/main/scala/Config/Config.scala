@@ -88,23 +88,23 @@ object Commit{
 }
 object Cache{
     import Fetch._
-    val l1Way          = 2
-    val l1Offset       = 5
-    val l1Index        = 5
+    val l1Way         = 2
+    val l1Offset      = 5
+    val l1Index       = 5
     val l1IndexNum    = 1 << l1Index
-    val l1Tag          = 32 - l1Offset - l1Index
-    val l1Line         = (1 << l1Offset)
+    val l1Tag         = 32 - l1Offset - l1Index
+    val l1Line        = (1 << l1Offset)
     val l1LineBits    = l1Line * 8
-    val icLine         = l1Line + nfch * 4
+    val icLine        = l1Line + nfch * 4
     val icLineBits    = icLine * 8
-    val fetchOffset    = 2 + log2Ceil(nfch)
+    val fetchOffset   = 2 + log2Ceil(nfch)
     assert(l1Offset >= fetchOffset, "l1Offset must be greater than fetchOffset")
-    val l2Offset       = 6
-    val l2Index        = 6
+    val l2Offset      = 6
+    val l2Index       = 6
     val l2IndexNum    = 1 << l2Index
-    val l2Tag          = 32 - l2Offset - l2Index
-    val l2Way          = 2 * l1Way
-    val l2Line         = (1 << l2Offset)
+    val l2Tag         = 32 - l2Offset - l2Index
+    val l2Way         = 2 * l1Way
+    val l2Line        = (1 << l2Offset)
     val l2LineBits    = l2Line * 8
 }
 object TLB{

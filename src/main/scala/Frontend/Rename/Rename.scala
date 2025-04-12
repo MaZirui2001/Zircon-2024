@@ -6,17 +6,17 @@ import ZirconUtil._
 
 
 class PRegisterInfo extends Bundle {
-    val prj    = UInt(wpreg.W)
-    val prk    = UInt(wpreg.W)
-    val prd    = UInt(wpreg.W)
-    val pprd   = UInt(wpreg.W)
-    val prjWk  = Bool()
-    val prkWk  = Bool()
+    val prj   = UInt(wpreg.W)
+    val prk   = UInt(wpreg.W)
+    val prd   = UInt(wpreg.W)
+    val pprd  = UInt(wpreg.W)
+    val prjWk = Bool()
+    val prkWk = Bool()
 }
 
 class RenameFrontendIO extends Bundle {
-    val rinfo   = Vec(ndcd, Flipped(Decoupled(new RegisterInfo)))
-    val pinfo   = Output(Vec(ndcd, new PRegisterInfo))
+    val rinfo = Vec(ndcd, Flipped(Decoupled(new RegisterInfo)))
+    val pinfo = Output(Vec(ndcd, new PRegisterInfo))
 }
 
 class RenameCommitIO extends Bundle {
@@ -82,5 +82,5 @@ class Rename extends Module {
     }
     
     io.dif.srat.renameTable := srat.io.dif.renameTable
-    io.dif.flst.freeList   := flst.io.dif.freeList
+    io.dif.flst.freeList    := flst.io.dif.freeList
 }

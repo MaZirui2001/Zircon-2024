@@ -102,13 +102,13 @@ class DPipelineIO extends Bundle {
 
 class DCommitIO extends Bundle {
     val stCmt      = Input(Bool())
-    val flush       = Input(Bool())
+    val flush      = Input(Bool())
 }
 
 class DMMUIO extends Bundle {
-    val paddr       = Input(UInt(32.W))
-    val uncache     = Input(Bool())
-    val exception   = Input(UInt(8.W)) // 1 cycle latency
+    val paddr      = Input(UInt(32.W))
+    val uncache    = Input(Bool())
+    val exception  = Input(UInt(8.W)) // 1 cycle latency
 }
 
 class DCacheIO extends Bundle {
@@ -228,7 +228,7 @@ class DCache extends Module {
     io.pp.loadReplay   := c1s3.uncache && c1s3.rreq && !c1s3.isLatest
     io.pp.sbFull       := sbFull
     val memData        = Mux(c1s3.uncache, rbuf.asUInt(31, 0), (Mux1H(fsm.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf.asUInt)).asTypeOf(Vec(l1Line / 4, UInt(32.W))))(offset(c1s3.vaddr) >> 2) >> (offset(c1s3.vaddr)(1, 0) << 3))
-    val c1s4In = (new DChannel1Stage3Signal)(c1s3, sb.io.ldHitData, memData, sb.io.ldSBHit)
+    val c1s4In  = (new DChannel1Stage3Signal)(c1s3, sb.io.ldHitData, memData, sb.io.ldSBHit)
     val c1s4    = ShiftRegister(Mux(missC1 || sbFull || io.cmt.flush || io.pp.loadReplay, 0.U.asTypeOf(new DChannel1Stage3Signal), c1s4In), 1, 0.U.asTypeOf(new DChannel1Stage3Signal), true.B)
     val rdata   = VecInit.tabulate(4)(i => Mux(c1s4.sbHit(i) && !c1s4.uncache, c1s4.sbHitData(i*8+7, i*8), c1s4.memData(i*8+7, i*8))).asUInt
     io.pp.rdata := MuxLookup(c1s4.mtype(1, 0), 0.U(32.W))(Seq(
@@ -255,7 +255,7 @@ class DCache extends Module {
     sb.io.deq.ready := !io.l2.miss && !io.l2.rreq
 
     // stage 2
-    val c2s2        = ShiftRegister(c2s1, 1, 0.U.asTypeOf(new DChannel2Stage1Signal), !io.l2.miss && !io.l2.rreq)
+    val c2s2       = ShiftRegister(c2s1, 1, 0.U.asTypeOf(new DChannel2Stage1Signal), !io.l2.miss && !io.l2.rreq)
     val vldC2s2    = vldTab.map(_.rdata(1))
     val tagC2s2    = tagTab.map(_.doutb)
     val hitC2s2    = VecInit(tagC2s2.zip(vldC2s2).map { case (t, v) => t === tag(c2s2.paddr) && v }).asUInt

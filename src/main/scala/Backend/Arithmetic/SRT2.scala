@@ -4,11 +4,11 @@ import ZirconUtil._
 import ZirconConfig.EXEOp._
 
 class SRT2IO extends Bundle {
-    val src1 = Input(UInt(32.W))
-    val src2 = Input(UInt(32.W))
-    val op   = Input(UInt(4.W))
-    val res  = Output(UInt(32.W))
-    val busy = Output(Bool())
+    val src1  = Input(UInt(32.W))
+    val src2  = Input(UInt(32.W))
+    val op    = Input(UInt(4.W))
+    val res   = Output(UInt(32.W))
+    val busy  = Output(Bool())
     val ready = Output(Bool())
 }
 

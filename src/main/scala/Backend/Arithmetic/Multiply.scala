@@ -4,10 +4,10 @@ import chisel3.util._
 import ZirconConfig.EXEOp._
 import ZirconUtil._
 class MultiplyIO extends Bundle {
-    val src1 = Input(UInt(32.W))
-    val src2 = Input(UInt(32.W))
-    val op   = Input(UInt(4.W))
-    val res  = Output(UInt(32.W))
+    val src1    = Input(UInt(32.W))
+    val src2    = Input(UInt(32.W))
+    val op      = Input(UInt(4.W))
+    val res     = Output(UInt(32.W))
     val divBusy = Input(Bool())
 }
 class Booth2 extends Module {

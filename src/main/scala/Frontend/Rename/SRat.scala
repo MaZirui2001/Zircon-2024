@@ -6,21 +6,21 @@ import ZirconConfig.Commit._
 import ZirconUtil._
 
 class SRatRenameIO extends Bundle{
-    val rj         = Input(Vec(ndcd, UInt(wlreg.W)))
-    val rk         = Input(Vec(ndcd, UInt(wlreg.W)))
-    val rd         = Input(Vec(ndcd, UInt(wlreg.W)))
-    val rdVld      = Input(Vec(ndcd, Bool()))
-    val prd        = Input(Vec(ndcd, UInt(wpreg.W)))
-    val prj        = Output(Vec(ndcd, UInt(wpreg.W)))
-    val prk        = Output(Vec(ndcd, UInt(wpreg.W)))
-    val pprd       = Output(Vec(ndcd, UInt(wpreg.W)))
+    val rj    = Input(Vec(ndcd, UInt(wlreg.W)))
+    val rk    = Input(Vec(ndcd, UInt(wlreg.W)))
+    val rd    = Input(Vec(ndcd, UInt(wlreg.W)))
+    val rdVld = Input(Vec(ndcd, Bool()))
+    val prd   = Input(Vec(ndcd, UInt(wpreg.W)))
+    val prj   = Output(Vec(ndcd, UInt(wpreg.W)))
+    val prk   = Output(Vec(ndcd, UInt(wpreg.W)))
+    val pprd  = Output(Vec(ndcd, UInt(wpreg.W)))
 }
 
 class SRatCommitIO extends Bundle{
-    val rdVld      = Input(Vec(ncommit, Bool()))
-    val rd         = Input(Vec(ncommit, UInt(wlreg.W)))
-    val prd        = Input(Vec(ncommit, UInt(wpreg.W)))
-    val flush      = Input(Bool())
+    val rdVld = Input(Vec(ncommit, Bool()))
+    val rd    = Input(Vec(ncommit, UInt(wlreg.W)))
+    val prd   = Input(Vec(ncommit, UInt(wpreg.W)))
+    val flush = Input(Bool())
 }
 
 class SRatDiffIO extends Bundle{

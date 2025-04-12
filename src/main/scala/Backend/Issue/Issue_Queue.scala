@@ -43,7 +43,7 @@ object SelectItem{
 
 class IQEntry(num: Int) extends Bundle {
     val instExi    = Bool()
-    val item        = new BackendPackage()
+    val item       = new BackendPackage()
     // for memory access partial unordered execution
     // for load, stBefore is the number of load instructions in the queue
     // for store, stBefore is the number of instructions in the queue
@@ -84,12 +84,12 @@ class IQEntry(num: Int) extends Bundle {
 
 
 class IssueQueueIO(ew: Int, dw: Int, num: Int) extends Bundle {
-    val enq         = Vec(ew, Flipped(DecoupledIO(new BackendPackage)))
-    val deq         = Vec(dw, DecoupledIO(new BackendPackage))
+    val enq        = Vec(ew, Flipped(DecoupledIO(new BackendPackage)))
+    val deq        = Vec(dw, DecoupledIO(new BackendPackage))
     val wakeBus    = Input(Vec(nis, new WakeupBusPkg))
     val rplyBus    = Input(new ReplayBusPkg)
     val stLeft     = Output(UInt(log2Ceil(num).W))
-    val flush       = Input(Bool())
+    val flush      = Input(Bool())
 }
 
 class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Module {

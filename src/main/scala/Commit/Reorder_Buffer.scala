@@ -72,9 +72,9 @@ class ROBEntry extends Bundle{
 }
 
 class ROBDispatchIO extends Bundle{
-    val flush      = Output(Bool())
-    val enq        = Vec(ndcd, Flipped(Decoupled(new ROBFrontendEntry)))
-    val enqIdx     = Output(Vec(ndcd, new ClusterEntry(wrobQ, wdecode)))
+    val flush  = Output(Bool())
+    val enq    = Vec(ndcd, Flipped(Decoupled(new ROBFrontendEntry)))
+    val enqIdx = Output(Vec(ndcd, new ClusterEntry(wrobQ, wdecode)))
 }
 
 class ROBCommitIO extends Bundle{

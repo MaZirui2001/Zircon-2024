@@ -19,11 +19,11 @@ class LSWakeupIO extends Bundle {
     val rplyOut   = Output(new ReplayBusPkg)
 }
 class LSForwardIO extends Bundle {
-    val instPkgWB  = Output(new BackendPackage)
+    val instPkgWB = Output(new BackendPackage)
 }
 
 class LSMemoryIO extends Bundle {
-    val l2         = Flipped(new L2DCacheIO)
+    val l2        = Flipped(new L2DCacheIO)
 }
 
 class LSPipelineIO extends Bundle {

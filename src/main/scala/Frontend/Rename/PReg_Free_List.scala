@@ -6,12 +6,12 @@ import ZirconConfig.Decode._
 import ZirconUtil._
 
 class FreeListFrontendIO extends Bundle{
-    val deq         = Vec(ndcd, Decoupled(UInt(wpreg.W)))
+    val deq = Vec(ndcd, Decoupled(UInt(wpreg.W)))
 }
 
 class FreeListCommitIO extends Bundle{
-    val enq         = Vec(ncommit, Flipped(Decoupled(UInt(wpreg.W))))
-    val flush       = Input(Bool())
+    val enq   = Vec(ncommit, Flipped(Decoupled(UInt(wpreg.W))))
+    val flush = Input(Bool())
 }
 
 class FreeListDiffIO extends Bundle{

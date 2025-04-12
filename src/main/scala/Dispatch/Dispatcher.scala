@@ -6,7 +6,7 @@ import ZirconUtil._
 
 class DispatcherIO extends Bundle {
     val ftePkg = Vec(ndcd, Flipped(Decoupled(new BackendPackage)))
-    val func    = Input(Vec(ndcd, UInt(niq.W)))
+    val func   = Input(Vec(ndcd, UInt(niq.W)))
     val bkePkg = Vec(niq, Vec(ndcd, Decoupled(new BackendPackage)))
 }
 

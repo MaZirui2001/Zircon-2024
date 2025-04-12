@@ -7,8 +7,8 @@ import Shifter._
 class ALUIO extends Bundle {
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
-    val op = Input(UInt(5.W))
-    val res = Output(UInt(32.W))
+    val op   = Input(UInt(5.W))
+    val res  = Output(UInt(32.W))
 }
 
 class ALU extends Module {

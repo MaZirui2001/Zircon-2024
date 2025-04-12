@@ -5,13 +5,13 @@ import ZirconConfig.Issue._
 import ZirconUtil._
 
 class RegfileRDIO extends Bundle{
-    val prj         = Input(UInt(wpreg.W))
-    val prk         = Input(UInt(wpreg.W))
+    val prj        = Input(UInt(wpreg.W))
+    val prk        = Input(UInt(wpreg.W))
     val prjData    = Output(UInt(32.W))
     val prkData    = Output(UInt(32.W))
 }
 class RegfileWRIO extends Bundle{
-    val prd         = Input(UInt(wpreg.W))
+    val prd        = Input(UInt(wpreg.W))
     val prdVld     = Input(Bool())
     val prdData    = Input(UInt(32.W))
 }
