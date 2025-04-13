@@ -35,11 +35,10 @@ class ReadyBoard extends Module {
     for (i <- 0 until nis) {
         board(io.wakeBus(i).prd) := (new ReadyBoardEntry)(true.B, io.wakeBus(i).lpv)
     }
-    board(io.rplyBus.prd).ready := true.B
-    board.foreach{case(e) => 
+    board.zipWithIndex.foreach{case(e, i) => 
         when(e.lpv.orR){
             e.lpv := e.lpv << !io.rplyBus.replay
-            e.ready := !io.rplyBus.replay
+            e.ready := Mux(io.rplyBus.replay, false.B, e.ready || io.rplyBus.prd === i.U)
         }
     }
     board(0) := (new ReadyBoardEntry)(true.B, 0.U)
