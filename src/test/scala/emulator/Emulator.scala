@@ -16,13 +16,17 @@ class Emulator{
     val iring = new RingBuffer[(UInt, UInt, UInt, UInt)](8)
     private var cyclesFromLastCommit = 0
 
+    // 缓存常用值，避免重复计算
+    private val stallThreshold = 1000
+    private val endInstruction = UInt(0x80000000)
+
     // var cycle = 0
 
     def simEnd(instruction: UInt): Boolean = {
-        instruction == UInt(0x80000000)
+        instruction == endInstruction
     }
     def stallForTooLong(): Boolean = {
-        cyclesFromLastCommit >= 1000
+        cyclesFromLastCommit >= stallThreshold
     }
 
     /* difftest */
@@ -73,7 +77,7 @@ class Emulator{
                     cyclesFromLastCommit = 0
                     iring.push((UInt(cmt.fte.pc.litValue.toLong), UInt(cmt.fte.inst.litValue.toLong), UInt(cmt.fte.rd.litValue.toLong), UInt(cmt.fte.prd.litValue.toLong)))
                     statistic.addInsts(1)
-                    println(s"${cmt.fte.pc.litValue.toLong.toHexString}: ${cmt.fte.rd.litValue.toLong.toHexString} ${cmt.fte.prd.litValue.toLong.toHexString}")
+                    // println(s"${cmt.fte.pc.litValue.toLong.toHexString}: ${cmt.fte.rd.litValue.toLong.toHexString} ${cmt.fte.prd.litValue.toLong.toHexString}")
                     if(simEnd(UInt(cmt.fte.inst.litValue.toLong))){
                         println(s"Total cycles: ${statistic.getTotalCycles()}, Total insts: ${statistic.getTotalInsts()}, IPC: ${statistic.getIpc()}")
                         return (if(UInt(dbg.rf.rf(rnmTable(10).toInt).litValue.toLong) == UInt(0)) 0 else -1)

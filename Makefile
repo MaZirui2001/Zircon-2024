@@ -1,6 +1,7 @@
+PWD := $(shell pwd)
 run:
-	@IMG=$(IMG) sbt 'testOnly EmuMain' --batch
-	# @IMG=$(IMG) mill -s _.test.testOnly EmuMain
+	# @IMG=$(IMG) TEST_DIR=$(PWD)/test_run_dir sbt 'testOnly EmuMain' --batch
+	@IMG=$(IMG) TEST_DIR=$(PWD)/test_run_dir ./mill -s -j0 _.test.testOnly EmuMain
 	
 
 

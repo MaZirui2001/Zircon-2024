@@ -4,19 +4,33 @@ import chiseltest.simulator.VerilatorFlags
 import org.scalatest.flatspec.AnyFlatSpec
 import scala.util.control.Breaks._
 import chiseltest.internal.CachingAnnotation
+import firrtl2.options.TargetDirAnnotation
+import java.nio.file.{Paths, Path}
 
 class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "EmuMain"
     println("开始编译")
     it should "pass" in {
+        val testDir = Option(System.getenv("TEST_DIR")).getOrElse("test_run_dir")
+        val pwd = System.getProperty("user.dir")
+        val relativeTestDir = Paths.get(pwd).relativize(Paths.get(testDir)).toString
+        
+        // 预先创建测试目录，避免运行时创建
+        val testDirPath = Paths.get(testDir)
+        if (!java.nio.file.Files.exists(testDirPath)) {
+            java.nio.file.Files.createDirectories(testDirPath)
+        }
+        
         test(new CPU)
         .withAnnotations(Seq(
             CachingAnnotation,
             VerilatorBackendAnnotation, 
             WriteVcdAnnotation, 
+            TargetDirAnnotation(relativeTestDir),
             VerilatorFlags(Seq(
                 "-j", "16", 
-                "--no-MMD", "--cc", "--exe"
+                "--no-MMD", "--cc", "--exe",
+                "--threads", "4"  // 增加线程数
             ))))
         { c =>
             c.clock.setTimeout(0)
@@ -52,7 +66,6 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
                 }
             }
         }
-
     }
 }
 
