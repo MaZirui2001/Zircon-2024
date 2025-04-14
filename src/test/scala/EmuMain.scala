@@ -30,10 +30,11 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
             VerilatorFlags(Seq(
                 "-j", "16", 
                 "--no-MMD", "--cc", "--exe",
-                "--threads", "4"  // 增加线程数
+                // "--threads", "4"  // 增加线程数
             ))))
         { c =>
             c.clock.setTimeout(0)
+            // 关闭波型记录
             println("开始仿真")
             val emu = new Emulator()
             val imgPath = Option(System.getenv("IMG"))
@@ -47,19 +48,19 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
                 while(true){
                     val end = emu.step(c)
                     if(end == 0){
-                        emu.printIRing()
+                        emu.printStatistic()
                         println(Console.GREEN + "程序正常退出" + Console.RESET)
                         break()
                     } else if (end == -1){
-                        emu.printIRing()
+                        emu.printStatistic()
                         println(Console.RED + "程序异常退出" + Console.RESET)
                         throw new Exception("程序异常退出")
                     } else if (end == -2){
-                        emu.printIRing()
+                        emu.printStatistic()
                         println(Console.YELLOW + "Difftest失败" + Console.RESET)
                         throw new Exception("Difftest失败")
                     } else if (end == -3){
-                        emu.printIRing()
+                        emu.printStatistic()
                         println(Console.YELLOW + "CPU过久没有提交指令" + Console.RESET)
                         throw new Exception("CPU过久没有提交指令")
                     }

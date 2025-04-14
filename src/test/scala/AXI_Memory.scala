@@ -20,6 +20,8 @@ class AXIWriteItem(var awready: Boolean, var wready: Boolean, var bvalid: Boolea
 class AXIMemory(randDelay: Boolean){
     private var mem: mutable.Map[UInt, MemoryItem] = mutable.Map()
     private var memRef: mutable.Map[UInt, MemoryItem] = mutable.Map()
+    private val device      = new Device
+
     
     // 2. 缓存一些常用的掩码和移位值
     private val BYTEMASK = 0xffL
@@ -124,24 +126,28 @@ class AXIMemory(randDelay: Boolean){
                     val wordOffset = writeConfig.awaddr & 0x3
                     val shiftAmount = wordOffset << 3
                     val wstrb = writeConfig.wstrb << wordOffset
-                    
-                    if(!mem.contains(wordAddr)) {
+
+                    if((wordAddr >> 26) == UInt(0xa)) {
+                        // println(s"write to device: ${writeConfig.awaddr}, ${axi.wdata.litValue.toInt}")
+                        device.write(UInt(writeConfig.awaddr), axi.wdata.litValue.toByte)
+                    } else {
+                        if(!mem.contains(wordAddr)) {
                         // println(s"wordAddr: ${wordAddr.toInt}")
-                        mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
-                    }
-                    
-                    if(writeConfig.wstrb != 0) {
-                        val wdataShift = axi.wdata.litValue.toInt << shiftAmount
-                        (0 until 4).foreach{ i =>
-                            if((wstrb & (1 << i)) != 0){
-                                mem(wordAddr).data = (mem(wordAddr).data & UInt(~(0xff << (i * 8))) | UInt(wdataShift) & UInt(0xff << (i * 8)))
-                                mem(wordAddr).lastWrite(i) = cycle
-                            }
+                            mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
                         }
-                        // val wmask = BYTEMASK << shiftAmount
-                        // mem(wordAddr).data = (mem(wordAddr).data & ~wmask) | (wdataShift & wmask)
-                        // println(wdataShift.toHexString)
-                        mem(wordAddr).lastWrite(wordOffset) = cycle
+                        if(writeConfig.wstrb != 0) {
+                            val wdataShift = axi.wdata.litValue.toInt << shiftAmount
+                            (0 until 4).foreach{ i =>
+                                if((wstrb & (1 << i)) != 0){
+                                    mem(wordAddr).data = (mem(wordAddr).data & UInt(~(0xff << (i * 8))) | UInt(wdataShift) & UInt(0xff << (i * 8)))
+                                    mem(wordAddr).lastWrite(i) = cycle
+                                }
+                            }
+                            // val wmask = BYTEMASK << shiftAmount
+                            // mem(wordAddr).data = (mem(wordAddr).data & ~wmask) | (wdataShift & wmask)
+                            // println(wdataShift.toHexString)
+                            mem(wordAddr).lastWrite(wordOffset) = cycle
+                        }
                     }
                     
                     if(axi.wlast.litToBoolean) {

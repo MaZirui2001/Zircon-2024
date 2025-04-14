@@ -115,6 +115,7 @@ class Emulator{
         simulator.memInit(filename)
     }
 
+
     /* print the instruction ring buffer */
     def printIRing(): Unit = {
         println("指令环缓冲区:")
@@ -128,4 +129,9 @@ class Emulator{
         }
     }
     
+    def printStatistic(): Unit = {
+        printIRing()
+        println(s"Total cycles: ${statistic.getTotalCycles()}, Total insts: ${statistic.getTotalInsts()}, IPC: ${statistic.getIpc()}")
+    }
+
 }

@@ -89,7 +89,7 @@ class LSPipeline extends Module {
     dc.io.cmt           := io.cmt.dc
     dc.io.mmu.paddr     := instPkgD1.src1
     // TODO: add mmu
-    dc.io.mmu.uncache   := false.B
+    dc.io.mmu.uncache   := instPkgD1.src1(31, 28) === 0xa.U
     dc.io.mmu.exception := 0.U(8.W)
     dc.io.l2            <> io.mem.l2
     /* DCache Stage 2 */
@@ -104,7 +104,7 @@ class LSPipeline extends Module {
 
     // replay
     io.wk.rplyOut.prd      := instPkgD2.prd
-    io.wk.rplyOut.replay   := (dc.io.pp.miss || dc.io.pp.sbFull) && instPkgD2.valid
+    io.wk.rplyOut.replay   := (dc.io.pp.miss || dc.io.pp.loadReplay || dc.io.pp.sbFull) && instPkgD2.valid
 
     /* Write Back Stage */
     val instPkgWB = WireDefault(ShiftRegister(
