@@ -139,11 +139,11 @@ class ReorderBuffer extends Module{
     io.bke.sb.stCmt  := ShiftRegister(lastCmtItem.fte.isStore, 1, false.B, true.B)
     io.bke.sb.flush  := ShiftRegister(flush, 1, false.B, true.B)
     // rename
-    io.fte.rnm.flst.enq.zipWithIndex.foreach{ case (enq, i) =>
+    io.fte.rnm.fList.enq.zipWithIndex.foreach{ case (enq, i) =>
         enq.valid   := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
         enq.bits    := ShiftRegister(q.io.deq(i).bits.fte.pprd, 1, 0.U(wpreg.W), true.B)
     }
-    io.fte.rnm.flst.flush   := ShiftRegister(flush, 1, false.B, true.B)
+    io.fte.rnm.fList.flush   := ShiftRegister(flush, 1, false.B, true.B)
     io.fte.rnm.srat.rdVld.zipWithIndex.foreach{ case (rdVld, i) =>
         rdVld      := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
     }

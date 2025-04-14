@@ -158,24 +158,24 @@
 //                 // icache test
 //                 if(iIndex < testNum){
 //                     val iTest = tests(iIndex)
-//                     c.io.iPp.rreq.poke(iTest.ic.rreq)
-//                     c.io.iPp.vaddr.poke(iTest.ic.vaddr)
+//                     c.io.iPP.rreq.poke(iTest.ic.rreq)
+//                     c.io.iPP.vaddr.poke(iTest.ic.vaddr)
 //                     if(iIndex > 0){
 //                         val iTestLast = tests(iIndex - 1)
 //                         c.io.iMmu.paddr.poke(iTestLast.ic.vaddr)
 //                         c.io.iMmu.uncache.poke(false)
 //                     }
-//                     if(!c.io.iPp.miss.peek().litToBoolean){
-//                         if(c.io.iPp.rreq.peek().litToBoolean){
+//                     if(!c.io.iPP.miss.peek().litToBoolean){
+//                         if(c.io.iPP.rreq.peek().litToBoolean){
 //                             iReqQ.enqueue(iTest.ic)
 //                         }
 //                         iIndex += 1
 //                     }
-//                     if(c.io.iPp.rrsp.peek().litToBoolean){
+//                     if(c.io.iPP.rrsp.peek().litToBoolean){
 //                         val req = iReqQ.dequeue()
 //                         for(j <- 0 until nfch){
 //                             val data = memory.debugRead((req.vaddr + (j * 4)).toInt)._1 & 0xFFFFFFFFL
-//                             c.io.iPp.rdata(j).expect(data, f"idx: ${iIndex}, addr: ${req.vaddr}%x, fetchOffset: ${j}")
+//                             c.io.iPP.rdata(j).expect(data, f"idx: ${iIndex}, addr: ${req.vaddr}%x, fetchOffset: ${j}")
 
 //                         }
                     
@@ -184,12 +184,12 @@
 //                 // dcache test
 //                 if(dIndex < testNum){
 //                     val dTest = tests(dIndex)
-//                     c.io.dPp.rreq.poke((if(c.io.dPp.sbFull.peek().litToBoolean) 0 else dTest.dc.rreq))
-//                     c.io.dPp.mtype.poke(dTest.dc.mtype)
-//                     c.io.dPp.isLatest.poke(true)
-//                     c.io.dPp.wreq.poke((if(c.io.dPp.sbFull.peek().litToBoolean) 0 else dTest.dc.wreq))
-//                     c.io.dPp.wdata.poke(dTest.dc.wdata)
-//                     c.io.dPp.vaddr.poke(dTest.dc.vaddr)
+//                     c.io.dPP.rreq.poke((if(c.io.dPP.sbFull.peek().litToBoolean) 0 else dTest.dc.rreq))
+//                     c.io.dPP.mtype.poke(dTest.dc.mtype)
+//                     c.io.dPP.isLatest.poke(true)
+//                     c.io.dPP.wreq.poke((if(c.io.dPP.sbFull.peek().litToBoolean) 0 else dTest.dc.wreq))
+//                     c.io.dPP.wdata.poke(dTest.dc.wdata)
+//                     c.io.dPP.vaddr.poke(dTest.dc.vaddr)
 //                     if(dIndex > 0){
 //                         val dTestLast = tests(dIndex - 1)
 //                         c.io.dMmu.paddr.poke(dTestLast.dc.vaddr)
@@ -206,21 +206,21 @@
 //                     } else {
 //                         c.io.dCmt.stCmt.poke(false)
 //                     }
-//                     if(!c.io.dPp.miss.peek().litToBoolean && !c.io.dPp.sbFull.peek().litToBoolean){
-//                         if(c.io.dPp.rreq.peek().litToBoolean || c.io.dPp.wreq.peek().litToBoolean){
+//                     if(!c.io.dPP.miss.peek().litToBoolean && !c.io.dPP.sbFull.peek().litToBoolean){
+//                         if(c.io.dPP.rreq.peek().litToBoolean || c.io.dPP.wreq.peek().litToBoolean){
 //                             dReqQ.enqueue(dTest.dc)
 //                         }
 //                         dIndex += 1
 //                     }
-//                     if(c.io.dPp.rrsp.peek().litToBoolean || c.io.dPp.wrsp.peek().litToBoolean){
+//                     if(c.io.dPP.rrsp.peek().litToBoolean || c.io.dPP.wrsp.peek().litToBoolean){
 //                         val req = dReqQ.dequeue()
 //                         dCmtQ.enqueue(req)
-//                         if(c.io.dPp.wrsp.peek().litToBoolean){
+//                         if(c.io.dPP.wrsp.peek().litToBoolean){
 //                             val addrAlign = (req.vaddr >> 2) << 2
 //                             val wdata = req.wdata << ((req.vaddr.toInt & 0x3) << 3)
 //                             val wstrb = ((1 << (1 << (req.mtype & 0x3))) - 1) << (req.vaddr.toInt & 0x3)
 //                             memory.debugWrite(addrAlign.toInt, wdata.toInt, wstrb, dIndex-1)
-//                         } else if(c.io.dPp.rrsp.peek().litToBoolean){
+//                         } else if(c.io.dPP.rrsp.peek().litToBoolean){
 //                             var data = BigInt("0" * 32, 2)
 //                             data = memory.debugRead(req.vaddr.toInt)._1 & 0xFFFFFFFFL
 //                             data = req.mtype match {
@@ -231,7 +231,7 @@
 //                                 case 5 => data & 0xFFFF
 //                                 case _ => data
 //                             }
-//                             c.io.dPp.rdata.expect(
+//                             c.io.dPP.rdata.expect(
 //                                 data & 0xFFFFFFFFL, f"idx: ${dIndex}, addr: ${req.vaddr}%x, last write: 1. ${memory.debugRead(req.vaddr.toInt)._2}, " +
 //                                                                         f"2. ${memory.debugRead(req.vaddr.toInt + 1)._2}, " +
 //                                                                         f"3. ${memory.debugRead(req.vaddr.toInt + 2)._2}, "  +

@@ -112,7 +112,7 @@ class Frontend extends Module {
         pkg.func    := dcd.func
     }
     val instPkgDSP = WireDefault(ShiftRegister(
-        Mux(io.cmt.rnm.flst.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), instPkgDCD), 
+        Mux(io.cmt.rnm.fList.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), instPkgDCD), 
         1, 
         0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), 
         io.dsp.instPkg(0).ready || io.cmt.fq.flush

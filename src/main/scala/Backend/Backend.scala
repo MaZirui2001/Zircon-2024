@@ -35,31 +35,31 @@ class BackendIO extends Bundle {
 class Backend extends Module {
     val io = IO(new BackendIO)
     
-    val arIq = Module(new IssueQueue(ndcd, arithNissue, arithNiq, false))
-    val mdIq = Module(new IssueQueue(ndcd, muldivNissue, muldivNiq, false))
-    val lsIq = Module(new IssueQueue(ndcd, lsuNissue, lsuNiq, true))
+    val arIQ = Module(new IssueQueue(ndcd, arithNissue, arithNiq, false))
+    val mdIQ = Module(new IssueQueue(ndcd, muldivNissue, muldivNiq, false))
+    val lsIQ = Module(new IssueQueue(ndcd, lsuNissue, lsuNiq, true))
 
     val rf   = Module(new Regfile)
 
     val fwd  = Module(new Forward)
 
-    val arPp = VecInit.fill(3)(Module(new ArithPipeline).io)
-    val mdPp = Module(new MulDivPipeline)
-    val lsPp = Module(new LSPipeline)
+    val arPP = VecInit.fill(3)(Module(new ArithPipeline).io)
+    val mdPP = Module(new MulDivPipeline)
+    val lsPP = Module(new LSPipeline)
 
     val wakeBus = Wire(Vec(niq, Vec(nis, new WakeupBusPkg)))
     val rplyBus = Wire(new ReplayBusPkg)
 
     /* pipeline 0-2: arith and branch */
     // issue queue
-    arIq.io.enq.zip(io.dsp.instPkg(0)).foreach{case (enq, inst) => enq <> inst}
-    arIq.io.deq.zip(arPp).foreach{case (deq, pp) => deq <> pp.iq.instPkg}
-    arIq.io.wakeBus := wakeBus(0)
-    arIq.io.rplyBus := rplyBus
-    arIq.io.flush   := io.cmt.flush(0)
+    arIQ.io.enq.zip(io.dsp.instPkg(0)).foreach{case (enq, inst) => enq <> inst}
+    arIQ.io.deq.zip(arPP).foreach{case (deq, pp) => deq <> pp.iq.instPkg}
+    arIQ.io.wakeBus := wakeBus(0)
+    arIQ.io.rplyBus := rplyBus
+    arIQ.io.flush   := io.cmt.flush(0)
 
     // pipeline
-    arPp.zipWithIndex.foreach{case(a, i) => 
+    arPP.zipWithIndex.foreach{case(a, i) => 
         a.rf            <> rf.io(i)
         a.wk.rplyIn     := rplyBus
         fwd.io.instPkgWB(i) := a.fwd.instPkgWB
@@ -73,66 +73,66 @@ class Backend extends Module {
 
     }
     wakeBus(0) := VecInit(
-        arPp(0).wk.wakeIssue,
-        arPp(1).wk.wakeIssue,
-        arPp(2).wk.wakeIssue,
-        mdPp.io.wk.wakeEX2,
-        lsPp.io.wk.wakeRF
+        arPP(0).wk.wakeIssue,
+        arPP(1).wk.wakeIssue,
+        arPP(2).wk.wakeIssue,
+        mdPP.io.wk.wakeEX2,
+        lsPP.io.wk.wakeRF
     )
     /* pipeline 3: muldiv */
     // issue queue
-    mdIq.io.enq.zip(io.dsp.instPkg(1)).foreach{case (enq, inst) => enq <> inst}
-    mdIq.io.deq.foreach{case deq => deq <> mdPp.io.iq.instPkg}
-    mdIq.io.wakeBus := wakeBus(1)
-    mdIq.io.rplyBus := rplyBus
-    mdIq.io.flush   := io.cmt.flush(3)
+    mdIQ.io.enq.zip(io.dsp.instPkg(1)).foreach{case (enq, inst) => enq <> inst}
+    mdIQ.io.deq.foreach{case deq => deq <> mdPP.io.iq.instPkg}
+    mdIQ.io.wakeBus := wakeBus(1)
+    mdIQ.io.rplyBus := rplyBus
+    mdIQ.io.flush   := io.cmt.flush(3)
 
     // pipeline
-    mdPp.io.rf            <> rf.io(3)
-    mdPp.io.wk.rplyIn     := rplyBus
-    fwd.io.instPkgWB(3)   := mdPp.io.fwd.instPkgWB
-    fwd.io.instPkgEX(3)   := mdPp.io.fwd.instPkgEX
-    fwd.io.src1Fwd(3)     <> mdPp.io.fwd.src1Fwd
-    fwd.io.src2Fwd(3)     <> mdPp.io.fwd.src2Fwd
-    mdPp.io.cmt.flush     := io.cmt.flush(3)
-    io.cmt.widx(3)        := mdPp.io.cmt.widx
-    io.cmt.wen(3)         := mdPp.io.cmt.wen
-    io.cmt.wdata(3)       := mdPp.io.cmt.wdata
+    mdPP.io.rf            <> rf.io(3)
+    mdPP.io.wk.rplyIn     := rplyBus
+    fwd.io.instPkgWB(3)   := mdPP.io.fwd.instPkgWB
+    fwd.io.instPkgEX(3)   := mdPP.io.fwd.instPkgEX
+    fwd.io.src1Fwd(3)     <> mdPP.io.fwd.src1Fwd
+    fwd.io.src2Fwd(3)     <> mdPP.io.fwd.src2Fwd
+    mdPP.io.cmt.flush     := io.cmt.flush(3)
+    io.cmt.widx(3)        := mdPP.io.cmt.widx
+    io.cmt.wen(3)         := mdPP.io.cmt.wen
+    io.cmt.wdata(3)       := mdPP.io.cmt.wdata
 
     wakeBus(1) := VecInit(
-        arPp(0).wk.wakeRF,
-        arPp(1).wk.wakeRF,
-        arPp(2).wk.wakeRF,
-        mdPp.io.wk.wakeEX2,
-        lsPp.io.wk.wakeRF
+        arPP(0).wk.wakeRF,
+        arPP(1).wk.wakeRF,
+        arPP(2).wk.wakeRF,
+        mdPP.io.wk.wakeEX2,
+        lsPP.io.wk.wakeRF
     )
 
     /* pipeline 4: lsu */
-    lsIq.io.enq.zip(io.dsp.instPkg(2)).foreach{case (enq, inst) => enq <> inst}
-    lsIq.io.deq.foreach{case deq => deq <> lsPp.io.iq.instPkg}
-    lsIq.io.wakeBus := wakeBus(2)
-    lsIq.io.rplyBus := rplyBus
-    lsIq.io.flush   := io.cmt.flush(4)
+    lsIQ.io.enq.zip(io.dsp.instPkg(2)).foreach{case (enq, inst) => enq <> inst}
+    lsIQ.io.deq.foreach{case deq => deq <> lsPP.io.iq.instPkg}
+    lsIQ.io.wakeBus := wakeBus(2)
+    lsIQ.io.rplyBus := rplyBus
+    lsIQ.io.flush   := io.cmt.flush(4)
 
     // pipeline
-    lsPp.io.rf            <> rf.io(4)
-    lsPp.io.wk.rplyIn     := rplyBus
-    fwd.io.instPkgWB(4)   := lsPp.io.fwd.instPkgWB
-    lsPp.io.cmt.flush     := io.cmt.flush(4)
-    lsPp.io.cmt.dc        := io.cmt.sb
-    io.cmt.widx(4)        := lsPp.io.cmt.widx
-    io.cmt.wen(4)         := lsPp.io.cmt.wen
-    io.cmt.wdata(4)       := lsPp.io.cmt.wdata
+    lsPP.io.rf            <> rf.io(4)
+    lsPP.io.wk.rplyIn     := rplyBus
+    fwd.io.instPkgWB(4)   := lsPP.io.fwd.instPkgWB
+    lsPP.io.cmt.flush     := io.cmt.flush(4)
+    lsPP.io.cmt.dc        := io.cmt.sb
+    io.cmt.widx(4)        := lsPP.io.cmt.widx
+    io.cmt.wen(4)         := lsPP.io.cmt.wen
+    io.cmt.wdata(4)       := lsPP.io.cmt.wdata
 
     wakeBus(2) := VecInit(
-        arPp(0).wk.wakeRF,
-        arPp(1).wk.wakeRF,
-        arPp(2).wk.wakeRF,
-        mdPp.io.wk.wakeEX2,
-        lsPp.io.wk.wakeD1
+        arPP(0).wk.wakeRF,
+        arPP(1).wk.wakeRF,
+        arPP(2).wk.wakeRF,
+        mdPP.io.wk.wakeEX2,
+        lsPP.io.wk.wakeD1
     )
-    rplyBus := lsPp.io.wk.rplyOut
-    io.mem.l2 <> lsPp.io.mem.l2
+    rplyBus := lsPP.io.wk.rplyOut
+    io.mem.l2 <> lsPP.io.mem.l2
 
     io.dsp.wakeBus := wakeBus(0)
     io.dsp.rplyBus := rplyBus

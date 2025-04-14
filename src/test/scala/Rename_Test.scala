@@ -80,7 +80,7 @@ class RenameTestGenerator {
 
 class RenameRef{
     import ZirconConfig.Commit._
-    val freeList = Array.tabulate(npreg)(i =>
+    val fList = Array.tabulate(npreg)(i =>
         (i / ndcd) + 1 + (i % ndcd) * (npreg / ndcd)
     )
     var head = 0
@@ -91,7 +91,7 @@ class RenameRef{
 
     def write(rd: Int, rdVld: Boolean): Int = {
         if(!rdVld) return 0
-        val preg = freeList(head)
+        val preg = fList(head)
         renameTable(rd) = preg
         head = (head + 1) % npreg
         preg
@@ -102,13 +102,13 @@ class RenameRef{
     }
 
     def getFreeList: Array[Int] = {
-        freeList
+        fList
     }
     
     def commit(item: SimpleROBItem): Unit = {
         if(item.rdVld == 0) return
         if(item.pprd != 0){
-            freeList(tail) = item.pprd
+            fList(tail) = item.pprd
             tail = (tail + 1) % npreg
             cmt = (cmt + 1) % npreg
         }
@@ -143,10 +143,10 @@ class RenameTest extends AnyFlatSpec with ChiselScalatestTester {
             val rand = new Random()
             val PRINTINTERVAL = testNum / 10
             while(index < end) {
-                // 比较freeList和renameTable
+                // 比较fList和renameTable
                 for(i <- 0 until npreg){
-                    c.io.dif.flst.freeList(i).expect(ref.getFreeList(i), 
-                        f"idx: ${index}, freeList: ${i}"
+                    c.io.dif.fList.fList(i).expect(ref.getFreeList(i), 
+                        f"idx: ${index}, fList: ${i}"
                     )
                 }
                 for(i <- 0 until nlreg){
@@ -154,16 +154,16 @@ class RenameTest extends AnyFlatSpec with ChiselScalatestTester {
                         f"idx: ${index}, renameTable: ${i}"
                     )
                 }
-                c.io.cmt.flst.enq.foreach(_.valid.poke(false))
+                c.io.cmt.fList.enq.foreach(_.valid.poke(false))
                 c.io.cmt.srat.rdVld.foreach(_.poke(false))
                 if(tests(index).flush == 1){
                     ref.flush()
                     rob.clear()
-                    c.io.cmt.flst.flush.poke(true)
+                    c.io.cmt.fList.flush.poke(true)
                     c.io.cmt.srat.flush.poke(true)
                     index += 1
                 } else{
-                    c.io.cmt.flst.flush.poke(false)
+                    c.io.cmt.fList.flush.poke(false)
                     c.io.cmt.srat.flush.poke(false)
                     // 随机提交
                     val commitEn = rand.nextBoolean()
@@ -173,8 +173,8 @@ class RenameTest extends AnyFlatSpec with ChiselScalatestTester {
                             if(rob.nonEmpty){
                                 val item = rob.dequeue()
                                 ref.commit(item)
-                                c.io.cmt.flst.enq(i).valid.poke(item.rdVld != 0)
-                                c.io.cmt.flst.enq(i).bits.poke(item.pprd)
+                                c.io.cmt.fList.enq(i).valid.poke(item.rdVld != 0)
+                                c.io.cmt.fList.enq(i).bits.poke(item.pprd)
                                 c.io.cmt.srat.rdVld(i).poke(item.rdVld != 0)
                                 c.io.cmt.srat.rd(i).poke(item.rd)
                                 c.io.cmt.srat.prd(i).poke(item.prd)

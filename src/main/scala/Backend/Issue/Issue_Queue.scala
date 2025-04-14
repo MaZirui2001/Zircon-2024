@@ -105,14 +105,14 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
         VecInit.fill(n)(VecInit.fill(len)(0.U.asTypeOf(new IQEntry(num))))
     )
     
-    val flst = Module(new ClusterIndexFIFO(
+    val fList = Module(new ClusterIndexFIFO(
         UInt((log2Ceil(n)+log2Ceil(len)).W), num, dw, ew, 0, 0, true, 
         Some(Seq.tabulate(num)(i => ((i / len) << log2Ceil(len) | (i % len)).U((log2Ceil(n) + log2Ceil(len)).W
     )))))
     
-    flst.io.enq.foreach(_.valid := false.B) 
-    flst.io.enq.foreach(_.bits := DontCare)
-    flst.io.deq.foreach(_.ready := false.B)
+    fList.io.enq.foreach(_.valid := false.B) 
+    fList.io.enq.foreach(_.bits := DontCare)
+    fList.io.deq.foreach(_.ready := false.B)
     
     val stLeft      = RegInit(0.U(log2Ceil(num).W))
     val stLeftNext  = WireDefault(VecInit.fill(ew)(0.U(log2Ceil(num).W)))
@@ -132,13 +132,13 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
 
     /* insert into iq */
     // allocate free item in iq
-    flst.io.deq.zipWithIndex.foreach{ case (deq, i) => 
+    fList.io.deq.zipWithIndex.foreach{ case (deq, i) => 
         deq.ready := io.enq(i).valid
     }
-    val freeIq      = flst.io.deq.map((_.bits >> log2Ceil(len)))
-    val freeItem    = flst.io.deq.map(_.bits(log2Ceil(len)-1, 0))
+    val freeIQ      = fList.io.deq.map((_.bits >> log2Ceil(len)))
+    val freeItem    = fList.io.deq.map(_.bits(log2Ceil(len)-1, 0))
     val enqEntries  = WireDefault(VecInit(io.enq.map(_.bits)))
-    flst.io.flush   := false.B
+    fList.io.flush   := false.B
 
     /* wake up */
     iq.foreach{case (qq) =>
@@ -148,8 +148,8 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
     }
     /* write to iq */
     for (i <- 0 until ew){
-        when(io.enq(i).valid && flst.io.deq(0).valid){
-            iq(freeIq(i))(freeItem(i)) := (new IQEntry(len))(
+        when(io.enq(i).valid && fList.io.deq(0).valid){
+            iq(freeIQ(i))(freeItem(i)) := (new IQEntry(len))(
                 enqEntries(i), 
                 if(isMem) Mux(enqEntries(i).op(6), memLeftNext(i), stLeftNext(i)) 
                 else 0.U
@@ -158,8 +158,8 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
     }
 
     /* select dw items from iq */
-    flst.io.enq.foreach(_.valid := false.B)
-    flst.io.enq.foreach(_.bits := DontCare)
+    fList.io.enq.foreach(_.valid := false.B)
+    fList.io.enq.foreach(_.bits := DontCare)
     for(i <- 0 until dw){
         // get the oldest valid existing instruction
         val issueValid = iq(i).map{ case (e) => e.item.prjWk && e.item.prkWk && e.instExi && (if(isMem) e.stBefore === 0.U else true.B)}
@@ -204,16 +204,16 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
         }
     }
 
-    var flstInsertPtr     = 1.U(n.W)
+    var fListInsertPtr     = 1.U(n.W)
     val portMapFlst       = VecInit.fill(dw)(0.U(dw.W))
     val portMapTransFlst  = Transpose(portMapFlst)
     val readyToRecycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.instExi || e.item.prjLpv.orR || e.item.prkLpv.orR) } }
     val selectRecycleIdx  = readyToRecycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
     for(i <- 0 until dw) {
-        portMapFlst(i) := Mux(selectRecycleIdx(i).orR, flstInsertPtr, 0.U)
-        flstInsertPtr = Mux(selectRecycleIdx(i).orR, ShiftAdd1(flstInsertPtr), flstInsertPtr)
+        portMapFlst(i) := Mux(selectRecycleIdx(i).orR, fListInsertPtr, 0.U)
+        fListInsertPtr = Mux(selectRecycleIdx(i).orR, ShiftAdd1(fListInsertPtr), fListInsertPtr)
     }
-    flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
+    fList.io.enq.zipWithIndex.foreach{ case (e, i) =>
         e.valid := portMapTransFlst(i).orR
         e.bits  := Mux1H(portMapTransFlst(i), VecInit.tabulate(dw)(j => j.U(log2Ceil(dw).W))) ## OHToUInt(Mux1H(portMapTransFlst(i), selectRecycleIdx)).take(log2Ceil(len))
     }
@@ -224,7 +224,7 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
             }
         }
     }
-    io.enq.foreach(_.ready := flst.io.deq.map(_.valid).reduce(_ && _))
+    io.enq.foreach(_.ready := fList.io.deq.map(_.valid).reduce(_ && _))
     /* flush */
     when(io.flush){
         iq.foreach{case (qq) =>

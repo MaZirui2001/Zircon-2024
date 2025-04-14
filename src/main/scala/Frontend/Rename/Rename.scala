@@ -20,11 +20,11 @@ class RenameFrontendIO extends Bundle {
 }
 
 class RenameCommitIO extends Bundle {
-    val flst = new FreeListCommitIO
+    val fList = new FreeListCommitIO
     val srat = new SRatCommitIO
 }
 class RenameDiffIO extends Bundle {
-    val flst = new FreeListDiffIO
+    val fList = new FreeListDiffIO
     val srat = new SRatDiffIO
 }
 
@@ -36,15 +36,15 @@ class RenameIO extends Bundle {
 
 class Rename extends Module {
     val io   = IO(new RenameIO)
-    val flst = Module(new PRegFreeList)
+    val fList = Module(new PRegFreeList)
     val srat = Module(new SRat)
     // free list: 
-    flst.io.cmt <> io.cmt.flst
-    flst.io.fte.deq.zip(io.fte.rinfo).foreach{ case (d, rinfo) =>
+    fList.io.cmt <> io.cmt.fList
+    fList.io.fte.deq.zip(io.fte.rinfo).foreach{ case (d, rinfo) =>
         d.ready := rinfo.bits.rdVld && rinfo.valid
     }
-    io.fte.rinfo.foreach(_.ready := flst.io.fte.deq.map(_.valid).reduce(_ && _))
-    io.fte.pinfo.zip(flst.io.fte.deq.map(_.bits)).foreach{ case (pinfo, prd) => pinfo.prd := prd }
+    io.fte.rinfo.foreach(_.ready := fList.io.fte.deq.map(_.valid).reduce(_ && _))
+    io.fte.pinfo.zip(fList.io.fte.deq.map(_.bits)).foreach{ case (pinfo, prd) => pinfo.prd := prd }
     // srat
     srat.io.cmt         <> io.cmt.srat
     srat.io.rnm.rj      := io.fte.rinfo.map(_.bits.rj)
@@ -73,14 +73,14 @@ class Rename extends Module {
         Mux(idx1H.orR, Mux1H(idx1H, prds), prs)
     }
     io.fte.pinfo.zipWithIndex.foreach{ case (pinfo, i) =>
-        pinfo.prj   := rawRead(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prj(i), flst.io.fte.deq.map(_.bits).take(i))
-        pinfo.prk   := rawRead(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prk(i), flst.io.fte.deq.map(_.bits).take(i))
-        pinfo.pprd  := rawRead(io.fte.rinfo(i).bits.rd, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.pprd(i), flst.io.fte.deq.map(_.bits).take(i))
+        pinfo.prj   := rawRead(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prj(i), fList.io.fte.deq.map(_.bits).take(i))
+        pinfo.prk   := rawRead(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.prk(i), fList.io.fte.deq.map(_.bits).take(i))
+        pinfo.pprd  := rawRead(io.fte.rinfo(i).bits.rd, io.fte.rinfo.map(_.bits.rd).take(i), srat.io.rnm.pprd(i), fList.io.fte.deq.map(_.bits).take(i))
         // for prj amd prk, this stage will judge whether raw in the group, in order to initially set the prjWk and prkWk
         pinfo.prjWk := !raw(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i))
         pinfo.prkWk := !raw(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i))
     }
     
     io.dif.srat.renameTable := srat.io.dif.renameTable
-    io.dif.flst.freeList    := flst.io.dif.freeList
+    io.dif.fList.fList    := fList.io.dif.fList
 }

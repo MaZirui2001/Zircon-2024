@@ -15,7 +15,7 @@ class FreeListCommitIO extends Bundle{
 }
 
 class FreeListDiffIO extends Bundle{
-    val freeList   = Output(Vec(npreg-32, UInt(wpreg.W)))
+    val fList   = Output(Vec(npreg-32, UInt(wpreg.W)))
 }
 
 class FreeListIO extends Bundle{
@@ -27,7 +27,7 @@ class FreeListIO extends Bundle{
 class PRegFreeList extends Module{
     val io = IO(new FreeListIO)
 
-    val flst = Module(new ClusterIndexFIFO(UInt(wpreg.W), npreg-32, ncommit, ndcd, 0, 0, true, Some(Seq.tabulate(npreg-32)(i => (i+32).U(wpreg.W)))))
+    val fList = Module(new ClusterIndexFIFO(UInt(wpreg.W), npreg-32, ncommit, ndcd, 0, 0, true, Some(Seq.tabulate(npreg-32)(i => (i+32).U(wpreg.W)))))
     /* calculate the port map
         portMap(i) means io port i is connected to the portMap(i)th enq port
         it traverse is the enq port mapped to the io port
@@ -40,12 +40,12 @@ class PRegFreeList extends Module{
         validPtrFte = Mux(io.fte.deq(i).ready, ShiftAdd1(validPtrFte), validPtrFte)
     }
     // rename stage
-    flst.io.deq.zipWithIndex.foreach{ case (d, i) =>
+    fList.io.deq.zipWithIndex.foreach{ case (d, i) =>
         d.ready := portMapTransFte(i).orR
     }
     io.fte.deq.zipWithIndex.foreach{ case (d, i) =>
-        d.valid := flst.io.deq(i).valid
-        d.bits := Mux1H(portMapFte(i), flst.io.deq.map(_.bits))
+        d.valid := fList.io.deq(i).valid
+        d.bits := Mux1H(portMapFte(i), fList.io.deq.map(_.bits))
     }
     // commit stage
     val portMapEnq = VecInit.fill(ncommit)(0.U(ncommit.W))
@@ -56,12 +56,12 @@ class PRegFreeList extends Module{
         portMapEnq(i) := Mux(io.cmt.enq(i).valid, validPtrEnq, 0.U)
         validPtrEnq = Mux(io.cmt.enq(i).valid, ShiftAdd1(validPtrEnq), validPtrEnq)
     }
-    flst.io.enq.zipWithIndex.foreach{ case (e, i) =>
+    fList.io.enq.zipWithIndex.foreach{ case (e, i) =>
         e.valid := portMapTransEnq(i).orR
         e.bits := Mux1H(portMapTransEnq(i), io.cmt.enq.map(_.bits))
     }
     io.cmt.enq.foreach(_.ready := DontCare)
-    flst.io.flush := ShiftRegister(io.cmt.flush, 1, false.B, true.B)
-    io.dif.freeList := flst.io.dbgFIFO
+    fList.io.flush := ShiftRegister(io.cmt.flush, 1, false.B, true.B)
+    io.dif.fList := fList.io.dbgFIFO
 }
     

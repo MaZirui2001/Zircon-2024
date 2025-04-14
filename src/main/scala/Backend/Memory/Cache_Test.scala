@@ -19,9 +19,9 @@ class L2CacheTest extends Module{
 }
 
 class CacheTestIO extends Bundle {
-    val iPp = new IPipelineIO
+    val iPP = new IPipelineIO
     val iMmu = new IMMUIO
-    val dPp = new DPipelineIO
+    val dPP = new DPipelineIO
     val dMmu = new DMMUIO
     val dCmt = new DCommitIO
 
@@ -36,11 +36,11 @@ class CacheTest extends Module {
     val l2cache = Module(new L2Cache)
     val arb = Module(new AXIArbiter)
 
-    icache.io.pp <> io.iPp
+    icache.io.pp <> io.iPP
     icache.io.mmu <> io.iMmu
     icache.io.l2 <> l2cache.io.ic
 
-    dcache.io.pp <> io.dPp
+    dcache.io.pp <> io.dPP
     dcache.io.mmu <> io.dMmu
     dcache.io.cmt <> io.dCmt
     dcache.io.l2 <> l2cache.io.dc
