@@ -6,6 +6,8 @@ import scala.util.control.Breaks._
 import chiseltest.internal.CachingAnnotation
 import firrtl2.options.TargetDirAnnotation
 import java.nio.file.{Paths, Path}
+import chiseltest.simulator.PlusArgsAnnotation
+
 
 class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "EmuMain"
@@ -25,12 +27,13 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
         .withAnnotations(Seq(
             CachingAnnotation,
             VerilatorBackendAnnotation, 
-            WriteVcdAnnotation, 
+            // WriteFstAnnotation,
+            
             TargetDirAnnotation(relativeTestDir),
             VerilatorFlags(Seq(
                 "-j", "16", 
                 "--no-MMD", "--cc", "--exe",
-                // "--threads", "4"  // 增加线程数
+                "--threads", "2",
             ))))
         { c =>
             c.clock.setTimeout(0)

@@ -2,6 +2,7 @@
 import spire.math.UInt
 import scala.collection.mutable
 import scala.util.Random
+import chiseltest._
 
 object ReadState extends Enumeration {
     val IDLE, AR, R = Value
@@ -18,68 +19,78 @@ class AXIWriteItem(var awready: Boolean, var wready: Boolean, var bvalid: Boolea
 
 
 class AXIMemory(randDelay: Boolean){
-    private var mem: mutable.Map[UInt, MemoryItem] = mutable.Map()
-    private var memRef: mutable.Map[UInt, MemoryItem] = mutable.Map()
-    private val device      = new Device
+    private var mem: mutable.Map[UInt, MemoryItem] = mutable.Map().withDefaultValue(new MemoryItem(UInt(0), Array.fill(4)(0)))
+    private var memRef: mutable.Map[UInt, MemoryItem] = mutable.Map().withDefaultValue(new MemoryItem(UInt(0), Array.fill(4)(0)))
+    private val device = new Device
 
     
-    // 2. 缓存一些常用的掩码和移位值
-    private val BYTEMASK = 0xffL
-    private val WORDMASK = 0xffffffffL
+    // 预计算常用的掩码
+    private val BYTE_MASKS = Array(0xffL, 0xff00L, 0xff0000L, 0xff000000L)
+    private val WORD_MASK = 0xffffffffL
     
-    var readConfig: AXIReadConfig = new AXIReadConfig(0, 0, 0, 0, ReadState.IDLE)
-    var writeConfig: AXIWriteConfig = new AXIWriteConfig(0, 0, 0, 0, 0, false, WriteState.IDLE)
+    val readConfig:  AXIReadConfig  = new AXIReadConfig(0, 0, 0, 0, ReadState.IDLE)
+    val writeConfig: AXIWriteConfig = new AXIWriteConfig(0, 0, 0, 0, 0, false, WriteState.IDLE)
 
-    // 添加共享的Random对象
-    private val rand = new Random()
+    private val readItem = new AXIReadItem(false, UInt(0), false, false)
+    private val writeItem = new AXIWriteItem(false, false, false)
+
+    // 预生成随机数序列
+    private val RANDOM_SEQ_SIZE = 1024
+    private val randomSeq = Array.fill(RANDOM_SEQ_SIZE)(Random.nextInt(4))
+    private var randomSeqIndex = 0
+    
+    // 获取下一个随机数
+    private def nextRandom(): Int = {
+        val result = randomSeq(randomSeqIndex)
+        randomSeqIndex = (randomSeqIndex + 1) % RANDOM_SEQ_SIZE
+        result
+    }
 
     // read from the memory
     def read(
-        axi: AXIIO
+        cpu: CPU
     ): AXIReadItem = {
-        val readItem = new AXIReadItem(false, UInt(0), false, false)
+        readItem.arready = false
+        readItem.rdata = UInt(0)
+        readItem.rvalid = false
+        readItem.rlast = false
+        val axi = cpu.io.axi
         readConfig.state match {
             // record the read configuration
             case ReadState.IDLE => {
-                assert(axi.arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
-                if(axi.arvalid.litToBoolean){
-                    readConfig = new AXIReadConfig(
-                        axi.araddr.litValue.toInt,
-                        axi.arlen.litValue.toInt, 
-                        1 << axi.arsize.litValue.toInt, 
-                        axi.arburst.litValue.toInt, 
-                        ReadState.AR
-                    )
+                if(axi.arvalid.peek().litToBoolean){
+                    readConfig.araddr = axi.araddr.peek().litValue.toInt
+                    readConfig.arlen = axi.arlen.peek().litValue.toInt
+                    readConfig.arsize = 1 << axi.arsize.peek().litValue.toInt
+                    readConfig.arburst = axi.arburst.peek().litValue.toInt
+                    readConfig.state = ReadState.AR
                 }
             }
             // address handshaking
             case ReadState.AR => {
-                // 使用共享的rand对象
-                readItem.arready = if(randDelay) (rand.nextInt(4) != 0) else true
-                // println("arready: " + readItem.arready.litToBoolean + " arvalid: " + arvalid.litToBoolean)
-                if(readItem.arready && axi.arvalid.litToBoolean){
+                readItem.arready = if(randDelay) (nextRandom() != 0) else true
+                if(readItem.arready && axi.arvalid.peek().litToBoolean){
                     readConfig.state = ReadState.R
                 }
             }
             case ReadState.R => {
-                // 使用共享的rand对象
-                readItem.rvalid = if(randDelay) (rand.nextInt(4) != 0) else true
+                readItem.rvalid = if(randDelay) (nextRandom() != 0) else true
                 if(readItem.rvalid) {
                     val wordAddr = UInt(readConfig.araddr) >> 2  // 使用右移替代除法
                     val wordOffset = readConfig.araddr & 0x3  // 使用与操作替代取模
                     val shiftAmount = wordOffset << 3
-                    if(!mem.contains(wordAddr)){
-                        mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
-                    }
+                    // if(!mem.contains(wordAddr)){
+                    //     mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
+                    // }
                     readItem.rdata = ((mem(wordAddr).data >> shiftAmount))
                     // check if the last read
                     if(readConfig.arlen == 0){
                         readItem.rlast = true
-                        if(axi.rready.litToBoolean){
+                        if(axi.rready.peek().litToBoolean){
                             readConfig.state = ReadState.IDLE
                         }
                     }else{
-                        if(axi.rready.litToBoolean){
+                        if(axi.rready.peek().litToBoolean){
                             readConfig.arlen = readConfig.arlen - 1
                             readConfig.araddr = readConfig.araddr + readConfig.arsize
                         }
@@ -91,75 +102,64 @@ class AXIMemory(randDelay: Boolean){
     }
     // write to the memory
     def write(
-        axi: AXIIO,
+        cpu: CPU,   
         cycle: Int
     ): AXIWriteItem = {
-        val writeItem = new AXIWriteItem(false, false, false)
+        writeItem.awready = false
+        writeItem.wready = false
+        writeItem.bvalid = false
+        val axi = cpu.io.axi
         writeConfig.state match {
             // record the write configuration
             case WriteState.IDLE => {
-                assert(axi.arsize.litValue.toInt <= 2, "The minimum size of the data is 4 bytes")
-                if(axi.awvalid.litToBoolean){
-                    writeConfig = new AXIWriteConfig(
-                        axi.awaddr.litValue.toInt,
-                        axi.awlen.litValue.toInt, 
-                        1 << axi.awsize.litValue.toInt, 
-                        axi.awburst.litValue.toInt, 
-                        axi.wstrb.litValue.toInt, 
-                        axi.wlast.litToBoolean, 
-                        WriteState.AW
-                    )
+                if(axi.awvalid.peek().litToBoolean){
+                    writeConfig.awaddr = axi.awaddr.peek().litValue.toInt
+                    writeConfig.awlen = axi.awlen.peek().litValue.toInt
+                    writeConfig.awsize = 1 << axi.awsize.peek().litValue.toInt
+                    writeConfig.awburst = axi.awburst.peek().litValue.toInt
+                    writeConfig.wstrb = axi.wstrb.peek().litValue.toInt
+                    writeConfig.wlast = axi.wlast.peek().litToBoolean
+                    writeConfig.state = WriteState.AW
                 }
             }
             // address handshaking
             case WriteState.AW => {
-                // 使用共享的rand对象
-                writeItem.awready = if(randDelay) (rand.nextInt(4) != 0) else true
-                if(writeItem.awready && axi.awvalid.litToBoolean){
+                writeItem.awready = if(randDelay) (nextRandom() != 0) else true
+                if(writeItem.awready && axi.awvalid.peek().litToBoolean){
                     writeConfig.state = WriteState.W
                 }
             }
             case WriteState.W => {
-                writeItem.wready = if(randDelay) (rand.nextInt(4) != 0) else true
+                writeItem.wready = if(randDelay) (nextRandom() != 0) else true
                 if(writeItem.wready) {
                     val wordAddr = UInt(writeConfig.awaddr) >> 2
                     val wordOffset = writeConfig.awaddr & 0x3
-                    val shiftAmount = wordOffset << 3
                     val wstrb = writeConfig.wstrb << wordOffset
 
                     if((wordAddr >> 26) == UInt(0xa)) {
-                        // println(s"write to device: ${writeConfig.awaddr}, ${axi.wdata.litValue.toInt}")
-                        device.write(UInt(writeConfig.awaddr), axi.wdata.litValue.toByte)
+                        device.write(UInt(writeConfig.awaddr), axi.wdata.peek().litValue.toByte)
                     } else {
-                        if(!mem.contains(wordAddr)) {
-                        // println(s"wordAddr: ${wordAddr.toInt}")
-                            mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
-                        }
+                        val memItem = mem.getOrElseUpdate(wordAddr, new MemoryItem(UInt(0), Array.fill(4)(0)))
                         if(writeConfig.wstrb != 0) {
-                            val wdataShift = axi.wdata.litValue.toInt << shiftAmount
+                            val wdataShift = axi.wdata.peek().litValue.toInt << (wordOffset << 3)
                             (0 until 4).foreach{ i =>
                                 if((wstrb & (1 << i)) != 0){
-                                    mem(wordAddr).data = (mem(wordAddr).data & UInt(~(0xff << (i * 8))) | UInt(wdataShift) & UInt(0xff << (i * 8)))
-                                    mem(wordAddr).lastWrite(i) = cycle
+                                    memItem.data = (memItem.data & UInt(~BYTE_MASKS(i)) | UInt(wdataShift) & UInt(BYTE_MASKS(i)))
+                                    // mem(wordAddr).lastWrite(i) = cycle
                                 }
                             }
-                            // val wmask = BYTEMASK << shiftAmount
-                            // mem(wordAddr).data = (mem(wordAddr).data & ~wmask) | (wdataShift & wmask)
-                            // println(wdataShift.toHexString)
-                            mem(wordAddr).lastWrite(wordOffset) = cycle
                         }
                     }
                     
-                    if(axi.wlast.litToBoolean) {
+                    if(axi.wlast.peek().litToBoolean) {
                         writeConfig.state = WriteState.B
                     }
                     writeConfig.awaddr = writeConfig.awaddr + writeConfig.awsize
                 }
             }
             case WriteState.B => {
-                // 使用共享的rand对象
-                writeItem.bvalid = if(randDelay) (rand.nextInt(4) != 0) else true
-                if(writeItem.bvalid && axi.bready.litToBoolean){
+                writeItem.bvalid = if(randDelay) (nextRandom() != 0) else true
+                if(writeItem.bvalid && axi.bready.peek().litToBoolean){
                     writeConfig.state = WriteState.IDLE
                 }
             }
@@ -168,24 +168,21 @@ class AXIMemory(randDelay: Boolean){
     }
 
     def debugRead(addr: Int): (Int, Int) = {
-        val wordAddr = UInt(addr) / UInt(4)
-        val wordOffset = addr % 4
-        assert(memRef.contains(wordAddr), f"Address ${addr}%x is not in the memory")
-        ((memRef(wordAddr).data >> (wordOffset * 8)).toInt, memRef(wordAddr).lastWrite(wordOffset))
+        val wordAddr = UInt(addr) >> 2
+        val wordOffset = addr & 0x3
+        ((memRef(wordAddr).data >> (wordOffset << 3)).toInt, memRef(wordAddr).lastWrite(wordOffset))
     }
     def debugWrite(addr: Int, wdata: Int, wstrb: Int, cycle: Int): Unit = {
-        assert(addr % 4 == 0, "The address must be aligned to 4 bytes")
-        val wordAddr = UInt(addr) / UInt(4)
-        val wordOffset = addr % 4
+        val wordAddr = UInt(addr) >> 2
+        val wordOffset = addr & 0x3
         if(!mem.contains(wordAddr)){
             memRef(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
         }
         // println(f"addr: ${addr}%x, data: ${wdata}%x, strb: ${wstrb}%x")
         (0 until 4).foreach{ i =>
             if((wstrb & (1 << i)) != 0){
-                memRef(wordAddr).data = (memRef(wordAddr).data & UInt(~(0xff << (i * 8))) | UInt(wdata) & UInt(0xff << (i * 8)))
+                memRef(wordAddr).data = (memRef(wordAddr).data & UInt(~BYTE_MASKS(i)) | UInt(wdata) & UInt(BYTE_MASKS(i)))
                 memRef(wordAddr).lastWrite(i) = cycle
-                // if(wordAddr == 0x58c >> 2) println(cycle)
             }
         }
     }

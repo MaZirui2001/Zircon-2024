@@ -4,12 +4,18 @@ import chiseltest._
 import ZirconConfig.Commit.ncommit
 import ZirconConfig.RegisterFile.npreg
 
+import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.util.{Success, Failure}
+
 class Emulator{
     private val baseAddr    = UInt(0x80000000)
     private val memory      = new AXIMemory(true)
     private val rnmTable    = Array.fill(32)(UInt(0))
     private val simulator   = new Simulator
     private val statistic   = new Statistic
+    private var memAccessTime = 0L
     // private val cpu         = new CPU
 
     // debug
@@ -64,38 +70,54 @@ class Emulator{
     }
 
     def step(cpu: CPU, num: Int = 1): Int = {
+        var start = 0L
+        var end = 0L
         statistic.addCycles(num)
+        // 动态显示total cycles
+        Future {
+            while(true){
+                // printf("\rTotal cycles: %d", statistic.getTotalCycles())
+                printf("\rTotal cycles: %d, Mem access time: %d", statistic.getTotalCycles(), memAccessTime / 1000000000)
+                Thread.sleep(1000)
+            }
+        }
+        
         for(_ <- 0 until num){
+            start = System.nanoTime()
+
             // commit check
             for(i <- 0 until ncommit){
                 if(stallForTooLong()){
                     return -3
                 }
-                val cmt = cpu.io.dbg.cmt.deq(i).bits.peek()
-                val dbg = cpu.io.dbg.peek() 
+                val cmt     = cpu.io.dbg.cmt.deq(i).bits
+                val dbg     = cpu.io.dbg
                 if(cpu.io.dbg.cmt.deq(i).valid.peek().litToBoolean){
                     cyclesFromLastCommit = 0
-                    iring.push((UInt(cmt.fte.pc.litValue.toLong), UInt(cmt.fte.inst.litValue.toLong), UInt(cmt.fte.rd.litValue.toLong), UInt(cmt.fte.prd.litValue.toLong)))
+                    val cmtFteRd  = UInt(cmt.fte.rd.peek().litValue.toLong)
+                    val cmtFtePC  = UInt(cmt.fte.pc.peek().litValue.toLong)
+                    val cmtFteInst = UInt(cmt.fte.inst.peek().litValue.toLong)
+                    val cmtFtePrd  = UInt(cmt.fte.prd.peek().litValue.toLong)
+                    iring.push((cmtFtePC, cmtFteInst, cmtFteRd, cmtFtePrd))
                     statistic.addInsts(1)
                     // println(s"${cmt.fte.pc.litValue.toLong.toHexString}: ${cmt.fte.rd.litValue.toLong.toHexString} ${cmt.fte.prd.litValue.toLong.toHexString}")
-                    if(simEnd(UInt(cmt.fte.inst.litValue.toLong))){
-                        println(s"Total cycles: ${statistic.getTotalCycles()}, Total insts: ${statistic.getTotalInsts()}, IPC: ${statistic.getIpc()}")
-                        return (if(UInt(dbg.rf.rf(rnmTable(10).toInt).litValue.toLong) == UInt(0)) 0 else -1)
+                    if(simEnd(cmtFteInst)){
+                        return (if(UInt(dbg.rf.rf(rnmTable(10).toInt).peek().litValue.toLong) == UInt(0)) 0 else -1)
                     }
                     // update state
-                    rnmTableUpdate(UInt(cmt.fte.rd.litValue.toLong), UInt(cmt.fte.prd.litValue.toLong))
-                    val rdIdx = UInt(cmt.fte.rd.litValue.toLong)
-                    val rdDataDut = UInt(dbg.rf.rf(rnmTable(rdIdx.toInt).toInt).litValue.toLong)
-                    val pcDut = UInt(cmt.fte.pc.litValue.toLong)
-                    val testRes = difftestStep(rdIdx, rdDataDut, pcDut)
+                    rnmTableUpdate(cmtFteRd, cmtFtePrd)
+
+                    val rdDataDut = UInt(dbg.rf.rf(rnmTable(cmtFteRd.toInt).toInt).peek().litValue.toLong)
+                    val testRes   = difftestStep(cmtFteRd, rdDataDut, cmtFtePC)
                     if(!testRes){
                         return -2
                     }
                 }
+
             }
             // memory bus
-            val w = memory.write(cpu.io.axi.peek(), statistic.getTotalCycles())
-            val r = memory.read(cpu.io.axi.peek())
+            val w = memory.write(cpu, statistic.getTotalCycles())
+            val r = memory.read(cpu)
             cpu.io.axi.arready.poke(r.arready)
             cpu.io.axi.awready.poke(w.awready)
             cpu.io.axi.bvalid.poke(w.bvalid)
@@ -103,6 +125,8 @@ class Emulator{
             cpu.io.axi.rlast.poke(r.rlast)
             cpu.io.axi.rvalid.poke(r.rvalid)
             cpu.io.axi.wready.poke(w.wready)
+            end = System.nanoTime()
+            memAccessTime += (end - start)
             cyclesFromLastCommit += 1
             cpu.clock.step(1)
             // cycle += 1
