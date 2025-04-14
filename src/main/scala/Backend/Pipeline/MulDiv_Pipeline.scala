@@ -47,12 +47,14 @@ class MulDivPipeline extends Module {
     instPkgIs.prkLpv := io.iq.instPkg.bits.prkLpv << 1
 
     /* Regfile Stage */
+    val instPkgRFReplay = WireDefault(false.B)
     val instPkgRF = WireDefault(ShiftRegister(
-        Mux(segFlush(io.iq.instPkg.bits), 0.U.asTypeOf(new BackendPackage), instPkgIs), 
+        Mux(segFlush(io.iq.instPkg.bits) || instPkgRFReplay && div.io.busy, 0.U.asTypeOf(new BackendPackage), instPkgIs), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
-        io.cmt.flush || io.wk.rplyIn.replay || !div.io.busy
+        io.cmt.flush || !div.io.busy || instPkgRFReplay
     ))
+    instPkgRFReplay := segFlush(instPkgRF)
     io.rf.rd.prj := instPkgRF.prj
     io.rf.rd.prk := instPkgRF.prk
     instPkgRF.src1 := io.rf.rd.prjData
@@ -63,7 +65,7 @@ class MulDivPipeline extends Module {
         Mux(segFlush(instPkgRF), 0.U.asTypeOf(new BackendPackage), instPkgRF), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
-        io.cmt.flush || io.wk.rplyIn.replay || !div.io.busy
+        io.cmt.flush || !div.io.busy
     ))
 
     // multiply

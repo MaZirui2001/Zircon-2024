@@ -167,12 +167,12 @@ class DCache extends Module {
     val c1s3In = (new DChannel1Stage2Signal)(c1s2, io.mmu, VecInit(tagC1s2), VecInit(dataC1s2), hitC1s2, lruTab.rdata(0))
     // miss check: when not latest but uncache, must not miss, for later
     val readMiss = c1s2.rreq && (io.mmu.uncache || !hitC1s2.orR) && (c1s2.isLatest || !io.mmu.uncache)
-    val writeMiss = c1s2.wreq && io.mmu.uncache
+    val writeMiss = false.B
     
     missC1 := Mux(fsm.io.cc.cmiss, false.B, Mux(missC1 || sbFull, missC1, (readMiss || writeMiss) && !io.cmt.flush))
 
     // stage 3
-    val c1s3       = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new DChannel1Stage2Signal), c1s3In), 1, 0.U.asTypeOf(new DChannel1Stage2Signal), !(missC1 || sbFull))
+    val c1s3       = ShiftRegister(Mux(io.cmt.flush, 0.U.asTypeOf(new DChannel1Stage2Signal), c1s3In), 1, 0.U.asTypeOf(new DChannel1Stage2Signal), !missC1 && (!sbFull || io.cmt.flush))
     assert(!c1s3.rreq || PopCount(c1s3.hit) <= 1.U, "DCache: channel 1: multiple hits")
     c1s3Wreq       := c1s3.wreq
     val lruC1s3    = lruTab.rdata(0)
