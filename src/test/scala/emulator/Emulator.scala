@@ -83,8 +83,6 @@ class Emulator{
         }
         
         for(_ <- 0 until num){
-            start = System.nanoTime()
-
             // commit check
             for(i <- 0 until ncommit){
                 if(stallForTooLong()){
@@ -115,9 +113,13 @@ class Emulator{
                 }
 
             }
+            start = System.nanoTime()
+
             // memory bus
             val w = memory.write(cpu, statistic.getTotalCycles())
             val r = memory.read(cpu)
+            end = System.nanoTime()
+            memAccessTime += (end - start)
             cpu.io.axi.arready.poke(r.arready)
             cpu.io.axi.awready.poke(w.awready)
             cpu.io.axi.bvalid.poke(w.bvalid)
@@ -125,8 +127,7 @@ class Emulator{
             cpu.io.axi.rlast.poke(r.rlast)
             cpu.io.axi.rvalid.poke(r.rvalid)
             cpu.io.axi.wready.poke(w.wready)
-            end = System.nanoTime()
-            memAccessTime += (end - start)
+
             cyclesFromLastCommit += 1
             cpu.clock.step(1)
             // cycle += 1

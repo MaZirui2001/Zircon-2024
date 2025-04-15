@@ -55,10 +55,10 @@ class MulDivPipeline extends Module {
         io.cmt.flush || !div.io.busy || instPkgRFReplay
     ))
     instPkgRFReplay := segFlush(instPkgRF)
-    io.rf.rd.prj := instPkgRF.prj
-    io.rf.rd.prk := instPkgRF.prk
-    instPkgRF.src1 := io.rf.rd.prjData
-    instPkgRF.src2 := io.rf.rd.prkData
+    io.rf.rd.prj    := instPkgRF.prj
+    io.rf.rd.prk    := instPkgRF.prk
+    instPkgRF.src1  := io.rf.rd.prjData
+    instPkgRF.src2  := io.rf.rd.prkData
 
     /* Execute Stage 1 */
     val instPkgEX1 = WireDefault(ShiftRegister(

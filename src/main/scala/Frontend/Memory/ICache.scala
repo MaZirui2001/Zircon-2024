@@ -62,9 +62,9 @@ class ICache extends Module {
     ICache has one channels, l1Way now is 2
     */
     // Memory arrays
-    val tagTab     = VecInit.fill(l1Way)(Module(new xilinxSinglePortRamReadFirst(l1Tag, l1IndexNum)).io)
+    val tagTab     = VecInit.fill(l1Way)(Module(new XilinxSinglePortRamReadFirst(l1Tag, l1IndexNum)).io)
     val vldTab     = VecInit.fill(l1Way)(Module(new AsyncRegRam(Bool(), l1IndexNum, 1, 1, false.B)).io)
-    val dataTab    = VecInit.fill(l1Way)(Module(new xilinxSinglePortRamReadFirst(icLineBits, l1IndexNum)).io)
+    val dataTab    = VecInit.fill(l1Way)(Module(new XilinxSinglePortRamReadFirst(icLineBits, l1IndexNum)).io)
     val lruTab     = Module(new AsyncRegRam(UInt(2.W), l1IndexNum, 1, 1, 1.U(2.W))).io
     
     // Utils

@@ -1,24 +1,24 @@
 import chisel3._
 import chisel3.util._
 
-class xilinxTrueDualPortReadFirstByteWrite_1ClockRam(NBCOL: Int, COLWIDTH: Int, RAMDEPTH: Int) extends BlackBox(Map( "NBCOL" -> NBCOL, "COLWIDTH" -> COLWIDTH, "RAMDEPTH" -> RAMDEPTH)) with HasBlackBoxInline {
+class XilinxTrueDualPortReadFirstByteWrite1ClockRam(NBCOL: Int, COLWIDTH: Int, RAMDEPTH: Int) extends BlackBox(Map( "NBCOL" -> NBCOL, "COLWIDTH" -> COLWIDTH, "RAMDEPTH" -> RAMDEPTH)) with HasBlackBoxInline {
     val io = IO(new Bundle {
         val addra = Input(UInt(log2Ceil(RAMDEPTH).W))
         val addrb = Input(UInt(log2Ceil(RAMDEPTH).W))
-        val dina = Input(UInt((NBCOL*COLWIDTH).W))
-        val dinb = Input(UInt((NBCOL*COLWIDTH).W))
-        val clka = Input(Clock())
-        val wea = Input(UInt(NBCOL.W))
-        val web = Input(UInt(NBCOL.W))
-        val ena = Input(Bool())
-        val enb = Input(Bool())
+        val dina  = Input(UInt((NBCOL*COLWIDTH).W))
+        val dinb  = Input(UInt((NBCOL*COLWIDTH).W))
+        val clka  = Input(Clock())
+        val wea   = Input(UInt(NBCOL.W))
+        val web   = Input(UInt(NBCOL.W))
+        val ena   = Input(Bool())
+        val enb   = Input(Bool())
         val douta = Output(UInt((NBCOL*COLWIDTH).W))
         val doutb = Output(UInt((NBCOL*COLWIDTH).W))
     })
-    val module = "xilinxTrueDualPortReadFirstByteWrite_1ClockRam.sv"
+    val module = "XilinxTrueDualPortReadFirstByteWrite1ClockRam.sv"
     setInline(module,
 """
-|module xilinxTrueDualPortReadFirstByteWrite_1ClockRam #(
+|module XilinxTrueDualPortReadFirstByteWrite1ClockRam #(
 |  parameter NBCOL = 4,                           // Specify number of columns (number of bytes)
 |  parameter COLWIDTH = 9,                        // Specify column width (byte width, typically 8 or 9)
 |  parameter RAMDEPTH = 1024                     // Specify RAM depth (number of entries)

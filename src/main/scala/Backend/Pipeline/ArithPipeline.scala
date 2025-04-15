@@ -95,18 +95,18 @@ class ArithPipeline extends Module {
     branch.io.src2          := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEX.src2)
     branch.io.pc            := instPkgEX.pc
     branch.io.imm           := instPkgEX.imm
-    branch.io.predOffset   := instPkgEX.predOffset
+    branch.io.predOffset    := instPkgEX.predOffset
 
-    instPkgEX.rfWdata    := alu.io.res
-    instPkgEX.result      := branch.io.jumpTgt
-    instPkgEX.jumpEn     := branch.io.realJp
-    instPkgEX.predFail   := branch.io.predFail
-    instPkgEX.nxtCmtEn  := !instPkgEX.op(4)
+    instPkgEX.rfWdata       := alu.io.res
+    instPkgEX.result        := branch.io.jumpTgt
+    instPkgEX.jumpEn        := branch.io.realJp
+    instPkgEX.predFail      := branch.io.predFail
+    instPkgEX.nxtCmtEn      := !instPkgEX.op(4)
 
     // forward
-    io.fwd.instPkgEX      := instPkgEX
-    io.fwd.src1Fwd.ready   := DontCare
-    io.fwd.src2Fwd.ready   := DontCare 
+    io.fwd.instPkgEX        := instPkgEX
+    io.fwd.src1Fwd.ready    := DontCare
+    io.fwd.src2Fwd.ready    := DontCare 
 
     /* Write Back Stage */
     val instPkgWB = WireDefault(ShiftRegister(
@@ -123,8 +123,8 @@ class ArithPipeline extends Module {
     io.cmt.wdata        := (new ROBBackendEntry)(instPkgWB)
     // regfile
     io.rf.wr.prd        := instPkgWB.prd
-    io.rf.wr.prdVld    := instPkgWB.rdVld
-    io.rf.wr.prdData   := instPkgWB.rfWdata
+    io.rf.wr.prdVld     := instPkgWB.rdVld
+    io.rf.wr.prdData    := instPkgWB.rfWdata
     // forward
-    io.fwd.instPkgWB  := instPkgWB
+    io.fwd.instPkgWB    := instPkgWB
 }

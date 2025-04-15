@@ -72,7 +72,7 @@ class PreDecoder extends Module {
     val isJalr = inst(6, 0) === 0x67.U
     val isJal  = inst(6, 0) === 0x6f.U
     val isBr   = inst(6, 0) === 0x63.U
-    val isnJ  = !(isJalr || isJal || isBr)
+    val isnJ   = !(isJalr || isJal || isBr)
 
     val imm = Mux1H(Seq(
         isJal  -> SE(inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21) ## 0.U(1.W)),

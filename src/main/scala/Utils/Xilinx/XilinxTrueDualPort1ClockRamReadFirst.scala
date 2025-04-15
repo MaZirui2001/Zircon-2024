@@ -1,25 +1,25 @@
 import chisel3._
 import chisel3.util._
 
-class xilinxTrueDualPortReadFirst_1ClockRam(RAMWIDTH: Int, RAMDEPTH: Int) extends BlackBox(Map( "RAMWIDTH" -> RAMWIDTH,
+class XilinxTrueDualPortReadFirst1ClockRam(RAMWIDTH: Int, RAMDEPTH: Int) extends BlackBox(Map( "RAMWIDTH" -> RAMWIDTH,
                                                                                                 "RAMDEPTH" -> RAMDEPTH)) with HasBlackBoxInline {
     val io = IO(new Bundle {
         val addra = Input(UInt(log2Ceil(RAMDEPTH).W))
         val addrb = Input(UInt(log2Ceil(RAMDEPTH).W))
-        val dina = Input(UInt(RAMWIDTH.W))
-        val dinb = Input(UInt(RAMWIDTH.W))
-        val clka = Input(Clock())
-        val wea = Input(Bool())
-        val web = Input(Bool())
-        val ena = Input(Bool())
-        val enb = Input(Bool())
+        val dina  = Input(UInt(RAMWIDTH.W))
+        val dinb  = Input(UInt(RAMWIDTH.W))
+        val clka  = Input(Clock())
+        val wea   = Input(Bool())
+        val web   = Input(Bool())
+        val ena   = Input(Bool())
+        val enb   = Input(Bool())
         val douta = Output(UInt(RAMWIDTH.W))
         val doutb = Output(UInt(RAMWIDTH.W))
     })
-    val module = "xilinxTrueDualPortReadFirst_1ClockRam.sv"
+    val module = "XilinxTrueDualPortReadFirst1ClockRam.sv"
     setInline(module,
 """
-| module xilinxTrueDualPortReadFirst_1ClockRam #(
+| module XilinxTrueDualPortReadFirst1ClockRam #(
 |   parameter RAMWIDTH = 18,                       // Specify RAM data width
 |   parameter RAMDEPTH = 1024                     // Specify RAM depth (number of entries)
 | ) (

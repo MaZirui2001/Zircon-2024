@@ -79,7 +79,7 @@ class ICacheFSM extends Module {
             when(!io.cc.stall) {
                 io.cc.lruUpd := ~lruReg
                 io.cc.tagvWe := lruReg.asBools
-                io.cc.memWe := lruReg.asBools
+                io.cc.memWe  := lruReg.asBools
             }
         }
 
@@ -87,7 +87,7 @@ class ICacheFSM extends Module {
             mState := mPause
             // io.cc.addrOH := 2.U  // choose s2 addr
             io.cc.addrOH := Mux(io.cc.flush, 1.U, 2.U)
-            io.cc.cmiss := true.B
+            io.cc.cmiss  := true.B
         }
 
         is(mPause) {

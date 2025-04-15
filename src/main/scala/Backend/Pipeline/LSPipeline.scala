@@ -113,7 +113,7 @@ class LSPipeline extends Module {
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
-    instPkgWB.rfWdata := dc.io.pp.rdata
+    instPkgWB.rfWdata   := dc.io.pp.rdata
     // rob
     io.cmt.widx.offset  := UIntToOH(instPkgWB.robIdx.offset)
     io.cmt.widx.qidx    := UIntToOH(instPkgWB.robIdx.qidx)
@@ -125,5 +125,5 @@ class LSPipeline extends Module {
     io.rf.wr.prdVld     := instPkgWB.rdVld
     io.rf.wr.prdData    := instPkgWB.rfWdata
     // forward
-    io.fwd.instPkgWB   := instPkgWB
+    io.fwd.instPkgWB    := instPkgWB
 }

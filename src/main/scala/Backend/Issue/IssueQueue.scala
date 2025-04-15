@@ -138,7 +138,7 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
     val freeIQ      = fList.io.deq.map((_.bits >> log2Ceil(len)))
     val freeItem    = fList.io.deq.map(_.bits(log2Ceil(len)-1, 0))
     val enqEntries  = WireDefault(VecInit(io.enq.map(_.bits)))
-    fList.io.flush   := false.B
+    fList.io.flush  := false.B
 
     /* wake up */
     iq.foreach{case (qq) =>
@@ -204,7 +204,7 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
         }
     }
 
-    var fListInsertPtr     = 1.U(n.W)
+    var fListInsertPtr    = 1.U(n.W)
     val portMapFlst       = VecInit.fill(dw)(0.U(dw.W))
     val portMapTransFlst  = Transpose(portMapFlst)
     val readyToRecycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.instExi || e.item.prjLpv.orR || e.item.prkLpv.orR) } }

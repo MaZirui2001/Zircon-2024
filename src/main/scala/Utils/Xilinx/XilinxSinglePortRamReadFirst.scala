@@ -2,20 +2,20 @@
 import chisel3._
 import chisel3.util._
 
-class xilinxSinglePortRamReadFirst(RAMWIDTH: Int, RAMDEPTH: Int) extends BlackBox(Map( "RAMWIDTH" -> RAMWIDTH,
+class XilinxSinglePortRamReadFirst(RAMWIDTH: Int, RAMDEPTH: Int) extends BlackBox(Map( "RAMWIDTH" -> RAMWIDTH,
                                                                                                 "RAMDEPTH" -> RAMDEPTH)) with HasBlackBoxInline {
     val io = IO(new Bundle {
         val addra = Input(UInt(log2Ceil(RAMDEPTH).W))
-        val dina = Input(UInt(RAMWIDTH.W))
-        val clka = Input(Clock())
-        val wea = Input(Bool())
-        val ena = Input(Bool())
+        val dina  = Input(UInt(RAMWIDTH.W))
+        val clka  = Input(Clock())
+        val wea   = Input(Bool())
+        val ena   = Input(Bool())
         val douta = Output(UInt(RAMWIDTH.W))
     })
-    val module = "xilinxSinglePortRamReadFirst.sv"
+    val module = "XilinxSinglePortRamReadFirst.sv"
     setInline(module,
 """
-| module xilinxSinglePortRamReadFirst #(
+| module XilinxSinglePortRamReadFirst #(
 |   parameter RAMWIDTH = 18,                       // Specify RAM data width
 |   parameter RAMDEPTH = 1024                     // Specify RAM depth (number of entries)
 | ) (
