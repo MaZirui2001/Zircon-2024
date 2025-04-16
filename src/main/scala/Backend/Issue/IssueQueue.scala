@@ -82,6 +82,9 @@ class IQEntry(num: Int) extends Bundle {
     }
 }
 
+class IssueQueueDBGIO extends Bundle {
+    val fullCycle = UInt(64.W)
+}
 
 class IssueQueueIO(ew: Int, dw: Int, num: Int) extends Bundle {
     val enq        = Vec(ew, Flipped(DecoupledIO(new BackendPackage)))
@@ -90,6 +93,7 @@ class IssueQueueIO(ew: Int, dw: Int, num: Int) extends Bundle {
     val rplyBus    = Input(new ReplayBusPkg)
     val stLeft     = Output(UInt(log2Ceil(num).W))
     val flush      = Input(Bool())
+    val dbg        = Output(new IssueQueueDBGIO)
 }
 
 class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Module {
@@ -233,4 +237,7 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
             }
         }
     }
+    val fullCycleReg = RegInit(0.U(64.W))
+    fullCycleReg := fullCycleReg + !io.enq.map(_.ready).reduce(_ && _)
+    io.dbg.fullCycle := fullCycleReg
 }

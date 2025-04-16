@@ -16,10 +16,17 @@ class FrontendMemoryIO extends Bundle {
     val l2      = Flipped(new L2ICacheIO)
 }
 
+class FrontendDBGIO extends Bundle {
+    val ic      = new ICacheDBG
+    val fq      = new FetchQueueDBGIO
+    val rnm     = new RenameDBGIO
+}
+
 class FrontendIO extends Bundle {
     val dsp     = new FrontendDispatchIO
     val mem     = new FrontendMemoryIO
     val cmt     = new FrontendCommitIO
+    val dbg     = new FrontendDBGIO
 }
 
 class Frontend extends Module {
@@ -121,4 +128,7 @@ class Frontend extends Module {
         dsp.bits    := pkg 
         dsp.valid   := pkg.valid
     }
+    io.dbg.ic := ic.io.dbg
+    io.dbg.fq := fq.io.dbg
+    io.dbg.rnm := rnm.io.dbg
 }

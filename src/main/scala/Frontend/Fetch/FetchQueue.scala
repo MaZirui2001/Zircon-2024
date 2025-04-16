@@ -7,10 +7,16 @@ class FetchQueueCommitIO extends Bundle {
     val flush   = Input(Bool())
 }
 
+class FetchQueueDBGIO extends Bundle {
+    val fullCycle = Output(UInt(64.W))
+    val emptyCycle = Output(UInt(64.W))
+}
+
 class FetchQueueIO extends Bundle {
     val enq     = Vec(nfch, Flipped(Decoupled(new FrontendPackage)))
     val deq     = Vec(ndcd, Decoupled(new FrontendPackage))
     val cmt     = new FetchQueueCommitIO
+    val dbg     = new FetchQueueDBGIO
 }
 
 class FetchQueue extends Module {
@@ -21,4 +27,12 @@ class FetchQueue extends Module {
     q.io.enq <> io.enq
     q.io.deq <> io.deq
     q.io.flush := io.cmt.flush
+
+    val fullCycleReg = RegInit(0.U(64.W))
+    fullCycleReg := fullCycleReg + !io.enq.map(_.ready).reduce(_ && _)
+    io.dbg.fullCycle := fullCycleReg
+
+    val emptyCycleReg = RegInit(0.U(64.W))
+    emptyCycleReg := emptyCycleReg + !io.deq.map(_.valid).reduce(_ || _)
+    io.dbg.emptyCycle := emptyCycleReg
 }

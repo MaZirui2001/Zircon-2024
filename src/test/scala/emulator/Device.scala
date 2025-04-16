@@ -11,7 +11,9 @@ class Device {
     }
 
     def uart_write(data: Byte): Unit = {
-        printf("%c", data)
+        // printf("%c", data)
+        print(data.toChar)
+        // Console.flush()
     }
 
     def write(addr: UInt, data: Byte): Unit = {

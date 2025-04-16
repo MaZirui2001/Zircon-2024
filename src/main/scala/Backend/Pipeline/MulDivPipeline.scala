@@ -8,6 +8,10 @@ class MulDivCommitIO extends PipelineCommitIO
 
 class MulDivIQIO extends PipelineIQIO
 
+class MulDivDBGIO extends PipelineDBGIO {
+    val srt2 = new SRT2DBG
+}
+
 // class MulDivRegfileIO extends PipelineRegfileIO
 
 class MulDivForwardIO extends Bundle {
@@ -28,6 +32,7 @@ class MulDivPipelineIO extends Bundle {
     val cmt = new MulDivCommitIO
     val fwd = new MulDivForwardIO
     val wk  = new MulDivWakeupIO
+    val dbg = new MulDivDBGIO
 }
 
 class MulDivPipeline extends Module {
@@ -126,4 +131,6 @@ class MulDivPipeline extends Module {
     // forward
     io.fwd.instPkgWB   := instPkgWB
 
+    /* Debug */
+    io.dbg.srt2 := div.io.dbg
 }

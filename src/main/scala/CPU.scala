@@ -7,6 +7,10 @@ import ZirconConfig.Commit._
 class CPUDebugIO extends Bundle {
     val cmt = new ROBCommitIO
     val rf  = new RegfileDBGIO
+    val fte = new FrontendDBGIO
+    val bke = new BackendDBGIO
+    val dsp = new ROBDebugIO
+    val l2  = Output(Vec(2, new L2CacheDBG))
 }
 
 
@@ -41,4 +45,10 @@ class CPU extends Module {
 
     io.dbg.cmt <> rob.io.cmt
     io.dbg.rf  <> bke.io.dbg.rf
+
+    // debug
+    io.dbg.fte <> fte.io.dbg
+    io.dbg.bke <> bke.io.dbg
+    io.dbg.l2  <> l2.io.dbg
+    io.dbg.dsp <> rob.io.dbg
 }

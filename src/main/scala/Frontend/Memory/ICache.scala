@@ -50,10 +50,20 @@ class IMMUIO extends Bundle {
     val uncache     = Input(Bool())
 }
 
+abstract class CacheDBG extends Bundle {
+    val visit       = UInt(64.W)
+    val hit         = UInt(64.W)
+}
+
+class ICacheDBG extends CacheDBG {
+    val missCycle   = UInt(64.W)
+}
+
 class ICacheIO extends Bundle {
     val pp          = new IPipelineIO
     val mmu         = new IMMUIO
     val l2          = Flipped(new L2ICacheIO)
+    val dbg         = Output(new ICacheDBG)
 }
 
 class ICache extends Module {
@@ -154,5 +164,6 @@ class ICache extends Module {
             (rline >> (32*i)).asTypeOf(Vec(l1Line/4, UInt(32.W)))(offset(c1s3.vaddr) >> 2)
         )
     }
+    io.dbg := fsm.io.dbg
 
 }

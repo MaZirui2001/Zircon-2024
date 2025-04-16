@@ -35,9 +35,12 @@ class L2CacheFSMMEMIO(ic: Boolean) extends Bundle {
     val wlast   = if(ic) None else Some(Output(Bool()))
 }
 
+class L2CacheDBG extends CacheDBG
+
 class L2CacheFSMIO(ic: Boolean) extends Bundle {
     val cc      = new L2CacheFSMCacheIO(ic)
     val mem     = new L2CacheFSMMEMIO(ic)
+    val dbg     = Output(new L2CacheDBG)
 }
 
 class L2CacheFSM(ic: Boolean = false) extends Module{
@@ -69,6 +72,13 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
     io.mem.rreq    := false.B
     val hit        = (if(ic) ioc.hit.orR else ioc.hit(3, 2).orR)
     val hitBits    = (if(ic) ioc.hit(1, 0) else ioc.hit(3, 2)) // for wen of mem, tag and lru
+
+    val visitReg   = RegInit(0.U(64.W))
+    val hitReg     = RegInit(0.U(64.W))
+    visitReg       := visitReg + (mState === mIdle && ioc.rreq && !ioc.uncache)
+    hitReg         := hitReg + (mState === mIdle && ioc.rreq && !ioc.uncache && hit)
+    io.dbg.visit   := visitReg
+    io.dbg.hit     := hitReg
     switch(mState){
         is(mIdle){
             when(ioc.rreq || iocWreq){

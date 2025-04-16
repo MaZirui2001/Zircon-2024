@@ -8,27 +8,30 @@ import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Success, Failure}
+import java.io.{PrintStream, FileOutputStream}
+import java.lang.management.{ManagementFactory, ThreadInfo, ThreadMXBean}
+
 
 class Emulator{
     private val baseAddr    = UInt(0x80000000)
     private val memory      = new AXIMemory(true)
-    private val rnmTable    = Array.fill(32)(UInt(0))
+    private val rnmTable    = Array.fill(32)(0)
     private val simulator   = new Simulator
     private val statistic   = new Statistic
     private var memAccessTime = 0L
     // private val cpu         = new CPU
 
     // debug
-    val iring = new RingBuffer[(UInt, UInt, UInt, UInt)](8)
+    val iring = new RingBuffer[(Int, Int, Int, Int)](8)
     private var cyclesFromLastCommit = 0
 
     // 缓存常用值，避免重复计算
     private val stallThreshold = 1000
-    private val endInstruction = UInt(0x80000000)
+    private val endInstruction = 0x80000000
 
     // var cycle = 0
 
-    def simEnd(instruction: UInt): Boolean = {
+    def simEnd(instruction: Int): Boolean = {
         instruction == endInstruction
     }
     def stallForTooLong(): Boolean = {
@@ -36,7 +39,7 @@ class Emulator{
     }
 
     /* difftest */
-    def difftestPC(pcDut: UInt): Boolean = {
+    def difftestPC(pcDut: Int): Boolean = {
         val pcRef = simulator.pcDump()
         if(pcRef != pcDut){
             println(s"PC mismatch at ref: ${pcRef.toInt.toHexString}, dut: ${pcDut.toInt.toHexString}")
@@ -44,15 +47,15 @@ class Emulator{
         }
         true
     }
-    def difftestRF(rdIdx: UInt, rdDataDut: UInt, pcDut: UInt): Boolean = {
+    def difftestRF(rdIdx: Int, rdDataDut: Int, pcDut: Int): Boolean = {
         val rfRef = simulator.rfDump()
-        if(rfRef(rdIdx.toInt) != rdDataDut){
+        if(rfRef(rdIdx) != rdDataDut){
             println(s"RF mismatch at pc ${pcDut.toInt.toHexString}, reg ${rdIdx.toInt}(preg: ${rnmTable(rdIdx.toInt).toInt}), ref: ${rfRef(rdIdx.toInt).toLong.toHexString}, dut: ${rdDataDut.toLong.toHexString}")
             return false
         }
         true
     }
-    def difftestStep(rdIdx: UInt, rdDataDut: UInt, pcDut: UInt, step: Int = 1): Boolean = {
+    def difftestStep(rdIdx: Int, rdDataDut: Int, pcDut: Int, step: Int = 1): Boolean = {
         if(!difftestPC(pcDut)){
             return false
         }
@@ -65,24 +68,28 @@ class Emulator{
         true
     }
     
-    def rnmTableUpdate(rd: UInt, prd: UInt): Unit = {
-        rnmTable(rd.toInt) = prd
+    def rnmTableUpdate(rd: Int, prd: Int): Unit = {
+        rnmTable(rd) = prd
     }
 
     def step(cpu: CPU, num: Int = 1): Int = {
         var start = 0L
         var end = 0L
-        statistic.addCycles(num)
-        // 动态显示total cycles
-        Future {
+        // statistic.addCycles(num)
+        
+        // 创建一个线程，等待其他线程都结束后，动态显示Total Cycles和IPC
+        Future{
             while(true){
-                // printf("\rTotal cycles: %d", statistic.getTotalCycles())
-                printf("\rTotal cycles: %d, Mem access time: %d", statistic.getTotalCycles(), memAccessTime / 1000000000)
+                print(s"\rTotal cycles: ${statistic.getTotalCycles()}, " +
+                      s"IPC: ${statistic.getIpc()}, " +
+                      s"Mem access time: ${memAccessTime / 1000000000} s")
                 Thread.sleep(1000)
             }
         }
-        
-        for(_ <- 0 until num){
+        var n = num
+        while(n != 0){
+            n -= 1
+            statistic.addCycles(1)
             // commit check
             for(i <- 0 until ncommit){
                 if(stallForTooLong()){
@@ -90,36 +97,50 @@ class Emulator{
                 }
                 val cmt     = cpu.io.dbg.cmt.deq(i).bits
                 val dbg     = cpu.io.dbg
+
                 if(cpu.io.dbg.cmt.deq(i).valid.peek().litToBoolean){
                     cyclesFromLastCommit = 0
-                    val cmtFteRd  = UInt(cmt.fte.rd.peek().litValue.toLong)
-                    val cmtFtePC  = UInt(cmt.fte.pc.peek().litValue.toLong)
-                    val cmtFteInst = UInt(cmt.fte.inst.peek().litValue.toLong)
-                    val cmtFtePrd  = UInt(cmt.fte.prd.peek().litValue.toLong)
+                    val cmtFteRd   = cmt.fte.rd.peek().litValue.toInt
+                    val cmtFtePC   = cmt.fte.pc.peek().litValue.toInt
+                    val cmtFteInst = cmt.fte.inst.peek().litValue.toInt
+                    val cmtFtePrd  = cmt.fte.prd.peek().litValue.toInt
+                    val cmtFtePred = cmt.fte.predType.peek().litValue.toInt
+                    val cmtFtePredFail = cmt.bke.predFail.peek().litToBoolean
+                    // iring: record the instruction
                     iring.push((cmtFtePC, cmtFteInst, cmtFteRd, cmtFtePrd))
+                    // statistic:
                     statistic.addInsts(1)
-                    // println(s"${cmt.fte.pc.litValue.toLong.toHexString}: ${cmt.fte.rd.litValue.toLong.toHexString} ${cmt.fte.prd.litValue.toLong.toHexString}")
+                    // jump
+                    statistic.addJump(cmtFtePred, cmtFtePredFail)
+                    // cache
+                    // end check
                     if(simEnd(cmtFteInst)){
-                        return (if(UInt(dbg.rf.rf(rnmTable(10).toInt).peek().litValue.toLong) == UInt(0)) 0 else -1)
+                        statistic.addCacheVisit(
+                            dbg.fte.ic.visit.peek().litValue.toInt, dbg.fte.ic.hit.peek().litValue.toInt, 
+                            dbg.bke.lsPP.dc(0).visit.peek().litValue.toInt, dbg.bke.lsPP.dc(0).hit.peek().litValue.toInt,
+                            dbg.bke.lsPP.dc(1).visit.peek().litValue.toInt, dbg.bke.lsPP.dc(1).hit.peek().litValue.toInt,
+                            dbg.l2(0).visit.peek().litValue.toInt, dbg.l2(0).hit.peek().litValue.toInt,
+                            dbg.l2(1).visit.peek().litValue.toInt, dbg.l2(1).hit.peek().litValue.toInt
+                        )
+                        statistic.addFrontendBlockCycle(cpu)
+                        statistic.addDispatchBlockCycle(cpu)
+                        statistic.addBackendBlockCycle(cpu)
+                        return (if(dbg.rf.rf(rnmTable(10)).peek().litValue.toInt == 0) 0 else -1)
                     }
-                    // update state
+                    // rnm table update
                     rnmTableUpdate(cmtFteRd, cmtFtePrd)
-
-                    val rdDataDut = UInt(dbg.rf.rf(rnmTable(cmtFteRd.toInt).toInt).peek().litValue.toLong)
-                    val testRes   = difftestStep(cmtFteRd, rdDataDut, cmtFtePC)
-                    if(!testRes){
+                    // difftest
+                    val rdDataDut = dbg.rf.rf(rnmTable(cmtFteRd)).peek().litValue.toInt
+                    if(!difftestStep(cmtFteRd, rdDataDut, cmtFtePC)){
                         return -2
                     }
                 }
 
             }
-            start = System.nanoTime()
-
             // memory bus
             val w = memory.write(cpu, statistic.getTotalCycles())
             val r = memory.read(cpu)
-            end = System.nanoTime()
-            memAccessTime += (end - start)
+
             cpu.io.axi.arready.poke(r.arready)
             cpu.io.axi.awready.poke(w.awready)
             cpu.io.axi.bvalid.poke(w.bvalid)
@@ -139,6 +160,10 @@ class Emulator{
         memory.loadFromFile(filename, baseAddr)
         simulator.memInit(filename)
     }
+    def statisticInit(testRunDir: String, imgName: String): Unit = {
+        statistic.setImgName(imgName)
+        statistic.setReportPath(testRunDir, imgName)
+    }
 
 
     /* print the instruction ring buffer */
@@ -157,6 +182,7 @@ class Emulator{
     def printStatistic(): Unit = {
         printIRing()
         println(s"Total cycles: ${statistic.getTotalCycles()}, Total insts: ${statistic.getTotalInsts()}, IPC: ${statistic.getIpc()}")
+        statistic.makeMarkdownReport()
     }
 
 }

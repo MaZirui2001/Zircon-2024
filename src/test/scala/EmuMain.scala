@@ -16,8 +16,6 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
         val testDir = Option(System.getenv("TEST_DIR")).getOrElse("test_run_dir")
         val pwd = System.getProperty("user.dir")
         val relativeTestDir = Paths.get(pwd).relativize(Paths.get(testDir)).toString
-        
-        // 预先创建测试目录，避免运行时创建
         val testDirPath = Paths.get(testDir)
         if (!java.nio.file.Files.exists(testDirPath)) {
             java.nio.file.Files.createDirectories(testDirPath)
@@ -28,7 +26,6 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
             CachingAnnotation,
             VerilatorBackendAnnotation, 
             // WriteFstAnnotation,
-            
             TargetDirAnnotation(relativeTestDir),
             VerilatorFlags(Seq(
                 "-j", "16", 
@@ -37,9 +34,9 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
             ))))
         { c =>
             c.clock.setTimeout(0)
-            // 关闭波型记录
             println("开始仿真")
             val emu = new Emulator()
+            // 解析IMG参数
             val imgPath = Option(System.getenv("IMG"))
             imgPath match {
                 case Some(path) => emu.memInit(path)
@@ -47,9 +44,13 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
                     println("没有提供镜像文件路径，使用默认镜像")
                     emu.memInit(null)
             }
+            // 通过IMG参数解析文件名（文件名是.前，最后一个/后）
+            val imgName = imgPath.getOrElse("default").split("/").last.split("\\.").head
+            emu.statisticInit(testDir, imgName)
+
             breakable {
                 while(true){
-                    val end = emu.step(c)
+                    val end = emu.step(c, -1)
                     if(end == 0){
                         emu.printStatistic()
                         println(Console.GREEN + "程序正常退出" + Console.RESET)

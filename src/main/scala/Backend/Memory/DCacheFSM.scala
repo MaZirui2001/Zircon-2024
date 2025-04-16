@@ -26,8 +26,8 @@ class DCacheFSMCacheIO extends Bundle {
     val c2Wreq      = Input(Bool())
     val sbLock      = Output(Bool())
     val flush       = Input(Bool())
-}
 
+}
 
 class DCacheFSML2IO extends Bundle {
     val rreq        = Output(Bool())
@@ -36,8 +36,10 @@ class DCacheFSML2IO extends Bundle {
 }
 
 class DCacheFSMIO extends Bundle {
-    val cc = new DCacheFSMCacheIO
-    val l2 = new DCacheFSML2IO
+    val cc   = new DCacheFSMCacheIO
+    val l2   = new DCacheFSML2IO
+    val dbg  = Output(new DCacheReadDBG)
+
 }
 
 
@@ -59,6 +61,19 @@ class DCacheFSM extends Module {
     io.cc.rbufClear    := false.B
     io.cc.sbLock       := false.B
     io.l2.rreq         := false.B
+
+    val visitReg       = RegInit(0.U(64.W))
+    val hitReg         = RegInit(0.U(64.W))
+    val missCycleReg   = RegInit(0.U(64.W))
+    val sbFullCycleReg = RegInit(0.U(64.W))
+    visitReg           := visitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache)
+    hitReg             := hitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache && io.cc.hit.orR)
+    missCycleReg       := missCycleReg + (mState =/= mIdle)
+    sbFullCycleReg     := sbFullCycleReg + io.cc.sbFull
+    io.dbg.visit       := visitReg
+    io.dbg.hit         := hitReg
+    io.dbg.missCycle   := missCycleReg
+    io.dbg.sbFullCycle := sbFullCycleReg
 
     // State transitions
     switch(mState) {

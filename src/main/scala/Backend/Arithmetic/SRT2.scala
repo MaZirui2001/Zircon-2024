@@ -10,6 +10,11 @@ class SRT2IO extends Bundle {
     val res   = Output(UInt(32.W))
     val busy  = Output(Bool())
     val ready = Output(Bool())
+    val dbg   = Output(new SRT2DBG)
+}
+
+class SRT2DBG extends Bundle {
+    val busyCycle = UInt(64.W)
 }
 
 class SRT2 extends Module {
@@ -119,4 +124,8 @@ class SRT2 extends Module {
     resultAdder.io.cin  := (opS3 === DIV || opS3 === REM) && resSignS3 && !divS3IsZero
     io.res              := resultAdder.io.res
     io.ready            := readyS3
+
+    val busyCycleReg = RegInit(0.U(64.W))
+    busyCycleReg := busyCycleReg + io.busy
+    io.dbg.busyCycle := busyCycleReg
 }

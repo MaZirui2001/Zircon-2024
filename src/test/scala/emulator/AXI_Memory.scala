@@ -76,23 +76,20 @@ class AXIMemory(randDelay: Boolean){
             case ReadState.R => {
                 readItem.rvalid = if(randDelay) (nextRandom() != 0) else true
                 if(readItem.rvalid) {
-                    val wordAddr = UInt(readConfig.araddr) >> 2  // 使用右移替代除法
-                    val wordOffset = readConfig.araddr & 0x3  // 使用与操作替代取模
+                    val wordAddr = UInt(readConfig.araddr) >> 2  
+                    val wordOffset = readConfig.araddr & 0x3
                     val shiftAmount = wordOffset << 3
-                    // if(!mem.contains(wordAddr)){
-                    //     mem(wordAddr) = new MemoryItem(UInt(0), Array.fill(4)(0))
-                    // }
                     readItem.rdata = ((mem(wordAddr).data >> shiftAmount))
                     // check if the last read
-                    if(readConfig.arlen == 0){
-                        readItem.rlast = true
-                        if(axi.rready.peek().litToBoolean){
-                            readConfig.state = ReadState.IDLE
-                        }
-                    }else{
+                    if(readConfig.arlen != 0){
                         if(axi.rready.peek().litToBoolean){
                             readConfig.arlen = readConfig.arlen - 1
                             readConfig.araddr = readConfig.araddr + readConfig.arsize
+                        }
+                    }else{
+                        readItem.rlast = true
+                        if(axi.rready.peek().litToBoolean){
+                            readConfig.state = ReadState.IDLE
                         }
                     }
                 }
@@ -105,14 +102,17 @@ class AXIMemory(randDelay: Boolean){
         cpu: CPU,   
         cycle: Int
     ): AXIWriteItem = {
+        
         writeItem.awready = false
         writeItem.wready = false
         writeItem.bvalid = false
         val axi = cpu.io.axi
+
         writeConfig.state match {
             // record the write configuration
             case WriteState.IDLE => {
                 if(axi.awvalid.peek().litToBoolean){
+
                     writeConfig.awaddr = axi.awaddr.peek().litValue.toInt
                     writeConfig.awlen = axi.awlen.peek().litValue.toInt
                     writeConfig.awsize = 1 << axi.awsize.peek().litValue.toInt
@@ -182,7 +182,7 @@ class AXIMemory(randDelay: Boolean){
         (0 until 4).foreach{ i =>
             if((wstrb & (1 << i)) != 0){
                 memRef(wordAddr).data = (memRef(wordAddr).data & UInt(~BYTE_MASKS(i)) | UInt(wdata) & UInt(BYTE_MASKS(i)))
-                memRef(wordAddr).lastWrite(i) = cycle
+                // memRef(wordAddr).lastWrite(i) = cycle
             }
         }
     }

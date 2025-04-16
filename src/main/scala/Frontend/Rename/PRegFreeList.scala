@@ -17,11 +17,15 @@ class FreeListCommitIO extends Bundle{
 class FreeListDiffIO extends Bundle{
     val fList   = Output(Vec(npreg-32, UInt(wpreg.W)))
 }
+class FreeListDBGIO extends Bundle{
+    val fListEmptyCycle = Output(UInt(64.W))
+}
 
 class FreeListIO extends Bundle{
     val fte = new FreeListFrontendIO
     val cmt = new FreeListCommitIO
     val dif = new FreeListDiffIO
+    val dbg = new FreeListDBGIO
 }
 
 class PRegFreeList extends Module{
@@ -63,5 +67,9 @@ class PRegFreeList extends Module{
     io.cmt.enq.foreach(_.ready := DontCare)
     fList.io.flush := ShiftRegister(io.cmt.flush, 1, false.B, true.B)
     io.dif.fList := fList.io.dbgFIFO
+
+    val fListEmptyCycleReg = RegInit(0.U(64.W))
+    fListEmptyCycleReg := fListEmptyCycleReg + !io.fte.deq.map(_.valid).reduce(_ && _)
+    io.dbg.fListEmptyCycle := fListEmptyCycleReg
 }
     

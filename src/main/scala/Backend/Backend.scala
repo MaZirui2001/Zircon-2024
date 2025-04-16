@@ -21,15 +21,20 @@ class BackendCommitIO extends Bundle {
 class BackendMemoryIO extends Bundle {
     val l2 = Flipped(new L2DCacheIO)
 }
-class BackendDebugIO extends Bundle {
-    val rf = new RegfileDBGIO
+class BackendDBGIO extends Bundle {
+    val rf   = new RegfileDBGIO
+    val arIQ = new IssueQueueDBGIO
+    val mdIQ = new IssueQueueDBGIO
+    val lsIQ = new IssueQueueDBGIO
+    val lsPP = new LSDBGIO
+    val mdPP = new MulDivDBGIO
 }
 
 class BackendIO extends Bundle {
     val dsp = new BackendDispatchIO
     val cmt = new BackendCommitIO
     val mem = new BackendMemoryIO
-    val dbg = new BackendDebugIO
+    val dbg = new BackendDBGIO
 }
 
 class Backend extends Module {
@@ -70,7 +75,6 @@ class Backend extends Module {
         io.cmt.widx(i)  := a.cmt.widx
         io.cmt.wen(i)   := a.cmt.wen
         io.cmt.wdata(i) := a.cmt.wdata
-
     }
     wakeBus(0) := VecInit(
         arPP(0).wk.wakeIssue,
@@ -137,5 +141,10 @@ class Backend extends Module {
     io.dsp.wakeBus := wakeBus(0)
     io.dsp.rplyBus := rplyBus
 
-    io.dbg.rf.rf := rf.dbg.rf
+    io.dbg.rf     := rf.dbg
+    io.dbg.arIQ   := arIQ.io.dbg
+    io.dbg.mdIQ   := mdIQ.io.dbg
+    io.dbg.lsIQ   := lsIQ.io.dbg
+    io.dbg.mdPP   := mdPP.io.dbg
+    io.dbg.lsPP   := lsPP.io.dbg
 }   

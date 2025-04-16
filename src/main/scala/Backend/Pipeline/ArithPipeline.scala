@@ -15,6 +15,9 @@ abstract class PipelineIQIO extends Bundle {
     val instPkg = Flipped(Decoupled(new BackendPackage))
 }
 
+abstract class PipelineDBGIO extends Bundle {
+}
+
 
 class ArithCommitIO extends PipelineCommitIO
 

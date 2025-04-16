@@ -28,9 +28,9 @@ class ROBFrontendEntry extends Bundle{
         entry.pc         := pkg.pc
         entry.isStore    := pkg.op(6) && pkg.func(2)
         entry.predType   := Mux1H(Seq(
-            ((pkg.op(4) && (pkg.op(2) || !pkg.op(1))) || (pkg.op(4, 0) === JAL && pkg.rinfo.rd === 0.U)) -> BR,
+            (pkg.op(4) && (pkg.op(2) || !pkg.op(1) || pkg.rinfo.rd === 0.U)) -> BR,
             (pkg.op(4) && !pkg.op(2) && pkg.op(1) && pkg.rinfo.rd =/= 0.U) -> CALL,
-            (pkg.op(4, 0) === JALR && pkg.rinfo.rd === 0.U) -> RET,
+            (pkg.op(4, 0) === JALR && pkg.rinfo.rj === 1.U) -> RET,
         ))
         entry
     }
@@ -71,10 +71,15 @@ class ROBEntry extends Bundle{
     }
 }
 
+class ROBDebugIO extends Bundle {
+    val fullCycle = Output(UInt(64.W))
+}
+
 class ROBDispatchIO extends Bundle{
     val flush  = Output(Bool())
     val enq    = Vec(ndcd, Flipped(Decoupled(new ROBFrontendEntry)))
     val enqIdx = Output(Vec(ndcd, new ClusterEntry(wrobQ, wdecode)))
+    
 }
 
 class ROBCommitIO extends Bundle{
@@ -85,6 +90,7 @@ class ReorderBufferIO extends Bundle{
     val bke = Flipped(new BackendCommitIO)
     val cmt = new ROBCommitIO
     val dsp = new ROBDispatchIO
+    val dbg = new ROBDebugIO
 }
 
 
@@ -164,5 +170,10 @@ class ReorderBuffer extends Module{
 
     // backend
     io.bke.flush := ShiftRegister(VecInit.fill(nis)(flush), 1, VecInit.fill(nis)(false.B), true.B)
+
+    // debug
+    val fullCycleReg    = RegInit(0.U(64.W))
+    fullCycleReg        := fullCycleReg + !io.dsp.enq.map(_.ready).reduce(_ && _)
+    io.dbg.fullCycle    := fullCycleReg
 
 }

@@ -19,8 +19,8 @@ class ICacheFSMCacheIO extends Bundle {
     val lruUpd     = Output(UInt(2.W))
     val stall      = Input(Bool())
     val flush      = Input(Bool())
-}
 
+}
 
 class ICacheFSML2IO extends Bundle {
     val rreq        = Output(Bool())
@@ -29,8 +29,9 @@ class ICacheFSML2IO extends Bundle {
 }
 
 class ICacheFSMIO extends Bundle {
-    val cc = new ICacheFSMCacheIO
-    val l2 = new ICacheFSML2IO
+    val cc  = new ICacheFSMCacheIO
+    val l2  = new ICacheFSML2IO
+    val dbg = Output(new ICacheDBG)
 }
 
 
@@ -50,6 +51,16 @@ class ICacheFSM extends Module {
     io.cc.r1H          := 1.U      // default: mem
     io.cc.lruUpd       := 0.U
     io.l2.rreq         := false.B
+
+    val visitReg        = RegInit(0.U(64.W))
+    val hitReg          = RegInit(0.U(64.W))
+    val missCycleReg    = RegInit(0.U(64.W))
+    visitReg            := visitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache)
+    hitReg              := hitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache && io.cc.hit.orR)
+    missCycleReg        := missCycleReg + (mState =/= mIdle)
+    io.dbg.visit        := visitReg
+    io.dbg.hit          := hitReg
+    io.dbg.missCycle    := missCycleReg
 
     // State transitions
     switch(mState) {

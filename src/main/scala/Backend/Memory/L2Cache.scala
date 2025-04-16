@@ -71,6 +71,7 @@ class WriteBuffer extends Bundle {
     val paddr  = UInt(32.W)
     val wdata  = UInt(l2LineBits.W)
 }
+
 class L2ICacheIO extends Bundle{
     val rreq        = Input(Bool())
     val rrsp        = Output(Bool())
@@ -114,14 +115,13 @@ class MemIO(ic: Boolean) extends Bundle {
     val wsize       = if(ic) None else Some(Output(UInt(2.W)))
     val wstrb       = if(ic) None else Some(Output(UInt(4.W)))
 }
+
 class L2CacheIO extends Bundle {
     val ic      = new L2ICacheIO
     val dc      = new L2DCacheIO
     val mem     = new MixedVec(Seq(new MemIO(true), new MemIO(false)))
+    val dbg     = Output(Vec(2, new L2CacheDBG))
 }
-
-
-
 
 class L2Cache extends Module {
     val io = IO(new L2CacheIO)
@@ -231,6 +231,7 @@ class L2Cache extends Module {
     io.mem(0).rlen  := Mux(c1s3.uncache, 0.U, (l2LineBits / 32 - 1).U)
     io.mem(0).rsize := 2.U
 
+
     /*
     channel 2: dcache visit
         stage 1: receive the dcache request
@@ -339,4 +340,7 @@ class L2Cache extends Module {
 
     io.ic.miss := missC1 || icHazard
     io.dc.miss := missC2 || dcHazard
+
+    io.dbg(0) := fsmC1.io.dbg
+    io.dbg(1) := fsmC2.io.dbg
 }

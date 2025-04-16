@@ -110,12 +110,18 @@ class DMMUIO extends Bundle {
     val uncache    = Input(Bool())
     val exception  = Input(UInt(8.W)) // 1 cycle latency
 }
+class DCacheReadDBG extends CacheDBG {
+    val missCycle   = UInt(64.W)
+    val sbFullCycle = UInt(64.W)
+}
+class DCacheWriteDBG extends CacheDBG 
 
 class DCacheIO extends Bundle {
     val mmu = new DMMUIO
     val pp  = new DPipelineIO
     val cmt = new DCommitIO
     val l2  = Flipped(new L2DCacheIO)
+    val dbg = Output(MixedVec(new DCacheReadDBG, new DCacheWriteDBG))
 }
 
 class DCache extends Module {
@@ -310,4 +316,12 @@ class DCache extends Module {
     io.l2.uncache   := Mux(io.l2.rreq, c1s3.uncache, c2s3.uncache)
     io.l2.wdata     := c2s3.wdata
     io.l2.mtype     := c2s3.mtype
+
+    val wVisitReg   = RegInit(0.U(64.W))
+    val wHitReg     = RegInit(0.U(64.W))
+    wVisitReg       := wVisitReg + (!io.l2.miss && !io.l2.rreq && !c2s3.uncache)
+    wHitReg         := wHitReg + (!io.l2.miss && !io.l2.rreq && !c2s3.uncache && c2s3.hit.orR)
+    io.dbg(0)       := fsm.io.dbg
+    io.dbg(1).visit := wVisitReg
+    io.dbg(1).hit   := wHitReg
 }

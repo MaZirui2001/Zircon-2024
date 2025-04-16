@@ -26,6 +26,10 @@ class LSMemoryIO extends Bundle {
     val l2        = Flipped(new L2DCacheIO)
 }
 
+class LSDBGIO extends PipelineDBGIO{
+    val dc = MixedVec(new DCacheReadDBG, new DCacheWriteDBG)
+}
+
 class LSPipelineIO extends Bundle {
     val iq         = new LSIQIO
     val rf         = Flipped(new RegfileSingleIO)
@@ -33,6 +37,7 @@ class LSPipelineIO extends Bundle {
     val fwd        = new LSForwardIO
     val wk         = new LSWakeupIO
     val mem        = new LSMemoryIO
+    val dbg        = new LSDBGIO
 }
 
 class LSPipeline extends Module {
@@ -126,4 +131,6 @@ class LSPipeline extends Module {
     io.rf.wr.prdData    := instPkgWB.rfWdata
     // forward
     io.fwd.instPkgWB    := instPkgWB
+    // debug
+    io.dbg.dc           := dc.io.dbg
 }
