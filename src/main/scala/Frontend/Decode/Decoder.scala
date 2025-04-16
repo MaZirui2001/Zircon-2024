@@ -15,22 +15,22 @@ class DecoderIO extends Bundle{
 class Decoder extends Module{
     val io = IO(new DecoderIO)
 
-    val inst           = io.inst
-    val funct3         = inst(14, 12)
-    val funct7         = inst(31, 25)
-    val isAlgebraReg   = inst(6, 0) === 0x33.U && funct7(0) === 0.U
-    val isAlgebraImm   = inst(6, 0) === 0x13.U
-    val isLui          = inst(6, 0) === 0x37.U
-    val isAuipc        = inst(6, 0) === 0x17.U
-    val isJal          = inst(6, 0) === 0x6f.U
-    val isJalr         = inst(6, 0) === 0x67.U
-    val isBr           = inst(6, 0) === 0x63.U
-    val isPriv         = inst(6, 0) === 0x73.U || inst(6, 0) === 0x0f.U
-    val isAtom         = inst(6, 0) === 0x2f.U
-    val isLoad         = inst(6, 0) === 0x03.U || isAtom && inst(31, 27) === 0x02.U
-    val isStore        = inst(6, 0) === 0x23.U || isAtom && inst(31, 27) === 0x03.U
-    val isMem          = isLoad || isStore
-    val isMuldiv       = inst(6, 0) === 0x33.U && funct7(0) === 1.U
+    val inst         = io.inst
+    val funct3       = inst(14, 12)
+    val funct7       = inst(31, 25)
+    val isAlgebraReg = inst(6, 0) === 0x33.U && funct7(0) === 0.U
+    val isAlgebraImm = inst(6, 0) === 0x13.U
+    val isLui        = inst(6, 0) === 0x37.U
+    val isAuipc      = inst(6, 0) === 0x17.U
+    val isJal        = inst(6, 0) === 0x6f.U
+    val isJalr       = inst(6, 0) === 0x67.U
+    val isBr         = inst(6, 0) === 0x63.U
+    val isPriv       = inst(6, 0) === 0x73.U || inst(6, 0) === 0x0f.U
+    val isAtom       = inst(6, 0) === 0x2f.U
+    val isLoad       = inst(6, 0) === 0x03.U || isAtom && inst(31, 27) === 0x02.U
+    val isStore      = inst(6, 0) === 0x23.U || isAtom && inst(31, 27) === 0x03.U
+    val isMem        = isLoad || isStore
+    val isMuldiv     = inst(6, 0) === 0x33.U && funct7(0) === 1.U
 
     /* op: 
         bit6: indicates src1 source, 0-reg 1-pc, or indicates store, 1-store, 0-not
@@ -57,14 +57,14 @@ class Decoder extends Module{
     val JType = isJal
     val UType = isLui || isAuipc
     val BType = isBr
-    val imm = Mux1H(Seq(
-        IType     -> SE(inst(31, 20)),
-        UType     -> inst(31, 12) ## 0.U(12.W),
-        JType     -> SE(inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21) ## 0.U(1.W)),
-        BType     -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W)),
-        SType     -> SE(inst(31, 25) ## inst(11, 7)),
+    val imm   = Mux1H(Seq(
+        IType   -> SE(inst(31, 20)),
+        UType   -> inst(31, 12) ## 0.U(12.W),
+        JType   -> SE(inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21) ## 0.U(1.W)),
+        BType   -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W)),
+        SType   -> SE(inst(31, 25) ## inst(11, 7)),
         // priv: bit11-0 is csr, bit 16-12 is uimm
-        isPriv    -> ZE(inst(19, 15) ## inst(31, 20))
+        isPriv  -> ZE(inst(19, 15) ## inst(31, 20))
     ))
     io.imm := imm
 

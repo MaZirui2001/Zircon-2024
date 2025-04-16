@@ -5,27 +5,27 @@ import ZirconConfig.StoreBuffer._
 import ZirconUtil._
 
 class ICacheFSMCacheIO extends Bundle {
-    val rreq       = Input(Bool())
-    val uncache    = Input(Bool())
-    val hit        = Input(UInt(l1Way.W))
-    val cmiss      = Output(Bool())
-    val tagvWe     = Output(Vec(l1Way, Bool()))
-    val memWe      = Output(Vec(l1Way, Bool()))
-    val addrOH     = Output(UInt(3.W))
-    val r1H        = Output(UInt(2.W))
+    val rreq    = Input(Bool())
+    val uncache = Input(Bool())
+    val hit     = Input(UInt(l1Way.W))
+    val cmiss   = Output(Bool())
+    val tagvWe  = Output(Vec(l1Way, Bool()))
+    val memWe   = Output(Vec(l1Way, Bool()))
+    val addrOH  = Output(UInt(3.W))
+    val r1H     = Output(UInt(2.W))
     
     // lru
-    val lru        = Input(UInt(2.W))
-    val lruUpd     = Output(UInt(2.W))
-    val stall      = Input(Bool())
-    val flush      = Input(Bool())
+    val lru     = Input(UInt(2.W))
+    val lruUpd  = Output(UInt(2.W))
+    val stall   = Input(Bool())
+    val flush   = Input(Bool())
 
 }
 
 class ICacheFSML2IO extends Bundle {
-    val rreq        = Output(Bool())
-    val rrsp        = Input(Bool())
-    val miss        = Input(Bool())
+    val rreq = Output(Bool())
+    val rrsp = Input(Bool())
+    val miss = Input(Bool())
 }
 
 class ICacheFSMIO extends Bundle {
@@ -52,15 +52,15 @@ class ICacheFSM extends Module {
     io.cc.lruUpd       := 0.U
     io.l2.rreq         := false.B
 
-    val visitReg        = RegInit(0.U(64.W))
-    val hitReg          = RegInit(0.U(64.W))
-    val missCycleReg    = RegInit(0.U(64.W))
-    visitReg            := visitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache)
-    hitReg              := hitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache && io.cc.hit.orR)
-    missCycleReg        := missCycleReg + (mState =/= mIdle)
-    io.dbg.visit        := visitReg
-    io.dbg.hit          := hitReg
-    io.dbg.missCycle    := missCycleReg
+    val visitReg       = RegInit(0.U(64.W))
+    val hitReg         = RegInit(0.U(64.W))
+    val missCycleReg   = RegInit(0.U(64.W))
+    visitReg           := visitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache)
+    hitReg             := hitReg + (mState === mIdle && io.cc.rreq && !io.cc.uncache && io.cc.hit.orR)
+    missCycleReg       := missCycleReg + (mState =/= mIdle)
+    io.dbg.visit       := visitReg
+    io.dbg.hit         := hitReg
+    io.dbg.missCycle   := missCycleReg
 
     // State transitions
     switch(mState) {

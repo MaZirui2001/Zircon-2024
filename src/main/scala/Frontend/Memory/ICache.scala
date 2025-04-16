@@ -69,7 +69,7 @@ class ICacheIO extends Bundle {
 class ICache extends Module {
     val io = IO(new ICacheIO)
     /*
-    ICache has one channels, l1Way now is 2
+        ICache has one channels, l1Way now is 2
     */
     // Memory arrays
     val tagTab     = VecInit.fill(l1Way)(Module(new XilinxSinglePortRamReadFirst(l1Tag, l1IndexNum)).io)

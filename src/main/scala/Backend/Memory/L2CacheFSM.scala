@@ -26,59 +26,59 @@ class L2CacheFSMCacheIO(ic: Boolean) extends Bundle {
     val vldInv  = if(ic) None else Some(Output(Vec(l1Way, Bool())))
 }
 class L2CacheFSMMEMIO(ic: Boolean) extends Bundle {
-    val rreq    = Output(Bool())
-    val rrsp    = Input(Bool())
-    val rlast   = Input(Bool())
+    val rreq  = Output(Bool())
+    val rrsp  = Input(Bool())
+    val rlast = Input(Bool())
 
-    val wreq    = if(ic) None else Some(Output(Bool()))
-    val wrsp    = if(ic) None else Some(Input(Bool()))
-    val wlast   = if(ic) None else Some(Output(Bool()))
+    val wreq  = if(ic) None else Some(Output(Bool()))
+    val wrsp  = if(ic) None else Some(Input(Bool()))
+    val wlast = if(ic) None else Some(Output(Bool()))
 }
 
 class L2CacheDBG extends CacheDBG
 
 class L2CacheFSMIO(ic: Boolean) extends Bundle {
-    val cc      = new L2CacheFSMCacheIO(ic)
-    val mem     = new L2CacheFSMMEMIO(ic)
-    val dbg     = Output(new L2CacheDBG)
+    val cc  = new L2CacheFSMCacheIO(ic)
+    val mem = new L2CacheFSMMEMIO(ic)
+    val dbg = Output(new L2CacheDBG)
 }
 
 class L2CacheFSM(ic: Boolean = false) extends Module{
-    val io = IO(new L2CacheFSMIO(ic))
-    val ioc = io.cc
-    val iom = io.mem
+    val io      = IO(new L2CacheFSMIO(ic))
+    val ioc     = io.cc
+    val iom     = io.mem
     val iocWreq = ioc.wreq.getOrElse(false.B)
     // main fsm: for read
     val mIdle :: mMiss :: mRefill :: mWait :: mPause :: Nil = Enum(5)
-    val mState     = RegInit(mIdle)
+    val mState   = RegInit(mIdle)
 
-    val cmiss      = WireDefault(false.B)
-    val tagvWe     = WireDefault(VecInit.fill(l1Way)(false.B))
-    val memWe      = WireDefault(VecInit.fill(l1Way)(false.B))
-    val lruUpd     = WireDefault(0.U(2.W))
-    val drtyWe     = WireDefault(VecInit.fill(l1Way)(false.B))
-    val drtyD      = WireDefault(VecInit.fill(l1Way)(false.B))
-    val addrOH     = WireDefault(1.U(3.W)) // choose s1 addr
-    val r1H        = WireDefault(1.U(2.W)) // choose mem
-    val vldInv     = WireDefault(VecInit.fill(l1Way)(false.B))
+    val cmiss    = WireDefault(false.B)
+    val tagvWe   = WireDefault(VecInit.fill(l1Way)(false.B))
+    val memWe    = WireDefault(VecInit.fill(l1Way)(false.B))
+    val lruUpd   = WireDefault(0.U(2.W))
+    val drtyWe   = WireDefault(VecInit.fill(l1Way)(false.B))
+    val drtyD    = WireDefault(VecInit.fill(l1Way)(false.B))
+    val addrOH   = WireDefault(1.U(3.W)) // choose s1 addr
+    val r1H      = WireDefault(1.U(2.W)) // choose mem
+    val vldInv   = WireDefault(VecInit.fill(l1Way)(false.B))
 
-    val wfsmEn     = WireDefault(false.B)
-    val wfsmRst    = WireDefault(false.B)
-    val wfsmOk     = WireDefault(false.B)
-    val wbufWe     = WireDefault(false.B)
+    val wfsmEn   = WireDefault(false.B)
+    val wfsmRst  = WireDefault(false.B)
+    val wfsmOk   = WireDefault(false.B)
+    val wbufWe   = WireDefault(false.B)
 
-    val lru        = RegInit(0.U(2.W))
+    val lru      = RegInit(0.U(2.W))
 
-    io.mem.rreq    := false.B
-    val hit        = (if(ic) ioc.hit.orR else ioc.hit(3, 2).orR)
-    val hitBits    = (if(ic) ioc.hit(1, 0) else ioc.hit(3, 2)) // for wen of mem, tag and lru
+    io.mem.rreq  := false.B
+    val hit      = (if(ic) ioc.hit.orR else ioc.hit(3, 2).orR)
+    val hitBits  = (if(ic) ioc.hit(1, 0) else ioc.hit(3, 2)) // for wen of mem, tag and lru
 
-    val visitReg   = RegInit(0.U(64.W))
-    val hitReg     = RegInit(0.U(64.W))
-    visitReg       := visitReg + (mState === mIdle && ioc.rreq && !ioc.uncache)
-    hitReg         := hitReg + (mState === mIdle && ioc.rreq && !ioc.uncache && hit)
-    io.dbg.visit   := visitReg
-    io.dbg.hit     := hitReg
+    val visitReg = RegInit(0.U(64.W))
+    val hitReg   = RegInit(0.U(64.W))
+    visitReg     := visitReg + (mState === mIdle && ioc.rreq && !ioc.uncache)
+    hitReg       := hitReg + (mState === mIdle && ioc.rreq && !ioc.uncache && hit)
+    io.dbg.visit := visitReg
+    io.dbg.hit   := hitReg
     switch(mState){
         is(mIdle){
             when(ioc.rreq || iocWreq){
@@ -90,7 +90,7 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
                     mState := mMiss
                     wfsmEn := true.B
                     wbufWe := true.B
-                    lru     := ioc.lru
+                    lru    := ioc.lru
                 }.otherwise{ // cache and hit
                     mState := mIdle
                     memWe  := hitBits.asBools.map(_ && iocWreq)
@@ -128,7 +128,7 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
             wfsmRst := true.B
             if(ic){
                 mState := mPause
-                cmiss   := true.B
+                cmiss  := true.B
                 addrOH := 2.U // choose s2 addr
             } else {
                 when(wfsmOk){
@@ -143,28 +143,28 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
             r1H     := 2.U // choose rbuf
         }
     }
-    io.cc.cmiss     := cmiss
-    io.cc.tagvWe    := tagvWe
-    io.cc.memWe     := memWe
-    io.cc.lruUpd    := lruUpd
-    io.cc.addrOH    := addrOH
-    io.cc.r1H       := r1H
-    io.cc.wbufWe    := wbufWe
+    io.cc.cmiss  := cmiss
+    io.cc.tagvWe := tagvWe
+    io.cc.memWe  := memWe
+    io.cc.lruUpd := lruUpd
+    io.cc.addrOH := addrOH
+    io.cc.r1H    := r1H
+    io.cc.wbufWe := wbufWe
     if(!ic){
-        io.cc.drtyWe.get    := drtyWe
-        io.cc.drtyD.get     := drtyD
-        io.cc.vldInv.get    := vldInv
+        io.cc.drtyWe.get := drtyWe
+        io.cc.drtyD.get  := drtyD
+        io.cc.vldInv.get := vldInv
     }
 
     if(!ic){
-        iom.wreq.get    := false.B
-        iom.wlast.get   := false.B
+        iom.wreq.get  := false.B
+        iom.wlast.get := false.B
         // write fsm 
         val wIdle :: wWrite :: wFinish :: Nil = Enum(3)
         val wState     = RegInit(wIdle)
 
         val wCntBits = log2Ceil(l2LineBits / 32) + 1
-        val wCnt = RegInit(0.U((wCntBits.W)))
+        val wCnt     = RegInit(0.U((wCntBits.W)))
         when(wfsmEn){
             wCnt := Mux(ioc.uncache, Fill(wCntBits, 1.U), (l2LineBits / 32 - 2).U)
         }.elsewhen(!wCnt(wCntBits-1) && iom.wreq.get && iom.wrsp.get){

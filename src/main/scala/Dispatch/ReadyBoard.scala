@@ -16,12 +16,12 @@ class ReadyBoardEntry extends Bundle {
 }
 
 class ReadyBoardIO extends Bundle {
-    val pinfo      = Input(Vec(ndcd, new PRegisterInfo))
-    val wakeBus    = Input(Vec(nis, new WakeupBusPkg))
-    val rplyBus    = Input(new ReplayBusPkg)
-    val prjInfo    = Output(Vec(ndcd, new ReadyBoardEntry))
-    val prkInfo    = Output(Vec(ndcd, new ReadyBoardEntry))
-    val flush      = Input(Bool())
+    val pinfo   = Input(Vec(ndcd, new PRegisterInfo))
+    val wakeBus = Input(Vec(nis, new WakeupBusPkg))
+    val rplyBus = Input(new ReplayBusPkg)
+    val prjInfo = Output(Vec(ndcd, new ReadyBoardEntry))
+    val prkInfo = Output(Vec(ndcd, new ReadyBoardEntry))
+    val flush   = Input(Bool())
 }
 
 class ReadyBoard extends Module {
@@ -37,7 +37,7 @@ class ReadyBoard extends Module {
     }
     board.zipWithIndex.foreach{case(e, i) => 
         when(e.lpv.orR){
-            e.lpv := e.lpv << !io.rplyBus.replay
+            e.lpv   := e.lpv << !io.rplyBus.replay
             e.ready := Mux(io.rplyBus.replay, false.B, e.ready || io.rplyBus.prd === i.U)
         }
     }

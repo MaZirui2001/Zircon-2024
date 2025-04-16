@@ -15,10 +15,10 @@ class MulDivDBGIO extends PipelineDBGIO {
 // class MulDivRegfileIO extends PipelineRegfileIO
 
 class MulDivForwardIO extends Bundle {
-    val instPkgWB  = Output(new BackendPackage)
-    val instPkgEX  = Output(new BackendPackage)
-    val src1Fwd    = Flipped(Decoupled(UInt(32.W)))
-    val src2Fwd    = Flipped(Decoupled(UInt(32.W)))
+    val instPkgWB = Output(new BackendPackage)
+    val instPkgEX = Output(new BackendPackage)
+    val src1Fwd   = Flipped(Decoupled(UInt(32.W)))
+    val src2Fwd   = Flipped(Decoupled(UInt(32.W)))
 }
 class MulDivWakeupIO extends Bundle {
     val wakeEX2 = Output(new WakeupBusPkg)
@@ -74,9 +74,9 @@ class MulDivPipeline extends Module {
     ))
 
     // multiply
-    mul.io.src1 := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEX1.src1)
-    mul.io.src2 := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEX1.src2)
-    mul.io.op   := instPkgEX1.op(3, 0)
+    mul.io.src1    := Mux(io.fwd.src1Fwd.valid, io.fwd.src1Fwd.bits, instPkgEX1.src1)
+    mul.io.src2    := Mux(io.fwd.src2Fwd.valid, io.fwd.src2Fwd.bits, instPkgEX1.src2)
+    mul.io.op      := instPkgEX1.op(3, 0)
     mul.io.divBusy := div.io.busy
 
     // divide
@@ -85,7 +85,7 @@ class MulDivPipeline extends Module {
     div.io.op   := instPkgEX1.op(3, 0)
 
     // forward
-    io.fwd.instPkgEX := instPkgEX1
+    io.fwd.instPkgEX     := instPkgEX1
     io.fwd.src1Fwd.ready := DontCare
     io.fwd.src2Fwd.ready := DontCare
 

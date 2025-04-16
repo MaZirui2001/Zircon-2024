@@ -11,12 +11,12 @@ import ZirconConfig.Fetch._
     in this stage.
 */
 class RegisterInfo extends Bundle {
-    val rdVld  = Bool()
-    val rd     = UInt(5.W)
-    val rjVld  = Bool()
-    val rj     = UInt(5.W)
-    val rkVld  = Bool()
-    val rk     = UInt(5.W)
+    val rdVld = Bool()
+    val rd    = UInt(5.W)
+    val rjVld = Bool()
+    val rj    = UInt(5.W)
+    val rkVld = Bool()
+    val rk    = UInt(5.W)
 }
 class PreDecoderIO extends Bundle {
     val instPkg    = Input(new FrontendPackage)
@@ -26,10 +26,10 @@ class PreDecoderIO extends Bundle {
 }
 
 class PreDecoder extends Module {
-    val io = IO(new PreDecoderIO)
-    val instPkg    = io.instPkg
-    val predInfo   = instPkg.predInfo
-    val inst       = instPkg.inst
+    val io       = IO(new PreDecoderIO)
+    val instPkg  = io.instPkg
+    val predInfo = instPkg.predInfo
+    val inst     = instPkg.inst
 
     // rd
     val rdVld = inst(3, 0) === 0x3.U && !(
@@ -86,7 +86,7 @@ class PreDecoder extends Module {
     )) && io.instPkg.valid
 
     io.npc.jumpOffset := Mux(isnJ, 4.U, imm)
-    io.npc.pc := instPkg.pc
+    io.npc.pc         := instPkg.pc
     io.predOffset := Mux1H(Seq(
         isnJ   -> 4.U,
         isJal  -> imm,
@@ -110,8 +110,8 @@ class PreDecoders extends Module {
         io.rinfo(i).bits  := pds(i).rinfo
         io.rinfo(i).valid := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.instPkg.valid}.take(i).reduce(_ || _)) && io.instPkg(i).valid
     }
-    io.npc.flush := pds.map(_.npc.flush).reduce(_ || _)
+    io.npc.flush      := pds.map(_.npc.flush).reduce(_ || _)
     io.npc.jumpOffset := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.jumpOffset))
-    io.npc.pc := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.pc))
-    io.predOffset := pds.map(_.predOffset)
+    io.npc.pc         := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.pc))
+    io.predOffset     := pds.map(_.predOffset)
 }

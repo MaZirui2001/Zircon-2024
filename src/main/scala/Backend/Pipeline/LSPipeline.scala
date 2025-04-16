@@ -13,17 +13,17 @@ class LSIQIO extends PipelineIQIO
 // class LSRegfileIO extends PipelineRegfileIO
 
 class LSWakeupIO extends Bundle {
-    val wakeRF    = Output(new WakeupBusPkg)
-    val wakeD1    = Output(new WakeupBusPkg)
-    val rplyIn    = Input(new ReplayBusPkg)
-    val rplyOut   = Output(new ReplayBusPkg)
+    val wakeRF  = Output(new WakeupBusPkg)
+    val wakeD1  = Output(new WakeupBusPkg)
+    val rplyIn  = Input(new ReplayBusPkg)
+    val rplyOut = Output(new ReplayBusPkg)
 }
 class LSForwardIO extends Bundle {
     val instPkgWB = Output(new BackendPackage)
 }
 
 class LSMemoryIO extends Bundle {
-    val l2        = Flipped(new L2DCacheIO)
+    val l2 = Flipped(new L2DCacheIO)
 }
 
 class LSDBGIO extends PipelineDBGIO{
@@ -31,13 +31,13 @@ class LSDBGIO extends PipelineDBGIO{
 }
 
 class LSPipelineIO extends Bundle {
-    val iq         = new LSIQIO
-    val rf         = Flipped(new RegfileSingleIO)
-    val cmt        = new LSCommitIO
-    val fwd        = new LSForwardIO
-    val wk         = new LSWakeupIO
-    val mem        = new LSMemoryIO
-    val dbg        = new LSDBGIO
+    val iq  = new LSIQIO
+    val rf  = Flipped(new RegfileSingleIO)
+    val cmt = new LSCommitIO
+    val fwd = new LSForwardIO
+    val wk  = new LSWakeupIO
+    val mem = new LSMemoryIO
+    val dbg = new LSDBGIO
 }
 
 class LSPipeline extends Module {
@@ -64,23 +64,23 @@ class LSPipeline extends Module {
         !(dc.io.pp.miss || dc.io.pp.sbFull) || io.cmt.flush
     ))
     // regfile read
-    io.rf.rd.prj      := instPkgRF.prj
-    io.rf.rd.prk      := instPkgRF.prk
+    io.rf.rd.prj   := instPkgRF.prj
+    io.rf.rd.prk   := instPkgRF.prk
     // agu
-    agu.io.src1       := io.rf.rd.prjData
-    agu.io.src2       := instPkgRF.imm
-    agu.io.cin        := 0.U
-    instPkgRF.src1    := agu.io.res
-    instPkgRF.src2    := io.rf.rd.prkData
+    agu.io.src1    := io.rf.rd.prjData
+    agu.io.src2    := instPkgRF.imm
+    agu.io.cin     := 0.U
+    instPkgRF.src1 := agu.io.res
+    instPkgRF.src2 := io.rf.rd.prkData
     // wakeup
-    io.wk.wakeRF := (new WakeupBusPkg)(instPkgRF, io.wk.rplyIn, 1)
+    io.wk.wakeRF   := (new WakeupBusPkg)(instPkgRF, io.wk.rplyIn, 1)
 
-    dc.io.pp.rreq       := instPkgRF.op(5)
-    dc.io.pp.mtype      := instPkgRF.op(2, 0)
-    dc.io.pp.isLatest   := instPkgRF.isLatest
-    dc.io.pp.wreq       := instPkgRF.op(6)
-    dc.io.pp.wdata      := instPkgRF.src2
-    dc.io.pp.vaddr      := instPkgRF.src1
+    dc.io.pp.rreq     := instPkgRF.op(5)
+    dc.io.pp.mtype    := instPkgRF.op(2, 0)
+    dc.io.pp.isLatest := instPkgRF.isLatest
+    dc.io.pp.wreq     := instPkgRF.op(6)
+    dc.io.pp.wdata    := instPkgRF.src2
+    dc.io.pp.vaddr    := instPkgRF.src1
 
     /* DCache Stage 1 */
     val instPkgD1 = WireDefault(ShiftRegister(
@@ -108,8 +108,8 @@ class LSPipeline extends Module {
     instPkgD2.nxtCmtEn := !instPkgD2.op(6)
 
     // replay
-    io.wk.rplyOut.prd      := instPkgD2.prd
-    io.wk.rplyOut.replay   := (dc.io.pp.miss || dc.io.pp.loadReplay || dc.io.pp.sbFull) && instPkgD2.valid
+    io.wk.rplyOut.prd    := instPkgD2.prd
+    io.wk.rplyOut.replay := (dc.io.pp.miss || dc.io.pp.loadReplay || dc.io.pp.sbFull) && instPkgD2.valid
 
     /* Write Back Stage */
     val instPkgWB = WireDefault(ShiftRegister(
@@ -118,19 +118,19 @@ class LSPipeline extends Module {
         0.U.asTypeOf(new BackendPackage), 
         true.B
     ))
-    instPkgWB.rfWdata   := dc.io.pp.rdata
+    instPkgWB.rfWdata  := dc.io.pp.rdata
     // rob
-    io.cmt.widx.offset  := UIntToOH(instPkgWB.robIdx.offset)
-    io.cmt.widx.qidx    := UIntToOH(instPkgWB.robIdx.qidx)
-    io.cmt.widx.high    := DontCare
-    io.cmt.wen          := instPkgWB.valid
-    io.cmt.wdata        := (new ROBBackendEntry)(instPkgWB) 
+    io.cmt.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
+    io.cmt.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
+    io.cmt.widx.high   := DontCare
+    io.cmt.wen         := instPkgWB.valid
+    io.cmt.wdata       := (new ROBBackendEntry)(instPkgWB) 
     // regfile
-    io.rf.wr.prd        := instPkgWB.prd
-    io.rf.wr.prdVld     := instPkgWB.rdVld
-    io.rf.wr.prdData    := instPkgWB.rfWdata
+    io.rf.wr.prd       := instPkgWB.prd
+    io.rf.wr.prdVld    := instPkgWB.rdVld
+    io.rf.wr.prdData   := instPkgWB.rfWdata
     // forward
-    io.fwd.instPkgWB    := instPkgWB
+    io.fwd.instPkgWB   := instPkgWB
     // debug
-    io.dbg.dc           := dc.io.dbg
+    io.dbg.dc          := dc.io.dbg
 }

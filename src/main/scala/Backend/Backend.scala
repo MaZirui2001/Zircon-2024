@@ -11,11 +11,11 @@ class BackendDispatchIO extends Bundle {
 }
 
 class BackendCommitIO extends Bundle {
-    val widx    = Output(Vec(nis, new ClusterEntry(nrobQ, ndcd)))
-    val wen     = Output(Vec(nis, Bool()))
-    val wdata   = Output(Vec(nis, new ROBBackendEntry))
-    val sb      = new DCommitIO
-    val flush   = Input(Vec(nis, Bool()))
+    val widx  = Output(Vec(nis, new ClusterEntry(nrobQ, ndcd)))
+    val wen   = Output(Vec(nis, Bool()))
+    val wdata = Output(Vec(nis, new ROBBackendEntry))
+    val sb    = new DCommitIO
+    val flush = Input(Vec(nis, Bool()))
 }
 
 class BackendMemoryIO extends Bundle {
@@ -38,7 +38,7 @@ class BackendIO extends Bundle {
 }
 
 class Backend extends Module {
-    val io = IO(new BackendIO)
+    val io   = IO(new BackendIO)
     
     val arIQ = Module(new IssueQueue(ndcd, arithNissue, arithNiq, false))
     val mdIQ = Module(new IssueQueue(ndcd, muldivNissue, muldivNiq, false))
@@ -65,16 +65,16 @@ class Backend extends Module {
 
     // pipeline
     arPP.zipWithIndex.foreach{case(a, i) => 
-        a.rf            <> rf.io(i)
-        a.wk.rplyIn     := rplyBus
+        a.rf                <> rf.io(i)
+        a.wk.rplyIn         := rplyBus
         fwd.io.instPkgWB(i) := a.fwd.instPkgWB
         fwd.io.instPkgEX(i) := a.fwd.instPkgEX
-        a.fwd.src1Fwd   <> fwd.io.src1Fwd(i)
-        a.fwd.src2Fwd   <> fwd.io.src2Fwd(i)
-        a.cmt.flush     := io.cmt.flush(i)
-        io.cmt.widx(i)  := a.cmt.widx
-        io.cmt.wen(i)   := a.cmt.wen
-        io.cmt.wdata(i) := a.cmt.wdata
+        a.fwd.src1Fwd       <> fwd.io.src1Fwd(i)
+        a.fwd.src2Fwd       <> fwd.io.src2Fwd(i)
+        a.cmt.flush         := io.cmt.flush(i)
+        io.cmt.widx(i)      := a.cmt.widx
+        io.cmt.wen(i)       := a.cmt.wen
+        io.cmt.wdata(i)     := a.cmt.wdata
     }
     wakeBus(0) := VecInit(
         arPP(0).wk.wakeIssue,
@@ -92,16 +92,16 @@ class Backend extends Module {
     mdIQ.io.flush   := io.cmt.flush(3)
 
     // pipeline
-    mdPP.io.rf            <> rf.io(3)
-    mdPP.io.wk.rplyIn     := rplyBus
-    fwd.io.instPkgWB(3)   := mdPP.io.fwd.instPkgWB
-    fwd.io.instPkgEX(3)   := mdPP.io.fwd.instPkgEX
-    fwd.io.src1Fwd(3)     <> mdPP.io.fwd.src1Fwd
-    fwd.io.src2Fwd(3)     <> mdPP.io.fwd.src2Fwd
-    mdPP.io.cmt.flush     := io.cmt.flush(3)
-    io.cmt.widx(3)        := mdPP.io.cmt.widx
-    io.cmt.wen(3)         := mdPP.io.cmt.wen
-    io.cmt.wdata(3)       := mdPP.io.cmt.wdata
+    mdPP.io.rf          <> rf.io(3)
+    mdPP.io.wk.rplyIn   := rplyBus
+    fwd.io.instPkgWB(3) := mdPP.io.fwd.instPkgWB
+    fwd.io.instPkgEX(3) := mdPP.io.fwd.instPkgEX
+    fwd.io.src1Fwd(3)   <> mdPP.io.fwd.src1Fwd
+    fwd.io.src2Fwd(3)   <> mdPP.io.fwd.src2Fwd
+    mdPP.io.cmt.flush   := io.cmt.flush(3)
+    io.cmt.widx(3)      := mdPP.io.cmt.widx
+    io.cmt.wen(3)       := mdPP.io.cmt.wen
+    io.cmt.wdata(3)     := mdPP.io.cmt.wdata
 
     wakeBus(1) := VecInit(
         arPP(0).wk.wakeRF,
@@ -119,14 +119,14 @@ class Backend extends Module {
     lsIQ.io.flush   := io.cmt.flush(4)
 
     // pipeline
-    lsPP.io.rf            <> rf.io(4)
-    lsPP.io.wk.rplyIn     := rplyBus
-    fwd.io.instPkgWB(4)   := lsPP.io.fwd.instPkgWB
-    lsPP.io.cmt.flush     := io.cmt.flush(4)
-    lsPP.io.cmt.dc        := io.cmt.sb
-    io.cmt.widx(4)        := lsPP.io.cmt.widx
-    io.cmt.wen(4)         := lsPP.io.cmt.wen
-    io.cmt.wdata(4)       := lsPP.io.cmt.wdata
+    lsPP.io.rf          <> rf.io(4)
+    lsPP.io.wk.rplyIn   := rplyBus
+    fwd.io.instPkgWB(4) := lsPP.io.fwd.instPkgWB
+    lsPP.io.cmt.flush   := io.cmt.flush(4)
+    lsPP.io.cmt.dc      := io.cmt.sb
+    io.cmt.widx(4)      := lsPP.io.cmt.widx
+    io.cmt.wen(4)       := lsPP.io.cmt.wen
+    io.cmt.wdata(4)     := lsPP.io.cmt.wdata
 
     wakeBus(2) := VecInit(
         arPP(0).wk.wakeRF,
@@ -141,10 +141,10 @@ class Backend extends Module {
     io.dsp.wakeBus := wakeBus(0)
     io.dsp.rplyBus := rplyBus
 
-    io.dbg.rf     := rf.dbg
-    io.dbg.arIQ   := arIQ.io.dbg
-    io.dbg.mdIQ   := mdIQ.io.dbg
-    io.dbg.lsIQ   := lsIQ.io.dbg
-    io.dbg.mdPP   := mdPP.io.dbg
-    io.dbg.lsPP   := lsPP.io.dbg
+    io.dbg.rf   := rf.dbg
+    io.dbg.arIQ := arIQ.io.dbg
+    io.dbg.mdIQ := mdIQ.io.dbg
+    io.dbg.lsIQ := lsIQ.io.dbg
+    io.dbg.mdPP := mdPP.io.dbg
+    io.dbg.lsPP := lsPP.io.dbg
 }   

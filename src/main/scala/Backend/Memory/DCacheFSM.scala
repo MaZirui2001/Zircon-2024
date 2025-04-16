@@ -5,41 +5,39 @@ import ZirconConfig.StoreBuffer._
 import ZirconUtil._
 
 class DCacheFSMCacheIO extends Bundle {
-    val rreq        = Input(Bool())
-    val wreq        = Input(Bool())
-    val uncache     = Input(Bool())
-    val hit         = Input(UInt(l1Way.W))
-    val isLatest    = Input(Bool())
-    val cmiss       = Output(Bool())
-    val tagvWe      = Output(Vec(l1Way, Bool()))
-    val memWe       = Output(Vec(l1Way, Bool()))
-    val addrOH      = Output(UInt(3.W))
-    val r1H         = Output(UInt(2.W))
-    val rbufClear   = Output(Bool())
+    val rreq      = Input(Bool())
+    val wreq      = Input(Bool())
+    val uncache   = Input(Bool())
+    val hit       = Input(UInt(l1Way.W))
+    val isLatest  = Input(Bool())
+    val cmiss     = Output(Bool())
+    val tagvWe    = Output(Vec(l1Way, Bool()))
+    val memWe     = Output(Vec(l1Way, Bool()))
+    val addrOH    = Output(UInt(3.W))
+    val r1H       = Output(UInt(2.W))
+    val rbufClear = Output(Bool())
     
     // lru
-    val lru         = Input(UInt(2.W))
-    val lruUpd      = Output(UInt(2.W))
+    val lru       = Input(UInt(2.W))
+    val lruUpd    = Output(UInt(2.W))
 
-    val sbClear     = Input(Bool())
-    val sbFull      = Input(Bool())
-    val c2Wreq      = Input(Bool())
-    val sbLock      = Output(Bool())
-    val flush       = Input(Bool())
-
+    val sbClear   = Input(Bool())
+    val sbFull    = Input(Bool())
+    val c2Wreq    = Input(Bool())
+    val sbLock    = Output(Bool())
+    val flush     = Input(Bool())
 }
 
 class DCacheFSML2IO extends Bundle {
-    val rreq        = Output(Bool())
-    val rrsp        = Input(Bool())
-    val miss        = Input(Bool())
+    val rreq      = Output(Bool())
+    val rrsp      = Input(Bool())
+    val miss      = Input(Bool())
 }
 
 class DCacheFSMIO extends Bundle {
     val cc   = new DCacheFSMCacheIO
     val l2   = new DCacheFSML2IO
     val dbg  = Output(new DCacheReadDBG)
-
 }
 
 

@@ -7,26 +7,25 @@ class FrontendDispatchIO extends Bundle {
     val instPkg = Vec(ndcd, Decoupled(new FrontendPackage))
 }
 class FrontendCommitIO extends Bundle {
-    val rnm     = new RenameCommitIO
-    val npc     = new NPCCommitIO
-    val fq      = new FetchQueueCommitIO
-    
+    val rnm  = new RenameCommitIO
+    val npc  = new NPCCommitIO
+    val fq   = new FetchQueueCommitIO
 }
 class FrontendMemoryIO extends Bundle {
-    val l2      = Flipped(new L2ICacheIO)
+    val l2   = Flipped(new L2ICacheIO)
 }
 
 class FrontendDBGIO extends Bundle {
-    val ic      = new ICacheDBG
-    val fq      = new FetchQueueDBGIO
-    val rnm     = new RenameDBGIO
+    val ic   = new ICacheDBG
+    val fq   = new FetchQueueDBGIO
+    val rnm  = new RenameDBGIO
 }
 
 class FrontendIO extends Bundle {
-    val dsp     = new FrontendDispatchIO
-    val mem     = new FrontendMemoryIO
-    val cmt     = new FrontendCommitIO
-    val dbg     = new FrontendDBGIO
+    val dsp  = new FrontendDispatchIO
+    val mem  = new FrontendMemoryIO
+    val cmt  = new FrontendCommitIO
+    val dbg  = new FrontendDBGIO
 }
 
 class Frontend extends Module {
@@ -44,16 +43,16 @@ class Frontend extends Module {
     val instPkgPF = WireDefault(VecInit.fill(nfch)(0.U.asTypeOf(new FrontendPackage)))
 
     // npc
-    npc.io.cmt              := io.cmt.npc
-    npc.io.pd               := pd.io.npc
-    npc.io.ic.miss          := ic.io.pp.miss
-    npc.io.fq.ready         := fq.io.enq(0).ready
-    npc.io.pc.pc            := pc
-    pc                      := npc.io.pc.npc
+    npc.io.cmt       := io.cmt.npc
+    npc.io.pd        := pd.io.npc
+    npc.io.ic.miss   := ic.io.pp.miss
+    npc.io.fq.ready  := fq.io.enq(0).ready
+    npc.io.pc.pc     := pc
+    pc               := npc.io.pc.npc
 
     // icache visit
-    ic.io.pp.rreq           := fq.io.enq(0).ready || io.cmt.fq.flush || pd.io.npc.flush
-    ic.io.pp.vaddr          := npc.io.pc.npc
+    ic.io.pp.rreq    := fq.io.enq(0).ready || io.cmt.fq.flush || pd.io.npc.flush
+    ic.io.pp.vaddr   := npc.io.pc.npc
 
     // TODO: add predictor
     instPkgPF.foreach{ pkg => 
@@ -72,11 +71,11 @@ class Frontend extends Module {
     ))
 
     // icache mmu TODO: add mmu
-    ic.io.mmu.paddr        := pc
-    ic.io.mmu.uncache      := false.B
-    ic.io.pp.stall         := !fq.io.enq(0).ready
-    ic.io.pp.flush         := io.cmt.npc.flush || pd.io.npc.flush
-    io.mem.l2              <> ic.io.l2
+    ic.io.mmu.paddr   := pc
+    ic.io.mmu.uncache := false.B
+    ic.io.pp.stall    := !fq.io.enq(0).ready
+    ic.io.pp.flush    := io.cmt.npc.flush || pd.io.npc.flush
+    io.mem.l2         <> ic.io.l2
     instPkgFC.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := pc + (i * 4).U }
 
     /* Previous Decode Stage */
@@ -128,7 +127,7 @@ class Frontend extends Module {
         dsp.bits    := pkg 
         dsp.valid   := pkg.valid
     }
-    io.dbg.ic := ic.io.dbg
-    io.dbg.fq := fq.io.dbg
+    io.dbg.ic  := ic.io.dbg
+    io.dbg.fq  := fq.io.dbg
     io.dbg.rnm := rnm.io.dbg
 }

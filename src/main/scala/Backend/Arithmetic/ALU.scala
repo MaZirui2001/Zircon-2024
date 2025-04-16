@@ -19,9 +19,9 @@ class ALU extends Module {
     val adderSrc2 = WireDefault(4.U(32.W))
     val adderCin  = WireDefault(0.U)
 
-    val adder = BLevelPAdder32(adderSrc1, adderSrc2, adderCin)
+    val adder     = BLevelPAdder32(adderSrc1, adderSrc2, adderCin)
 
-    val adderRes = adder.io.res
+    val adderRes  = adder.io.res
     val adderCout = adder.io.cout
 
     // shifter
@@ -29,7 +29,7 @@ class ALU extends Module {
     val sfterShf = io.src2(4, 0)
     val sfterSgn = io.op === SRA
 
-    val shifter = Shifter(sfterSrc, sfterShf, sfterSgn)
+    val shifter  = Shifter(sfterSrc, sfterShf, sfterSgn)
 
     val sfterRes = shifter.io.res
 
@@ -41,17 +41,17 @@ class ALU extends Module {
         }
         is(SUB){
             adderSrc2 := ~io.src2
-            adderCin := 1.U
+            adderCin  := 1.U
         }
         is(SLTU){
             adderSrc2 := ~io.src2
-            adderCin := 1.U
-            io.res := !adderCout
+            adderCin  := 1.U
+            io.res    := !adderCout
         }
         is(SLT){
             adderSrc2 := ~io.src2
-            adderCin := 1.U
-            io.res := io.src1(31) && !io.src2(31) || !(io.src1(31) ^ io.src2(31)) && adderRes(31)
+            adderCin  := 1.U
+            io.res    := io.src1(31) && !io.src2(31) || !(io.src1(31) ^ io.src2(31)) && adderRes(31)
         }
         is(AND){
             io.res := io.src1 & io.src2

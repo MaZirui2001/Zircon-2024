@@ -117,10 +117,10 @@ class MemIO(ic: Boolean) extends Bundle {
 }
 
 class L2CacheIO extends Bundle {
-    val ic      = new L2ICacheIO
-    val dc      = new L2DCacheIO
-    val mem     = new MixedVec(Seq(new MemIO(true), new MemIO(false)))
-    val dbg     = Output(Vec(2, new L2CacheDBG))
+    val ic  = new L2ICacheIO
+    val dc  = new L2DCacheIO
+    val mem = new MixedVec(Seq(new MemIO(true), new MemIO(false)))
+    val dbg = Output(Vec(2, new L2CacheDBG))
 }
 
 class L2Cache extends Module {

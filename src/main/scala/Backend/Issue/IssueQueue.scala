@@ -51,8 +51,8 @@ class IQEntry(num: Int) extends Bundle {
 
     def apply(item: BackendPackage, stBefore: UInt): IQEntry = {
         val e = Wire(new IQEntry(num))
-        e.instExi := true.B
-        e.item := item
+        e.instExi  := true.B
+        e.item     := item
         e.stBefore := stBefore
         e
     }
@@ -87,13 +87,13 @@ class IssueQueueDBGIO extends Bundle {
 }
 
 class IssueQueueIO(ew: Int, dw: Int, num: Int) extends Bundle {
-    val enq        = Vec(ew, Flipped(DecoupledIO(new BackendPackage)))
-    val deq        = Vec(dw, DecoupledIO(new BackendPackage))
-    val wakeBus    = Input(Vec(nis, new WakeupBusPkg))
-    val rplyBus    = Input(new ReplayBusPkg)
-    val stLeft     = Output(UInt(log2Ceil(num).W))
-    val flush      = Input(Bool())
-    val dbg        = Output(new IssueQueueDBGIO)
+    val enq     = Vec(ew, Flipped(DecoupledIO(new BackendPackage)))
+    val deq     = Vec(dw, DecoupledIO(new BackendPackage))
+    val wakeBus = Input(Vec(nis, new WakeupBusPkg))
+    val rplyBus = Input(new ReplayBusPkg)
+    val stLeft  = Output(UInt(log2Ceil(num).W))
+    val flush   = Input(Bool())
+    val dbg     = Output(new IssueQueueDBGIO)
 }
 
 class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Module {
@@ -111,8 +111,8 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
     
     val fList = Module(new ClusterIndexFIFO(
         UInt((log2Ceil(n)+log2Ceil(len)).W), num, dw, ew, 0, 0, true, 
-        Some(Seq.tabulate(num)(i => ((i / len) << log2Ceil(len) | (i % len)).U((log2Ceil(n) + log2Ceil(len)).W
-    )))))
+        Some(Seq.tabulate(num)(i => ((i / len) << log2Ceil(len) | (i % len)).U((log2Ceil(n) + log2Ceil(len)).W)))
+    ))
     
     fList.io.enq.foreach(_.valid := false.B) 
     fList.io.enq.foreach(_.bits := DontCare)
@@ -139,10 +139,10 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
     fList.io.deq.zipWithIndex.foreach{ case (deq, i) => 
         deq.ready := io.enq(i).valid
     }
-    val freeIQ      = fList.io.deq.map((_.bits >> log2Ceil(len)))
-    val freeItem    = fList.io.deq.map(_.bits(log2Ceil(len)-1, 0))
-    val enqEntries  = WireDefault(VecInit(io.enq.map(_.bits)))
-    fList.io.flush  := false.B
+    val freeIQ     = fList.io.deq.map((_.bits >> log2Ceil(len)))
+    val freeItem   = fList.io.deq.map(_.bits(log2Ceil(len)-1, 0))
+    val enqEntries = WireDefault(VecInit(io.enq.map(_.bits)))
+    fList.io.flush := false.B
 
     /* wake up */
     iq.foreach{case (qq) =>
@@ -208,11 +208,11 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
         }
     }
 
-    var fListInsertPtr    = 1.U(n.W)
-    val portMapFlst       = VecInit.fill(dw)(0.U(dw.W))
-    val portMapTransFlst  = Transpose(portMapFlst)
-    val readyToRecycle    = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.instExi || e.item.prjLpv.orR || e.item.prkLpv.orR) } }
-    val selectRecycleIdx  = readyToRecycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
+    var fListInsertPtr   = 1.U(n.W)
+    val portMapFlst      = VecInit.fill(dw)(0.U(dw.W))
+    val portMapTransFlst = Transpose(portMapFlst)
+    val readyToRecycle   = iq.map{ case (qq) => qq.map{ case (e) => e.item.valid && !(e.instExi || e.item.prjLpv.orR || e.item.prkLpv.orR) } }
+    val selectRecycleIdx = readyToRecycle.map{ case (qq) => VecInit(Log2OH(qq)).asUInt}
     for(i <- 0 until dw) {
         portMapFlst(i) := Mux(selectRecycleIdx(i).orR, fListInsertPtr, 0.U)
         fListInsertPtr = Mux(selectRecycleIdx(i).orR, ShiftAdd1(fListInsertPtr), fListInsertPtr)
@@ -238,6 +238,6 @@ class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Mod
         }
     }
     val fullCycleReg = RegInit(0.U(64.W))
-    fullCycleReg := fullCycleReg + !io.enq.map(_.ready).reduce(_ && _)
+    fullCycleReg     := fullCycleReg + !io.enq.map(_.ready).reduce(_ && _)
     io.dbg.fullCycle := fullCycleReg
 }

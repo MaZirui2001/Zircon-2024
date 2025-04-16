@@ -21,11 +21,11 @@ class RenameFrontendIO extends Bundle {
 
 class RenameCommitIO extends Bundle {
     val fList = new FreeListCommitIO
-    val srat = new SRatCommitIO
+    val srat  = new SRatCommitIO
 }
 class RenameDiffIO extends Bundle {
     val fList = new FreeListDiffIO
-    val srat = new SRatDiffIO
+    val srat  = new SRatDiffIO
 }
 class RenameDBGIO extends Bundle {
     val fList = new FreeListDBGIO
@@ -39,9 +39,9 @@ class RenameIO extends Bundle {
 }
 
 class Rename extends Module {
-    val io   = IO(new RenameIO)
+    val io    = IO(new RenameIO)
     val fList = Module(new PRegFreeList)
-    val srat = Module(new SRat)
+    val srat  = Module(new SRat)
     // free list: 
     fList.io.cmt <> io.cmt.fList
     fList.io.fte.deq.zip(io.fte.rinfo).foreach{ case (d, rinfo) =>
@@ -50,12 +50,12 @@ class Rename extends Module {
     io.fte.rinfo.foreach(_.ready := fList.io.fte.deq.map(_.valid).reduce(_ && _))
     io.fte.pinfo.zip(fList.io.fte.deq.map(_.bits)).foreach{ case (pinfo, prd) => pinfo.prd := prd }
     // srat
-    srat.io.cmt         <> io.cmt.srat
-    srat.io.rnm.rj      := io.fte.rinfo.map(_.bits.rj)
-    srat.io.rnm.rk      := io.fte.rinfo.map(_.bits.rk)
-    srat.io.rnm.rd      := io.fte.rinfo.map(_.bits.rd)
-    srat.io.rnm.rdVld  := io.fte.rinfo.map{ case(r) => r.bits.rdVld && r.valid && r.ready } // no matter whether the rd is the same, becuase srat-write is bigger index first
-    srat.io.rnm.prd     := io.fte.pinfo.map(_.prd)
+    srat.io.cmt       <> io.cmt.srat
+    srat.io.rnm.rj    := io.fte.rinfo.map(_.bits.rj)
+    srat.io.rnm.rk    := io.fte.rinfo.map(_.bits.rk)
+    srat.io.rnm.rd    := io.fte.rinfo.map(_.bits.rd)
+    srat.io.rnm.rdVld := io.fte.rinfo.map{ case(r) => r.bits.rdVld && r.valid && r.ready } // no matter whether the rd is the same, becuase srat-write is bigger index first
+    srat.io.rnm.prd   := io.fte.pinfo.map(_.prd)
 
     // RAW: 
     def raw(rs: UInt, rds: Seq[UInt]): Bool = {
@@ -86,7 +86,7 @@ class Rename extends Module {
     }
     
     io.dif.srat.renameTable := srat.io.dif.renameTable
-    io.dif.fList.fList    := fList.io.dif.fList
+    io.dif.fList.fList      := fList.io.dif.fList
 
     io.dbg.fList := fList.io.dbg
 }

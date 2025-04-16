@@ -25,7 +25,7 @@ class SRT2 extends Module {
     val en = io.op(2)
     val iter = RegInit(63.U(6.W))
     
-    io.busy := !iter(5)
+    io.busy      := !iter(5)
     val signSrc1 = io.src1(31)
     val signSrc2 = io.src2(31)
     val resSign  = Mux(io.op === DIV, signSrc1 ^ signSrc2, signSrc1)
@@ -99,19 +99,19 @@ class SRT2 extends Module {
         adder.io.cin  := 1.U
     }
 
-    val quotientS2       = BLevelPAdder32(adder.io.res, Mux(rmdReg(64), 0xFFFFFFFFL.U(32.W), 0.U), 0.U).io.res
-    val remainderS2      = BLevelPAdder32(rmdReg(63, 32), Mux(rmdReg(64), divReg, 0.U), 0.U).io.res >> src2LeadingZerosS2
+    val quotientS2  = BLevelPAdder32(adder.io.res, Mux(rmdReg(64), 0xFFFFFFFFL.U(32.W), 0.U), 0.U).io.res
+    val remainderS2 = BLevelPAdder32(rmdReg(63, 32), Mux(rmdReg(64), divReg, 0.U), 0.U).io.res >> src2LeadingZerosS2
     
     /* stage 3: calculate the result */
-    val quotientS3       = ShiftRegister(quotientS2, 1, 0.U, iter(5))
-    val remainderS3      = ShiftRegister(remainderS2, 1, 0.U, iter(5))
-    val resSignS3        = ShiftRegister(resSignS2, 1, false.B, iter(5))
-    val src1S3           = ShiftRegister(src1S2, 1, 0.U, iter(5))
-    val divS3IsZero      = ShiftRegister(divReg === 0.U, 1, false.B, iter(5))
-    val opS3             = ShiftRegister(opS2, 1, 0.U, iter(5))
-    val readyS3          = ShiftRegister(iter(5) && opS2(2), 1, false.B, true.B)
+    val quotientS3  = ShiftRegister(quotientS2, 1, 0.U, iter(5))
+    val remainderS3 = ShiftRegister(remainderS2, 1, 0.U, iter(5))
+    val resSignS3   = ShiftRegister(resSignS2, 1, false.B, iter(5))
+    val src1S3      = ShiftRegister(src1S2, 1, 0.U, iter(5))
+    val divS3IsZero = ShiftRegister(divReg === 0.U, 1, false.B, iter(5))
+    val opS3        = ShiftRegister(opS2, 1, 0.U, iter(5))
+    val readyS3     = ShiftRegister(iter(5) && opS2(2), 1, false.B, true.B)
 
-    val resultAdder      = Module(new BLevelPAdder32)
+    val resultAdder = Module(new BLevelPAdder32)
     // for div, if the divisor is 0, the result is 0xffffffff according to the RISC-V spec
     // for rem, if the divisor is 0, the result is the divident
     resultAdder.io.src1  := Mux1H(Seq(
@@ -126,6 +126,6 @@ class SRT2 extends Module {
     io.ready            := readyS3
 
     val busyCycleReg = RegInit(0.U(64.W))
-    busyCycleReg := busyCycleReg + io.busy
+    busyCycleReg     := busyCycleReg + io.busy
     io.dbg.busyCycle := busyCycleReg
 }

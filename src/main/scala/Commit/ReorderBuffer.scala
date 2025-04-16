@@ -9,14 +9,14 @@ import ZirconConfig.JumpOp._
 import ZirconConfig.EXEOp._
 
 class ROBFrontendEntry extends Bundle{
-    val rdVld      = Bool()
-    val inst       = UInt(32.W)
-    val rd         = UInt(wlreg.W)
-    val prd        = UInt(wpreg.W)
-    val pprd       = UInt(wpreg.W)
-    val pc         = UInt(32.W)
-    val predType   = UInt(2.W)
-    val isStore    = Bool()
+    val rdVld    = Bool()
+    val inst     = UInt(32.W)
+    val rd       = UInt(wlreg.W)
+    val prd      = UInt(wpreg.W)
+    val pprd     = UInt(wpreg.W)
+    val pc       = UInt(32.W)
+    val predType = UInt(2.W)
+    val isStore  = Bool()
 
     def apply(pkg: FrontendPackage): ROBFrontendEntry = {
         val entry = Wire(new ROBFrontendEntry)
@@ -46,12 +46,12 @@ class ROBBackendEntry extends Bundle{
 
     def apply(pkg: BackendPackage): ROBBackendEntry = {
         val entry = Wire(new ROBBackendEntry)
-        entry.complete   := pkg.valid
-        entry.jumpEn     := pkg.jumpEn
-        entry.predFail   := pkg.predFail
-        entry.exception  := pkg.exception
-        entry.result     := pkg.result
-        entry.nxtCmtEn   := pkg.nxtCmtEn
+        entry.complete  := pkg.valid
+        entry.jumpEn    := pkg.jumpEn
+        entry.predFail  := pkg.predFail
+        entry.exception := pkg.exception
+        entry.result    := pkg.result
+        entry.nxtCmtEn  := pkg.nxtCmtEn
         entry
     }
 }
@@ -140,30 +140,30 @@ class ReorderBuffer extends Module{
     val lastCmtItem    = Mux1H(lastCmtIndex1H, q.io.deq.map(_.bits))
     val flush          = lastCmtItem.flushGen()
     // self flush
-    q.io.flush       := flush || ShiftRegister(flush, 1, false.B, true.B)
+    q.io.flush      := flush || ShiftRegister(flush, 1, false.B, true.B)
     // store buffer
-    io.bke.sb.stCmt  := ShiftRegister(lastCmtItem.fte.isStore, 1, false.B, true.B)
-    io.bke.sb.flush  := ShiftRegister(flush, 1, false.B, true.B)
+    io.bke.sb.stCmt := ShiftRegister(lastCmtItem.fte.isStore, 1, false.B, true.B)
+    io.bke.sb.flush := ShiftRegister(flush, 1, false.B, true.B)
     // rename
     io.fte.rnm.fList.enq.zipWithIndex.foreach{ case (enq, i) =>
-        enq.valid   := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
-        enq.bits    := ShiftRegister(q.io.deq(i).bits.fte.pprd, 1, 0.U(wpreg.W), true.B)
+        enq.valid := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
+        enq.bits  := ShiftRegister(q.io.deq(i).bits.fte.pprd, 1, 0.U(wpreg.W), true.B)
     }
-    io.fte.rnm.fList.flush   := ShiftRegister(flush, 1, false.B, true.B)
+    io.fte.rnm.fList.flush := ShiftRegister(flush, 1, false.B, true.B)
     io.fte.rnm.srat.rdVld.zipWithIndex.foreach{ case (rdVld, i) =>
-        rdVld      := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
+        rdVld := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
     }
-    io.fte.rnm.srat.rd      := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.rd)), 1, VecInit.fill(ncommit)(0.U(wlreg.W)), true.B)
-    io.fte.rnm.srat.prd     := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.prd)), 1, VecInit.fill(ncommit)(0.U(wpreg.W)), true.B)
-    io.fte.rnm.srat.flush   := ShiftRegister(flush, 1, false.B, true.B)
+    io.fte.rnm.srat.rd    := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.rd)), 1, VecInit.fill(ncommit)(0.U(wlreg.W)), true.B)
+    io.fte.rnm.srat.prd   := ShiftRegister(VecInit(io.cmt.deq.map(_.bits.fte.prd)), 1, VecInit.fill(ncommit)(0.U(wpreg.W)), true.B)
+    io.fte.rnm.srat.flush := ShiftRegister(flush, 1, false.B, true.B)
 
     // fetch queue flush
-    io.fte.fq.flush         := ShiftRegister(flush, 1, false.B, true.B) 
+    io.fte.fq.flush       := ShiftRegister(flush, 1, false.B, true.B) 
 
     // npc
-    io.fte.npc.flush       := ShiftRegister(flush, 1, false.B, true.B)
-    io.fte.npc.jumpEn      := ShiftRegister(lastCmtItem.bke.jumpEn, 1, false.B, true.B)
-    io.fte.npc.jumpTgt     := ShiftRegister(Mux(lastCmtItem.bke.jumpEn, lastCmtItem.bke.result, lastCmtItem.fte.pc), 1, 0.U(32.W), true.B)
+    io.fte.npc.flush      := ShiftRegister(flush, 1, false.B, true.B)
+    io.fte.npc.jumpEn     := ShiftRegister(lastCmtItem.bke.jumpEn, 1, false.B, true.B)
+    io.fte.npc.jumpTgt    := ShiftRegister(Mux(lastCmtItem.bke.jumpEn, lastCmtItem.bke.result, lastCmtItem.fte.pc), 1, 0.U(32.W), true.B)
 
     // dispatch
     io.dsp.flush := ShiftRegister(flush, 1, false.B, true.B)
@@ -172,8 +172,8 @@ class ReorderBuffer extends Module{
     io.bke.flush := ShiftRegister(VecInit.fill(nis)(flush), 1, VecInit.fill(nis)(false.B), true.B)
 
     // debug
-    val fullCycleReg    = RegInit(0.U(64.W))
-    fullCycleReg        := fullCycleReg + !io.dsp.enq.map(_.ready).reduce(_ && _)
-    io.dbg.fullCycle    := fullCycleReg
+    val fullCycleReg = RegInit(0.U(64.W))
+    fullCycleReg     := fullCycleReg + !io.dsp.enq.map(_.ready).reduce(_ && _)
+    io.dbg.fullCycle := fullCycleReg
 
 }

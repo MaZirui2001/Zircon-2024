@@ -5,41 +5,41 @@ import ZirconConfig.ReserveQueue._
 import ZirconUtil._
 
 class sbEntry extends Bundle{
-    val paddr = UInt(32.W)
-    val wdata = UInt(32.W)
-    val wstrb = UInt(4.W)
+    val paddr   = UInt(32.W)
+    val wdata   = UInt(32.W)
+    val wstrb   = UInt(4.W)
     val uncache = Bool()
-    val commit = Bool()
+    val commit  = Bool()
 
     def apply(paddr: UInt, wdata: UInt, mtype: UInt, uncache: Bool): sbEntry = {
         val entry = Wire(new sbEntry)
-        entry.paddr := paddr
-        entry.wdata := (wdata << (paddr(1, 0) << 3.U))(31, 0)
-        entry.wstrb := (MTypeDecode(mtype(1, 0)) << paddr(1, 0))(3, 0)
+        entry.paddr   := paddr
+        entry.wdata   := (wdata << (paddr(1, 0) << 3.U))(31, 0)
+        entry.wstrb   := (MTypeDecode(mtype(1, 0)) << paddr(1, 0))(3, 0)
         entry.uncache := uncache
-        entry.commit := false.B
+        entry.commit  := false.B
         entry
     }
 }
 
 class StoreBufferIO extends Bundle {
     // first time: store write itself into sb
-    val enq             = Flipped(Decoupled(new sbEntry))
-    val enqIdx          = Output(UInt(wsb.W))
+    val enq       = Flipped(Decoupled(new sbEntry))
+    val enqIdx    = Output(UInt(wsb.W))
 
     // second time: store commit from sb
-    val deq             = Decoupled(new sbEntry)
-    val deqIdx          = Output(UInt(wsb.W))
-    val stCmt           = Input(Bool())
-    val stFinish        = Input(Bool())
+    val deq       = Decoupled(new sbEntry)
+    val deqIdx    = Output(UInt(wsb.W))
+    val stCmt     = Input(Bool())
+    val stFinish  = Input(Bool())
     
     // load read
-    val ldSBHit         = Output(UInt(4.W))
-    val ldHitData       = Output(UInt(32.W))
+    val ldSBHit   = Output(UInt(4.W))
+    val ldHitData = Output(UInt(32.W))
 
-	val flush 	        = Input(Bool()) // only when all entries have been committed
-    val lock            = Input(Bool()) // stop the sb from committing to the dcache
-    val clear           = Output(Bool())
+	val flush 	  = Input(Bool()) // only when all entries have been committed
+    val lock      = Input(Bool()) // stop the sb from committing to the dcache
+    val clear     = Output(Bool())
 }
 class StoreBuffer extends Module {
     val io = IO(new StoreBufferIO)
@@ -103,15 +103,15 @@ class StoreBuffer extends Module {
 
     // load read: read for each byte
     val loadBytes = WireDefault(VecInit.fill(4)(0.U(8.W)))
-    val loadHit = WireDefault(VecInit.fill(4)(false.B))
+    val loadHit   = WireDefault(VecInit.fill(4)(false.B))
     // 1. match the address(31, 2) with store buffer
     val sbWordAddrMatch = VecInit.tabulate(nsb){i => 
         Mux(q(i).paddr(31, 2) === io.enq.bits.paddr(31, 2), 1.U(1.W), 0.U(1.W))
     }.asUInt
     // 2. for each byte in the word, check each wstrb, get the match item
     for(i <- 0 until 4){
-        val byteHit = Log2OHRev(RotateRightOH(sbWordAddrMatch & VecInit(q.map(_.wstrb(i))).asUInt, ShiftAdd1(tptr)))
-        loadHit(i) := byteHit.orR
+        val byteHit   = Log2OHRev(RotateRightOH(sbWordAddrMatch & VecInit(q.map(_.wstrb(i))).asUInt, ShiftAdd1(tptr)))
+        loadHit(i)   := byteHit.orR
         loadBytes(i) := Mux1H(RotateLeftOH((byteHit), ShiftAdd1(tptr)), q.map(_.wdata(i*8+7, i*8)))
     }
     // 3. shift the result
