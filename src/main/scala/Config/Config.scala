@@ -45,7 +45,7 @@ object JumpOp{
 object RegisterFile{
     val nlreg = 32
     val wlreg = log2Ceil(nlreg)
-    val npreg = 62
+    val npreg = 68
     val wpreg = log2Ceil(npreg)
 }
 object ReserveQueue{
@@ -57,11 +57,11 @@ object ReserveQueue{
 object Issue{
     val niq          = 3
     val nis          = 5
-    val arithNiq     = 24
+    val arithNiq     = 30
     val arithNissue  = 3
-    val muldivNiq    = 9
+    val muldivNiq    = 12
     val muldivNissue = 1
-    val lsuNiq       = 9
+    val lsuNiq       = 12
     val lsuNissue    = 1
 }
 object Fetch{
@@ -69,7 +69,7 @@ object Fetch{
     val nfq = 16
 }
 object Decode{
-    val ndcd = 3
+    val ndcd = 2
     val wdecode = log2Ceil(ndcd)
 }
 object StoreBuffer{

@@ -1,6 +1,6 @@
 import spire.math.UInt
 import spire.math.SafeLong
-class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
+class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch, ir: InstRecorder) {
     private def Bits(bits: UInt, hi: Int, lo: Int): UInt = {
         (bits >> lo) & ~(UInt(-1) << (hi - lo + 1))
     }
@@ -26,6 +26,7 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
             case 0x33 => {
                 funct7.toInt match {
                     case 0x00 => {
+                        ir.addALUInsts(1)
                         funct3.toInt match{
                             case 0x0 => value1 + value2             // add
                             case 0x1 => value1 << value2.toInt     // sll
@@ -39,6 +40,7 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
                         }
                     }
                     case 0x20 => {
+                        ir.addALUInsts(1)
                         funct3.toInt match{
                             case 0x0 => value1 - value2            // sub
                             case 0x5 => UInt(value1.toInt >> value2.toInt)  // sra
@@ -47,20 +49,21 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
                     }
                     case 0x01 => {
                         funct3.toInt match{
-                            case 0x0 => UInt(value1.toInt * value2.toInt)                                      // mul
-                            case 0x1 => UInt(((BigInt(value1.toInt) * BigInt(value2.toInt)) >> 32).toLong)    // mulh
-                            case 0x2 => UInt(((BigInt(value1.toInt) * value2.toLong) >> 32).toLong)          // mulhsu
-                            case 0x3 => UInt(((value1.toLong * value2.toLong) >> 32).toLong)                // mulhu
-                            case 0x4 => (if (value2 == UInt(0)) UInt(-1) else UInt(value1.toInt / value2.toInt)) // div
-                            case 0x5 => (if (value2 == UInt(0)) UInt(-1) else value1 / value2) // divu
-                            case 0x6 => (if (value2 == UInt(0)) value1 else UInt(value1.toInt % value2.toInt)) // rem
-                            case 0x7 => (if (value2 == UInt(0)) value1 else value1 % value2) // remu
+                            case 0x0 => {ir.addMulInsts(1); UInt(value1.toInt * value2.toInt)}                                      // mul
+                            case 0x1 => {ir.addMulInsts(1); UInt(((BigInt(value1.toInt) * BigInt(value2.toInt)) >> 32).toLong)}    // mulh
+                            case 0x2 => {ir.addMulInsts(1); UInt(((BigInt(value1.toInt) * value2.toLong) >> 32).toLong)}          // mulhsu
+                            case 0x3 => {ir.addMulInsts(1); UInt(((value1.toLong * value2.toLong) >> 32).toLong)}                // mulhu
+                            case 0x4 => {ir.addDivInsts(1); (if (value2 == UInt(0)) UInt(-1) else UInt(value1.toInt / value2.toInt))} // div
+                            case 0x5 => {ir.addDivInsts(1); (if (value2 == UInt(0)) UInt(-1) else value1 / value2)} // divu
+                            case 0x6 => {ir.addDivInsts(1); (if (value2 == UInt(0)) value1 else UInt(value1.toInt % value2.toInt))} // rem
+                            case 0x7 => {ir.addDivInsts(1); (if (value2 == UInt(0)) value1 else value1 % value2)} // remu
                             // case _ => throw new Exception("Invalid funct3 of funct7 = 0x01 in R-type")
                         }
                     }
                 }
             }
         }
+        
         rf.write(rd, result)
         fetch.setPC(fetch.getPC() + UInt(4))
     }
@@ -73,6 +76,7 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
         val value1  = rf.read(rs1)
         val result  = opcode.toInt match {
             case 0x13 => {
+                ir.addALUInsts(1)
                 fetch.setPC(pc + UInt(4))
                 funct3.toInt match{
                     case 0x0 => value1 + imm // addi
@@ -87,10 +91,12 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
                 }
             }
             case 0x03 => {
+                ir.addLoadInsts(1)
                 fetch.setPC(pc + UInt(4))
                 mem.read(value1 + imm, funct3.toInt)
             }
             case 0x67 => {
+                ir.addBranchInsts(1)
                 fetch.setPC(value1 + imm)
                 pc + UInt(4)
             }
@@ -109,6 +115,7 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
         val value2  = rf.read(rs2)
         val npc     = (opcode.toInt match {
             case 0x63 => {
+                ir.addBranchInsts(1)
                 funct3.toInt match {
                     case 0x0 => if (value1 == value2) pc + imm else pc + UInt(4)
                     case 0x1 => if (value1 != value2) pc + imm else pc + UInt(4)
@@ -131,6 +138,7 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
         opcode.toInt match {
             case 0x23 => { mem.write(value1 + imm, value2, funct3.toInt) }
         }
+        ir.addStoreInsts(1)
         fetch.setPC(fetch.getPC() + UInt(4))
     }
     private def executeUType(instruction: UInt): Unit = {
@@ -142,6 +150,7 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
             case 0x37 => { imm }
             case 0x17 => { pc + imm }
         }
+        ir.addALUInsts(1)
         rf.write(rd, result)
         fetch.setPC(pc + UInt(4))
     }
@@ -154,6 +163,7 @@ class InstDecoder(rf: LogicRegFile, mem: Memory, fetch: Fetch) {
         val value1  = rf.read(rs1)
         val result  = opcode.toInt match {
             case 0x6F => { 
+                ir.addBranchInsts(1)
                 fetch.setPC(pc + imm)
                 pc + UInt(4) 
             }

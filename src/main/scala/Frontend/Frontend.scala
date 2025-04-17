@@ -6,26 +6,30 @@ import ZirconConfig.Decode._
 class FrontendDispatchIO extends Bundle {
     val instPkg = Vec(ndcd, Decoupled(new FrontendPackage))
 }
+
 class FrontendCommitIO extends Bundle {
-    val rnm  = new RenameCommitIO
-    val npc  = new NPCCommitIO
-    val fq   = new FetchQueueCommitIO
+    val rnm = new RenameCommitIO
+    val npc = new NPCCommitIO
+    val fq  = new FetchQueueCommitIO
 }
+
+
 class FrontendMemoryIO extends Bundle {
-    val l2   = Flipped(new L2ICacheIO)
+    val l2 = Flipped(new L2ICacheIO)
 }
 
 class FrontendDBGIO extends Bundle {
-    val ic   = new ICacheDBG
-    val fq   = new FetchQueueDBGIO
-    val rnm  = new RenameDBGIO
+    val ic  = new ICacheDBG
+    val fq  = new FetchQueueDBGIO
+    val rnm = new RenameDBGIO
 }
 
 class FrontendIO extends Bundle {
-    val dsp  = new FrontendDispatchIO
-    val mem  = new FrontendMemoryIO
-    val cmt  = new FrontendCommitIO
-    val dbg  = new FrontendDBGIO
+    val bke = Flipped(new BackendFrontendIO)
+    val dsp = new FrontendDispatchIO
+    val mem = new FrontendMemoryIO
+    val cmt = new FrontendCommitIO
+    val dbg = new FrontendDBGIO
 }
 
 class Frontend extends Module {
@@ -90,6 +94,7 @@ class Frontend extends Module {
     // previous decoder
     pd.io.instPkg := instPkgPD
     pd.io.rinfo.foreach{ rinfo => rinfo.ready := DontCare}
+    pd.io.praData := io.bke.rf.praData
     instPkgPD.zip(pd.io.rinfo).foreach{ case (pkg, rinfo) => pkg.rinfo := rinfo.bits }
     instPkgPD.zip(pd.io.predOffset).foreach{ case (pkg, predOffset) => pkg.predOffset := predOffset }
     
@@ -109,6 +114,7 @@ class Frontend extends Module {
         deq.ready   := rinfo.ready && io.dsp.instPkg(0).ready
     }
     rnm.io.cmt <> io.cmt.rnm
+
     instPkgDCD.zip(rnm.io.fte.pinfo).foreach{ case (pkg, pinfo) => pkg.pinfo := pinfo }
     dcd.zip(instPkgDCD).foreach{ case (dcd, pkg) => 
         dcd.inst    := pkg.inst
@@ -117,6 +123,7 @@ class Frontend extends Module {
         pkg.imm     := dcd.imm
         pkg.func    := dcd.func
     }
+    io.bke.rf.pra := rnm.io.fte.pra
     val instPkgDSP = WireDefault(ShiftRegister(
         Mux(io.cmt.rnm.fList.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), instPkgDCD), 
         1, 

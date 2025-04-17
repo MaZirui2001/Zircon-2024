@@ -4,6 +4,10 @@ import ZirconConfig.Issue._
 import ZirconConfig.Decode._
 import ZirconConfig.Commit._
 
+class BackendFrontendIO extends Bundle {
+    val rf = new RegfilePredictIO
+}
+
 class BackendDispatchIO extends Bundle {
     val instPkg = Vec(niq, Vec(ndcd, Flipped(Decoupled(new BackendPackage))))
     val wakeBus = Output(Vec(nis, new WakeupBusPkg))
@@ -31,6 +35,7 @@ class BackendDBGIO extends Bundle {
 }
 
 class BackendIO extends Bundle {
+    val fte = new BackendFrontendIO
     val dsp = new BackendDispatchIO
     val cmt = new BackendCommitIO
     val mem = new BackendMemoryIO
@@ -140,6 +145,8 @@ class Backend extends Module {
 
     io.dsp.wakeBus := wakeBus(0)
     io.dsp.rplyBus := rplyBus
+
+    io.fte.rf   <> rf.predictIO
 
     io.dbg.rf   := rf.dbg
     io.dbg.arIQ := arIQ.io.dbg

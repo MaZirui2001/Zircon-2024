@@ -23,14 +23,13 @@ class Dispatch extends Module {
     rboard.io.rplyBus := io.bke.rplyBus
     rboard.io.flush   := io.cmt.flush
 
-    val ftePkg = VecInit.tabulate(ndcd){ i => Mux(io.cmt.enq(0).ready, 
-        (new BackendPackage)(io.fte.instPkg(i).bits, io.cmt.enqIdx(i), rboard.io.prjInfo(i), rboard.io.prkInfo(i)), 
-        0.U.asTypeOf(new BackendPackage))
+    val ftePkg = VecInit.tabulate(ndcd){ i =>  
+        (new BackendPackage)(io.fte.instPkg(i).bits, io.cmt.enqIdx(i), rboard.io.prjInfo(i), rboard.io.prkInfo(i))
     }
 
     // dispatcher
     dsp.io.ftePkg.zipWithIndex.foreach{ case (d, i) =>
-        d.valid := io.fte.instPkg(i).valid
+        d.valid := io.fte.instPkg(i).valid && io.cmt.enq(0).ready
         d.bits  := ftePkg(i)
         io.fte.instPkg(i).ready := d.ready && io.cmt.enq.map(_.ready).reduce(_ && _)
     }

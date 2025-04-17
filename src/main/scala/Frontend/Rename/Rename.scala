@@ -15,8 +15,9 @@ class PRegisterInfo extends Bundle {
 }
 
 class RenameFrontendIO extends Bundle {
-    val rinfo = Vec(ndcd, Flipped(Decoupled(new RegisterInfo)))
-    val pinfo = Output(Vec(ndcd, new PRegisterInfo))
+    val rinfo  = Vec(ndcd, Flipped(Decoupled(new RegisterInfo)))
+    val pinfo  = Output(Vec(ndcd, new PRegisterInfo))
+    val pra    = Output(UInt(wpreg.W))
 }
 
 class RenameCommitIO extends Bundle {
@@ -84,6 +85,8 @@ class Rename extends Module {
         pinfo.prjWk := !raw(io.fte.rinfo(i).bits.rj, io.fte.rinfo.map(_.bits.rd).take(i))
         pinfo.prkWk := !raw(io.fte.rinfo(i).bits.rk, io.fte.rinfo.map(_.bits.rd).take(i))
     }
+
+    io.fte.pra    := srat.io.rnm.pra
     
     io.dif.srat.renameTable := srat.io.dif.renameTable
     io.dif.fList.fList      := fList.io.dif.fList

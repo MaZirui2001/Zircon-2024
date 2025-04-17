@@ -14,6 +14,7 @@ class SRatRenameIO extends Bundle{
     val prj   = Output(Vec(ndcd, UInt(wpreg.W)))
     val prk   = Output(Vec(ndcd, UInt(wpreg.W)))
     val pprd  = Output(Vec(ndcd, UInt(wpreg.W)))
+    val pra   = Output(UInt(wpreg.W))
 }
 
 class SRatCommitIO extends Bundle{
@@ -66,6 +67,9 @@ class SRat extends Module {
         ratRnm := ratCmt
     }
 
-    io.dif.renameTable := ratRnm 
+    io.rnm.pra := ShiftRegister(ratCmt(1), 1, 0.U, true.B)
+    // io.rnm.praVld := ShiftRegister(ratRnm(1) === ratCmt(1), 1, false.B, true.B)
+
+    io.dif.renameTable := ratRnm
     
 }

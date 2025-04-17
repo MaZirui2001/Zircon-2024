@@ -23,6 +23,7 @@ class PreDecoderIO extends Bundle {
     val rinfo      = Output(new RegisterInfo)
     val npc        = Flipped(new NPCPreDecodeIO)
     val predOffset = Output(UInt(32.W))
+    val praData    = Input(UInt(32.W))
 }
 
 class PreDecoder extends Module {
@@ -79,17 +80,22 @@ class PreDecoder extends Module {
         isBr   -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W))
     ))
 
+    // val returnVld = io.praData(32)
     io.npc.flush := Mux1H(Seq(
         isnJ   -> (predInfo.offset =/= 4.U), // isn't jump: predictor must be wrong if it predicts jump
         isJal  -> (predInfo.offset =/= imm), 
+        isJalr -> (!predInfo.vld),
         isBr   -> Mux(predInfo.vld, predInfo.offset =/= Mux(predInfo.jumpEn, imm, 4.U), imm(31))
     )) && io.instPkg.valid
 
-    io.npc.jumpOffset := Mux(isnJ, 4.U, imm)
-    io.npc.pc         := instPkg.pc
+    io.npc.jumpOffset := Mux(isnJ, 4.U, Mux(isJalr && !predInfo.vld, io.praData, imm))
+    // io.npc.jumpOffset := Mux(isnJ, 4.U, imm)
+    io.npc.pc         := Mux(isJalr && !predInfo.vld, 0.U, instPkg.pc)
+    // io.npc.pc         := instPkg.pc
     io.predOffset := Mux1H(Seq(
         isnJ   -> 4.U,
         isJal  -> imm,
+        isJalr -> Mux(predInfo.vld, predInfo.offset, io.praData),
         isBr   -> Mux(predInfo.vld, Mux(predInfo.jumpEn, imm, 4.U), Mux(imm(31), imm, 4.U))
     ))
 
@@ -100,6 +106,7 @@ class PreDecodersIO extends Bundle {
     val rinfo      = Vec(nfch, Decoupled(new RegisterInfo))
     val npc        = Flipped(new NPCPreDecodeIO)
     val predOffset = Vec(nfch, Output(UInt(32.W)))
+    val praData    = Input(UInt(32.W))
 }
 
 class PreDecoders extends Module {
@@ -108,6 +115,7 @@ class PreDecoders extends Module {
     for (i <- 0 until nfch) {
         pds(i).instPkg    := io.instPkg(i)
         io.rinfo(i).bits  := pds(i).rinfo
+        pds(i).praData    := io.praData
         io.rinfo(i).valid := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.instPkg.valid}.take(i).reduce(_ || _)) && io.instPkg(i).valid
     }
     io.npc.flush      := pds.map(_.npc.flush).reduce(_ || _)

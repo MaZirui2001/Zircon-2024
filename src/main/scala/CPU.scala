@@ -32,6 +32,7 @@ class CPU extends Module {
 
     fte.io.dsp <> dsp.io.fte
     dsp.io.bke <> bke.io.dsp
+    fte.io.bke <> bke.io.fte
     
     fte.io.cmt <> rob.io.fte
     bke.io.cmt <> rob.io.bke

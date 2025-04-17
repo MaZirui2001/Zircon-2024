@@ -1,3 +1,4 @@
+
 import spire.math.UInt
 import java.io.File
 import java.io.PrintWriter
@@ -40,6 +41,14 @@ class Statistic {
     private var totalDivBusyCycle = 0
     private var totalDCacheMissCycle = 0
     private var totalSBFullCycle = 0
+
+    private var totalALUInsts = 0
+    private var totalBranchInsts = 0
+    private var totalLoadInsts = 0
+    private var totalStoreInsts = 0
+    private var totalMulInsts = 0
+    private var totalDivInsts = 0
+    
 
     def setImgName(name: String): Unit = {
         imgName = name
@@ -128,7 +137,14 @@ class Statistic {
     // def getBranchSuccess(): (Int, Int, Int) = {
     //     (totalBranch - totalBranchFail, totalCall - totalCallFail, totalRet - totalRetFail)
     // }
-
+    def addInstNums(iNum: InstNum): Unit = {
+        totalALUInsts += iNum.alu
+        totalBranchInsts += iNum.branch
+        totalLoadInsts += iNum.load
+        totalStoreInsts += iNum.store
+        totalMulInsts += iNum.mul
+        totalDivInsts += iNum.div
+    }
     def makeMarkdownReport(): Unit = {
         // 写模式打开reportPath
         val writer = new PrintWriter(new File(reportPath))
@@ -140,6 +156,18 @@ class Statistic {
         writer.write(s"| 程序名 | 总周期数 | 总指令数 | IPC |\n")
         writer.write(s"| --- | --- | --- | --- |\n")
         writer.write(s"| ${imgName} | ${totalCycles} | ${totalInsts} | ${getIpc()} |\n")
+
+        // 写入指令统计信息
+        writer.write(s"### 指令统计\n")
+        writer.write(s"| 指令类型 | 总数 | 占比 |\n")
+        writer.write(s"| --- | --- | --- |\n")
+        writer.write(s"| ALU | ${totalALUInsts} | ${BigDecimal(totalALUInsts.toDouble / totalInsts.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        writer.write(s"| Branch | ${totalBranchInsts} | ${BigDecimal(totalBranchInsts.toDouble / totalInsts.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        writer.write(s"| Load | ${totalLoadInsts} | ${BigDecimal(totalLoadInsts.toDouble / totalInsts.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        writer.write(s"| Store | ${totalStoreInsts} | ${BigDecimal(totalStoreInsts.toDouble / totalInsts.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        writer.write(s"| Mul | ${totalMulInsts} | ${BigDecimal(totalMulInsts.toDouble / totalInsts.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        writer.write(s"| Div | ${totalDivInsts} | ${BigDecimal(totalDivInsts.toDouble / totalInsts.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        
         // 分支预测
 
         val BranchSuccess       = totalBranch - totalBranchFail

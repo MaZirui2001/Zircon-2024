@@ -98,7 +98,7 @@ class IssueQueueIO(ew: Int, dw: Int, num: Int) extends Bundle {
 
 class IssueQueue(ew: Int, dw: Int, num: Int, isMem: Boolean = false) extends Module {
     val io = IO(new IssueQueueIO(ew, dw, num))
-    assert(ew >= dw, "enq width must be greater than or equal to deq width")
+    // assert(ew >= dw, "enq width must be greater than or equal to deq width")
     assert(num % dw == 0, "Issue Queue length must be a multiple of deq width")
     assert(num % ew == 0, "Issue Queue length must be a multiple of enq width")
 

@@ -4,11 +4,12 @@ class Simulator {
 
     // config
     private val baseAddr = UInt(0x80000000)
+    private val instRecorder = new InstRecorder()
     // soc
     private val mem     = new Memory()
     private val rf      = new LogicRegFile()
     private val fetch   = new Fetch(mem, baseAddr)
-    private val decoder = new InstDecoder(rf, mem, fetch)
+    private val decoder = new InstDecoder(rf, mem, fetch, instRecorder)
 
     // debug
     private val iring = new RingBuffer[(UInt, UInt)](8)
@@ -50,6 +51,9 @@ class Simulator {
     // dump the instruction ring buffer
     def iringDump(): Array[(UInt, UInt)] = {
         iring.toArray
+    }
+    def instRecorderDump(): InstNum = {
+        instRecorder.getInstNum()
     }
     
 }

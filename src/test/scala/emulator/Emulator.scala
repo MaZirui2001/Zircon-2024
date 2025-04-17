@@ -125,6 +125,7 @@ class Emulator{
                         statistic.addFrontendBlockCycle(cpu)
                         statistic.addDispatchBlockCycle(cpu)
                         statistic.addBackendBlockCycle(cpu)
+                        statistic.addInstNums(simulator.instRecorderDump())
                         return (if(dbg.rf.rf(rnmTable(10)).peek().litValue.toInt == 0) 0 else -1)
                     }
                     // rnm table update
