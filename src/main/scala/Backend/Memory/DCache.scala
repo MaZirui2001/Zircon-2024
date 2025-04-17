@@ -62,13 +62,13 @@ class DChannel2Stage1Signal extends Bundle {
     val uncache = Bool()
     val sbIdx   = UInt(wsb.W)
 
-    def apply(sbEntry: sbEntry, sbValid: Bool, sbIdx: UInt): DChannel2Stage1Signal = {
+    def apply(SBEntry: SBEntry, sbValid: Bool, sbIdx: UInt): DChannel2Stage1Signal = {
         val c = Wire(new DChannel2Stage1Signal)
         c.wreq    := sbValid
-        c.wdata   := sbEntry.wdata >> (sbEntry.paddr(1, 0) << 3)
-        c.paddr   := sbEntry.paddr
-        c.mtype   := MTypeEncode(sbEntry.wstrb >> sbEntry.paddr(1, 0))
-        c.uncache := sbEntry.uncache
+        c.wdata   := SBEntry.wdata >> (SBEntry.paddr(1, 0) << 3)
+        c.paddr   := SBEntry.paddr
+        c.mtype   := MTypeEncode(SBEntry.wstrb >> SBEntry.paddr(1, 0))
+        c.uncache := SBEntry.uncache
         c.sbIdx   := sbIdx
         c
     }
@@ -182,7 +182,7 @@ class DCache extends Module {
     c1s3Wreq    := c1s3.wreq
     val lruC1s3 = lruTab.rdata(0)
     // store buffer
-    val sbEnq = (new sbEntry)(c1s3.paddr, c1s3.wdata, c1s3.mtype, c1s3.uncache)
+    val sbEnq = (new SBEntry)(c1s3.paddr, c1s3.wdata, c1s3.mtype, c1s3.uncache)
     sb.io.enq.valid := c1s3.wreq && !missC1 && !io.cmt.flush
     sb.io.enq.bits  := sbEnq
     sb.io.stCmt     := io.cmt.stCmt

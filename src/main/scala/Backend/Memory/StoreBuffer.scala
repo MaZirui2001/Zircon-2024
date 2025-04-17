@@ -4,15 +4,15 @@ import ZirconConfig.StoreBuffer._
 import ZirconConfig.ReserveQueue._
 import ZirconUtil._
 
-class sbEntry extends Bundle{
+class SBEntry extends Bundle{
     val paddr   = UInt(32.W)
     val wdata   = UInt(32.W)
     val wstrb   = UInt(4.W)
     val uncache = Bool()
     val commit  = Bool()
 
-    def apply(paddr: UInt, wdata: UInt, mtype: UInt, uncache: Bool): sbEntry = {
-        val entry = Wire(new sbEntry)
+    def apply(paddr: UInt, wdata: UInt, mtype: UInt, uncache: Bool): SBEntry = {
+        val entry = Wire(new SBEntry)
         entry.paddr   := paddr
         entry.wdata   := (wdata << (paddr(1, 0) << 3.U))(31, 0)
         entry.wstrb   := (MTypeDecode(mtype(1, 0)) << paddr(1, 0))(3, 0)
@@ -24,11 +24,11 @@ class sbEntry extends Bundle{
 
 class StoreBufferIO extends Bundle {
     // first time: store write itself into sb
-    val enq       = Flipped(Decoupled(new sbEntry))
+    val enq       = Flipped(Decoupled(new SBEntry))
     val enqIdx    = Output(UInt(wsb.W))
 
     // second time: store commit from sb
-    val deq       = Decoupled(new sbEntry)
+    val deq       = Decoupled(new SBEntry)
     val deqIdx    = Output(UInt(wsb.W))
     val stCmt     = Input(Bool())
     val stFinish  = Input(Bool())
@@ -44,7 +44,7 @@ class StoreBufferIO extends Bundle {
 class StoreBuffer extends Module {
     val io = IO(new StoreBufferIO)
 
-    val q = RegInit(VecInit.fill(nsb)(0.U.asTypeOf(new sbEntry)))
+    val q = RegInit(VecInit.fill(nsb)(0.U.asTypeOf(new SBEntry)))
 
     // full and empty flags
     val fulln = RegInit(true.B)
