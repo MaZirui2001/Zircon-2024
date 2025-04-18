@@ -140,13 +140,13 @@ class L2Cache extends Module {
     // TODO: L1Cache should give L2 the way to be replaced, in order to make sure the L2 includes the data in L1
     // tag
     val tagTab     = VecInit.fill(l2Way)(Module(new XilinxTrueDualPortReadFirst1ClockRam(l2Tag, l2IndexNum)).io)
-    val vldTab     = VecInit.fill(l2Way)(Module(new AsyncRegRam(Bool(), l2IndexNum, 2, 2, false.B)).io)
+    val vldTab     = VecInit.fill(l2Way)(Module(new AsyncRegRam(Bool(), l2IndexNum, 2, 2, Some(false.B))).io)
     // data
     val dataTab    = VecInit.fill(l2Way)(Module(new XilinxTrueDualPortReadFirstByteWrite1ClockRam(l2Line, 8, l2IndexNum)).io)
     // dirty table, dirty for dcache
-    val dirtyTab   = VecInit.fill(l1Way)(Module(new AsyncRegRam(Bool(), l2IndexNum, 1, 1, false.B)).io)
+    val dirtyTab   = VecInit.fill(l1Way)(Module(new AsyncRegRam(Bool(), l2IndexNum, 1, 1, Some(false.B))).io)
     // lru, 0 for icache, 1 for dcache, if the kth-bit is 1, the kth-way is the one to be replaced
-    val lruTab     = VecInit.fill(2)(Module(new AsyncRegRam(UInt(2.W), l2IndexNum, 1, 1, 1.U(2.W))).io)
+    val lruTab     = VecInit.fill(2)(Module(new AsyncRegRam(UInt(2.W), l2IndexNum, 1, 1, Some(1.U(2.W)))).io)
 
     /* hazard */
     val icHazard   = WireDefault(false.B)

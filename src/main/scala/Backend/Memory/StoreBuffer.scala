@@ -1,7 +1,6 @@
 import chisel3._
 import chisel3.util._
 import ZirconConfig.StoreBuffer._
-import ZirconConfig.ReserveQueue._
 import ZirconUtil._
 
 class SBEntry extends Bundle{

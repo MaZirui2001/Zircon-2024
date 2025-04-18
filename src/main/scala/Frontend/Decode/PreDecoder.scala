@@ -80,7 +80,6 @@ class PreDecoder extends Module {
         isBr   -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W))
     ))
 
-    // val returnVld = io.praData(32)
     io.npc.flush := Mux1H(Seq(
         isnJ   -> (predInfo.offset =/= 4.U), // isn't jump: predictor must be wrong if it predicts jump
         isJal  -> (predInfo.offset =/= imm), 
@@ -89,9 +88,7 @@ class PreDecoder extends Module {
     )) && io.instPkg.valid
 
     io.npc.jumpOffset := Mux(isnJ, 4.U, Mux(isJalr && !predInfo.vld, io.praData, imm))
-    // io.npc.jumpOffset := Mux(isnJ, 4.U, imm)
     io.npc.pc         := Mux(isJalr && !predInfo.vld, 0.U, instPkg.pc)
-    // io.npc.pc         := instPkg.pc
     io.predOffset := Mux1H(Seq(
         isnJ   -> 4.U,
         isJal  -> imm,

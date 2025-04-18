@@ -1,7 +1,6 @@
 import chisel3._
 import chisel3.util._
 import ZirconConfig.RegisterFile._
-import ZirconConfig.ReserveQueue._
 import ZirconConfig.Issue._   
 import ZirconConfig.Commit._
 import ZirconConfig.Decode._

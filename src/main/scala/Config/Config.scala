@@ -48,12 +48,12 @@ object RegisterFile{
     val npreg = 68
     val wpreg = log2Ceil(npreg)
 }
-object ReserveQueue{
-    val npcq = 16
-    val wpcq = log2Ceil(npcq)
-    val nimq = 16
-    val wimq = log2Ceil(nimq)
-}
+// object ReserveQueue{
+//     val npcq = 16
+//     val wpcq = log2Ceil(npcq)
+//     val nimq = 16
+//     val wimq = log2Ceil(nimq)
+// }
 object Issue{
     val niq          = 3
     val nis          = 5
@@ -68,6 +68,37 @@ object Fetch{
     val nfch = 4
     val nfq = 16
 }
+
+object Predict{
+    object GShare{
+        import Fetch._
+        val ghrWidth       = 8
+        val phtWidth       = 8
+        assert(phtWidth >= nfch, "gsharePHTWidth must be greater than or equal to nfch")
+        val phtIndexWidth  = phtWidth - nfch
+        val phtOffsetWidth = nfch
+        val phtColSize     = 1 << phtIndexWidth
+        val phtRowSize     = 1 << phtOffsetWidth
+    }
+    object BTBMini{
+        import Fetch._
+        val bank              = nfch
+        val bankWidth         = log2Ceil(bank)
+        val size              = 16
+        val addrWidth         = log2Ceil(size)
+        assert(size % bank == 0, "size must be divisible by way")
+        val sizePerbank       = size / bank
+        val totalWidth        = 6
+        val tagWidth          = totalWidth - addrWidth - bankWidth
+        val way               = 2
+    }
+    object BTB{
+        import Fetch._
+        val totalWidth        = 12
+    }
+
+}
+
 object Decode{
     val ndcd = 2
     val wdecode = log2Ceil(ndcd)

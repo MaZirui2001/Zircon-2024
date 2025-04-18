@@ -80,7 +80,7 @@ class Frontend extends Module {
     ic.io.pp.stall    := !fq.io.enq(0).ready
     ic.io.pp.flush    := io.cmt.npc.flush || pd.io.npc.flush
     io.mem.l2         <> ic.io.l2
-    instPkgFC.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := pc + (i * 4).U }
+    instPkgFC.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := BLevelPAdder32(pc, (i * 4).U, 0.U).io.res }
 
     /* Previous Decode Stage */
     val instPkgPD = WireDefault(ShiftRegister(

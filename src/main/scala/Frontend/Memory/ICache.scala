@@ -73,9 +73,9 @@ class ICache extends Module {
     */
     // Memory arrays
     val tagTab     = VecInit.fill(l1Way)(Module(new XilinxSinglePortRamReadFirst(l1Tag, l1IndexNum)).io)
-    val vldTab     = VecInit.fill(l1Way)(Module(new AsyncRegRam(Bool(), l1IndexNum, 1, 1, false.B)).io)
+    val vldTab     = VecInit.fill(l1Way)(Module(new AsyncRegRam(Bool(), l1IndexNum, 1, 1, Some(false.B))).io)
     val dataTab    = VecInit.fill(l1Way)(Module(new XilinxSinglePortRamReadFirst(icLineBits, l1IndexNum)).io)
-    val lruTab     = Module(new AsyncRegRam(UInt(2.W), l1IndexNum, 1, 1, 1.U(2.W))).io
+    val lruTab     = Module(new AsyncRegRam(UInt(2.W), l1IndexNum, 1, 1, Some(1.U(2.W)))).io
     
     // Utils
     def index(addr: UInt)     = addr(l1Index+l1Offset-1, l1Offset)
