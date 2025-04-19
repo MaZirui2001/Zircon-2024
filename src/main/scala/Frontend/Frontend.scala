@@ -59,11 +59,16 @@ class Frontend extends Module {
     ic.io.pp.vaddr   := npc.io.pc.npc
 
     // TODO: add predictor
-    instPkgPF.foreach{ pkg => 
+    val instValid = MuxLookup((npc.io.pc.npc >> 2).take(log2Ceil(nfch)), 0.U(4.W))(
+        (0 until nfch).map(i =>
+           ((nfch-1-i).U, ((1<<(i+1))-1).U)
+        )
+    ).asBools
+    instPkgPF.zip(instValid)foreach{ case(pkg, valid) => 
         pkg.predInfo.jumpEn := false.B
         pkg.predInfo.offset := 4.U
         pkg.predInfo.vld := false.B
-        pkg.valid := true.B
+        pkg.valid := valid
     }
 
     /* Fetch Stage */
@@ -73,6 +78,7 @@ class Frontend extends Module {
         0.U.asTypeOf(Vec(nfch, new FrontendPackage)), 
         (fq.io.enq(0).ready || pd.io.npc.flush) && !npc.io.ic.miss || io.cmt.npc.flush
     ))
+
 
     // icache mmu TODO: add mmu
     ic.io.mmu.paddr   := pc

@@ -76,9 +76,7 @@ class DCacheFSM extends Module {
     // State transitions
     switch(mState) {
         is(mIdle) {
-            when(io.cc.wreq) {
-                mState := Mux(io.cc.uncache, mHold, mIdle)
-            }.elsewhen(io.cc.rreq) {
+            when(io.cc.rreq) {
                 when(io.cc.isLatest) {
                     mState := Mux(io.cc.uncache, mHold, Mux(io.cc.hit.orR, mIdle, mMiss))
                 }.otherwise {
@@ -101,9 +99,10 @@ class DCacheFSM extends Module {
                 mState := mWait
             }.elsewhen(io.cc.rreq) {
                 mState := Mux(io.cc.sbClear, mMiss, mHold) // TODO: sb clear does not means load is the latest
-            }.elsewhen(io.cc.wreq) {
-                mState := Mux(io.cc.sbClear, mWait, mHold)
             }
+            // .elsewhen(io.cc.wreq) {
+            //     mState := Mux(io.cc.sbClear, mWait, mHold)
+            // }
         }
 
         is(mMiss) {

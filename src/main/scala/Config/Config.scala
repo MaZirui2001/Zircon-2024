@@ -126,7 +126,8 @@ object Cache{
     val l1Tag         = 32 - l1Offset - l1Index
     val l1Line        = (1 << l1Offset)
     val l1LineBits    = l1Line * 8
-    val icLine        = l1Line + nfch * 4
+    // val icLine        = l1Line + nfch * 4
+    val icLine        = l1Line
     val icLineBits    = icLine * 8
     val fetchOffset   = 2 + log2Ceil(nfch)
     assert(l1Offset >= fetchOffset, "l1Offset must be greater than fetchOffset")

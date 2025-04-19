@@ -86,8 +86,8 @@ class ICache extends Module {
     // Control modules
     val fsm        = Module(new ICacheFSM)
     val missC1     = RegInit(false.B)
-    val rbuf       = RegInit(0.U((2*l1LineBits).W))
-    val plusReg    = RegInit(0.U(1.W)) // for the second request
+    val rbuf       = RegInit(0.U(l1LineBits.W))
+    // val plusReg    = RegInit(0.U(1.W)) // for the second request
     
     // Stage 1: Request
     val c1s1 = (new IStage1Signal)(io.pp)
@@ -133,7 +133,7 @@ class ICache extends Module {
         datat.clka  := clock
         datat.addra := Mux1H(fsm.io.cc.addrOH, VecInit(index(c1s1.vaddr), index(c1s2.vaddr), index(c1s3.vaddr)))
         datat.ena   := Mux1H(fsm.io.cc.addrOH, VecInit(c1s1.rreq, c1s2.rreq, c1s3.rreq))
-        datat.dina  := rbuf.take(icLineBits)
+        datat.dina  := rbuf
         datat.wea   := fsm.io.cc.memWe(i)
     }
     vldTab.zipWithIndex.foreach{ case (vldt, i) =>
@@ -144,20 +144,19 @@ class ICache extends Module {
     }
     // rbuf
     when(io.l2.rrsp){
-        rbuf := io.l2.rline ## rbuf(2*l1LineBits-1, l1LineBits)
+        rbuf := io.l2.rline
     }
     // plusReg
-    when(io.l2.rreq && !io.l2.miss){
-        plusReg := plusReg ^ 1.U
-    }
-    val l2Rreq         = fsm.io.l2.rreq & !ShiftRegister(fsm.io.l2.rreq, 1, false.B, !io.l2.miss)
+    // when(io.l2.rreq && !io.l2.miss){
+    //     plusReg := plusReg ^ 1.U
+    // }
     io.pp.rrsp         := c1s3.rreq && !missC1 && !io.pp.stall
-    io.l2.rreq         := l2Rreq || ShiftRegister(l2Rreq, 1, false.B, true.B)
-    io.l2.paddr        := (tagIndex(c1s3.paddr) + plusReg) ## Mux(plusReg.asBool, 0.U, offset(c1s3.paddr))
+    io.l2.rreq         := fsm.io.l2.rreq
+    io.l2.paddr        := c1s3.paddr
     io.l2.uncache      := c1s3.uncache
 
     io.pp.miss         := missC1
-    val rline          = Mux1H(fsm.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf.take(icLineBits)))
+    val rline          = Mux1H(fsm.io.cc.r1H, VecInit(Mux1H(c1s3.hit, c1s3.rdata), rbuf))
     io.pp.rdata.zipWithIndex.foreach{ case (rdata, i) =>
         rdata := Mux(c1s3.uncache, 
             rbuf(i*32+31, i*32),

@@ -32,11 +32,11 @@ class NPCIO extends Bundle {
     val ic  = new NPCICacheIO
 }
 class NPC extends Module {
-    val io     = IO(new NPCIO)
-    val pc     = WireDefault(io.pc.pc)
-    val offset = WireDefault((nfch * 4).U)
-    val npc    = BLevelPAdder32(pc, offset, 0.U).io.res
-    io.pc.npc  := npc
+    val io             = IO(new NPCIO)
+    val pc             = WireDefault(io.pc.pc)
+    val offset         = WireDefault((nfch * 4).U)
+    val adderResult    = BLevelPAdder32(pc, offset, 0.U).io.res
+    io.pc.npc  := adderResult
     when(io.cmt.flush){
         pc          := io.cmt.jumpTgt
         offset      := Mux(io.cmt.jumpEn, 0.U, 4.U)
@@ -46,6 +46,8 @@ class NPC extends Module {
         }.elsewhen(io.pd.flush){
             pc      := io.pd.pc
             offset  := io.pd.jumpOffset
+        }.otherwise {
+            io.pc.npc := adderResult(31, 2+log2Ceil(nfch)) ## 0.U((2+log2Ceil(nfch)).W)
         }
     }.otherwise{
         offset := 0.U
