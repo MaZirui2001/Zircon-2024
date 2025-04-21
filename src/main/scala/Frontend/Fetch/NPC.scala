@@ -24,10 +24,17 @@ class NPCFetchIO extends Bundle {
 class NPCICacheIO extends Bundle {
     val miss       = Input(Bool())
 }
+class NPCPredictIO extends Bundle {
+    val flush      = Input(Bool())
+    val pc         = Input(UInt(32.W))
+    val jumpOffset = Input(UInt(32.W))
+}
+
 class NPCIO extends Bundle {
     val cmt = new NPCCommitIO
     val pd  = new NPCPreDecodeIO
     val fq  = new NPCFetchQueueIO
+    val pr  = new NPCPredictIO
     val pc  = new NPCFetchIO
     val ic  = new NPCICacheIO
 }
@@ -46,6 +53,9 @@ class NPC extends Module {
         }.elsewhen(io.pd.flush){
             pc      := io.pd.pc
             offset  := io.pd.jumpOffset
+        }.elsewhen(io.pr.flush){
+            pc      := io.pr.pc
+            offset  := io.pr.jumpOffset
         }.otherwise {
             io.pc.npc := adderResult(31, 2+log2Ceil(nfch)) ## 0.U((2+log2Ceil(nfch)).W)
         }

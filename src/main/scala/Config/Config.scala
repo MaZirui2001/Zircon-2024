@@ -72,23 +72,24 @@ object Fetch{
 object Predict{
     object GShare{
         import Fetch._
-        val ghrWidth       = 8
-        val phtWidth       = 8
-        assert(phtWidth >= nfch, "gsharePHTWidth must be greater than or equal to nfch")
-        val phtIndexWidth  = phtWidth - nfch
-        val phtOffsetWidth = nfch
-        val phtColSize     = 1 << phtIndexWidth
-        val phtRowSize     = 1 << phtOffsetWidth
+        val ghrWidth       = 12
+        val phtWidth       = ghrWidth
+        // assert(phtWidth >= nfch, "gsharePHTWidth must be greater than or equal to nfch")
+        val phtSize        = 1 << phtWidth
+        // val phtIndexWidth  = phtWidth - nfch
+        // val phtOffsetWidth = nfch
+        // val phtColSize     = 1 << phtIndexWidth
+        // val phtRowSize     = 1 << phtOffsetWidth
     }
     object BTBMini{
         import Fetch._
         val bank              = nfch
         val bankWidth         = log2Ceil(bank)
-        val size              = 16
+        val size              = 64
         val addrWidth         = log2Ceil(size)
         assert(size % bank == 0, "size must be divisible by way")
-        val sizePerbank       = size / bank
-        val totalWidth        = 6
+        val sizePerBank       = size / bank
+        val totalWidth        = 16
         val tagWidth          = totalWidth - addrWidth - bankWidth
         val way               = 2
     }
@@ -100,7 +101,7 @@ object Predict{
 }
 
 object Decode{
-    val ndcd = 2
+    val ndcd = 3
     val wdecode = log2Ceil(ndcd)
 }
 object StoreBuffer{

@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import ZirconConfig.Fetch._
 import ZirconConfig.Decode._
+import ZirconUtil._
 
 class FrontendDispatchIO extends Bundle {
     val instPkg = Vec(ndcd, Decoupled(new FrontendPackage))
@@ -11,6 +12,7 @@ class FrontendCommitIO extends Bundle {
     val rnm = new RenameCommitIO
     val npc = new NPCCommitIO
     val fq  = new FetchQueueCommitIO
+    val pr  = new PredictCommitIO
 }
 
 
@@ -36,6 +38,7 @@ class Frontend extends Module {
     val io = IO(new FrontendIO)
 
     val npc = Module(new NPC)
+    val pr  = Module(new Predict)
     val ic  = Module(new ICache)
     val pd  = Module(new PreDecoders)
     val fq  = Module(new FetchQueue)
@@ -52,6 +55,7 @@ class Frontend extends Module {
     npc.io.ic.miss   := ic.io.pp.miss
     npc.io.fq.ready  := fq.io.enq(0).ready
     npc.io.pc.pc     := pc
+    npc.io.pr        := pr.io.npc
     pc               := npc.io.pc.npc
 
     // icache visit
@@ -78,7 +82,19 @@ class Frontend extends Module {
         0.U.asTypeOf(Vec(nfch, new FrontendPackage)), 
         (fq.io.enq(0).ready || pd.io.npc.flush) && !npc.io.ic.miss || io.cmt.npc.flush
     ))
+    // predict
+    val instPkgPDIn = WireDefault(instPkgFC)
+    pr.io.fc.gs.pc   := pc
+    pr.io.fc.btbM.pc := pc
+    pr.io.pd         <> pd.io.pr
+    pr.io.cmt        <> io.cmt.pr
 
+    instPkgPDIn.zipWithIndex.foreach{ case(pkg, i) =>
+        pkg.predInfo.jumpEn := pr.io.fc.gs.jumpEnPredict(i)
+        pkg.predInfo.offset := SE(pr.io.fc.btbM.rData(i).imm << 2)
+        pkg.predInfo.vld    := instPkgFC(i).valid && pr.io.fc.btbM.rValid(i)
+        pkg.valid           := instPkgFC(i).valid && pr.io.fc.validMask(i)
+    }
 
     // icache mmu TODO: add mmu
     ic.io.mmu.paddr   := pc
@@ -86,11 +102,12 @@ class Frontend extends Module {
     ic.io.pp.stall    := !fq.io.enq(0).ready
     ic.io.pp.flush    := io.cmt.npc.flush || pd.io.npc.flush
     io.mem.l2         <> ic.io.l2
-    instPkgFC.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := BLevelPAdder32(pc, (i * 4).U, 0.U).io.res }
+    instPkgPDIn.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := BLevelPAdder32(pc, (i * 4).U, 0.U).io.res }
+    pr.io.fc.pc.zip(instPkgPDIn).foreach{ case (pc, pkg) => pc := pkg.pc }
 
     /* Previous Decode Stage */
     val instPkgPD = WireDefault(ShiftRegister(
-        Mux(io.cmt.fq.flush || pd.io.npc.flush, 0.U.asTypeOf(Vec(nfch, new FrontendPackage)), instPkgFC), 
+        Mux(io.cmt.fq.flush || pd.io.npc.flush, 0.U.asTypeOf(Vec(nfch, new FrontendPackage)), instPkgPDIn), 
         1, 
         0.U.asTypeOf(Vec(nfch, new FrontendPackage)), 
         fq.io.enq(0).ready && !npc.io.ic.miss || io.cmt.npc.flush

@@ -141,9 +141,11 @@ class ReorderBuffer extends Module{
     val flush          = lastCmtItem.flushGen()
     // self flush
     q.io.flush      := flush || ShiftRegister(flush, 1, false.B, true.B)
+   
     // store buffer
     io.bke.sb.stCmt := ShiftRegister(lastCmtItem.fte.isStore, 1, false.B, true.B)
     io.bke.sb.flush := ShiftRegister(flush, 1, false.B, true.B)
+    
     // rename
     io.fte.rnm.fList.enq.zipWithIndex.foreach{ case (enq, i) =>
         enq.valid := ShiftRegister(io.cmt.deq(i).valid && q.io.deq(i).bits.fte.rdVld, 1, false.B, true.B)
@@ -165,6 +167,17 @@ class ReorderBuffer extends Module{
     io.fte.npc.jumpEn     := ShiftRegister(lastCmtItem.bke.jumpEn, 1, false.B, true.B)
     io.fte.npc.jumpTgt    := ShiftRegister(Mux(lastCmtItem.bke.jumpEn, lastCmtItem.bke.result, lastCmtItem.fte.pc), 1, 0.U(32.W), true.B)
 
+    // predict
+    io.fte.pr.gs.pc       := ShiftRegister(lastCmtItem.fte.pc, 1, 0.U(32.W), true.B)
+    io.fte.pr.gs.jumpEn   := ShiftRegister(lastCmtItem.bke.jumpEn, 1, false.B, true.B)
+    io.fte.pr.gs.predType := ShiftRegister(lastCmtItem.fte.predType, 1, 0.U(2.W), true.B)
+    io.fte.pr.gs.flush    := ShiftRegister(flush, 1, false.B, true.B)
+
+    io.fte.pr.btbM.pc       := ShiftRegister(lastCmtItem.fte.pc, 1, 0.U(32.W), true.B)
+    io.fte.pr.btbM.jumpTgt  := ShiftRegister(lastCmtItem.bke.result, 1, 0.U(32.W), true.B)
+    io.fte.pr.btbM.predType := ShiftRegister(lastCmtItem.fte.predType, 1, 0.U(2.W), true.B)
+    io.fte.pr.btbM.jumpEn   := ShiftRegister(lastCmtItem.bke.jumpEn, 1, false.B, true.B)
+    
     // dispatch
     io.dsp.flush := ShiftRegister(flush, 1, false.B, true.B)
 
