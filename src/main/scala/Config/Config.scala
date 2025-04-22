@@ -57,11 +57,11 @@ object RegisterFile{
 object Issue{
     val niq          = 3
     val nis          = 5
-    val arithNiq     = 30
+    val arithNiq     = 18
     val arithNissue  = 3
     val muldivNiq    = 12
     val muldivNissue = 1
-    val lsuNiq       = 12
+    val lsuNiq       = 15
     val lsuNissue    = 1
 }
 object Fetch{
@@ -76,10 +76,6 @@ object Predict{
         val phtWidth       = ghrWidth
         // assert(phtWidth >= nfch, "gsharePHTWidth must be greater than or equal to nfch")
         val phtSize        = 1 << phtWidth
-        // val phtIndexWidth  = phtWidth - nfch
-        // val phtOffsetWidth = nfch
-        // val phtColSize     = 1 << phtIndexWidth
-        // val phtRowSize     = 1 << phtOffsetWidth
     }
     object BTBMini{
         import Fetch._
@@ -112,7 +108,7 @@ object Commit{
     import Decode._
     val ncommit = 2
     assert(ncommit <= ndcd, "ncommit must be less than or equal to ndcd")
-    val nrob = 60
+    val nrob = 54
     assert(nrob % ndcd == 0, "nrob must be divisible by ndcd")
     val nrobQ = nrob / ndcd
     val wrob = log2Ceil(nrob)
@@ -121,19 +117,18 @@ object Commit{
 object Cache{
     import Fetch._
     val l1Way         = 2
-    val l1Offset      = 5
-    val l1Index       = 5
+    val l1Offset      = 6
+    val l1Index       = 6
     val l1IndexNum    = 1 << l1Index
     val l1Tag         = 32 - l1Offset - l1Index
     val l1Line        = (1 << l1Offset)
     val l1LineBits    = l1Line * 8
-    // val icLine        = l1Line + nfch * 4
     val icLine        = l1Line
     val icLineBits    = icLine * 8
     val fetchOffset   = 2 + log2Ceil(nfch)
     assert(l1Offset >= fetchOffset, "l1Offset must be greater than fetchOffset")
-    val l2Offset      = 6
-    val l2Index       = 6
+    val l2Offset      = 7
+    val l2Index       = 7
     val l2IndexNum    = 1 << l2Index
     val l2Tag         = 32 - l2Offset - l2Index
     val l2Way         = 2 * l1Way

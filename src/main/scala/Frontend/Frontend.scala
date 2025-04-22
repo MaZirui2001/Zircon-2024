@@ -47,8 +47,8 @@ class Frontend extends Module {
     val pc  = RegInit(0x7FFFFFF0L.U(32.W))
     
     /* Previous Fetch Stage */
-    val instPkgPF = WireDefault(VecInit.fill(nfch)(0.U.asTypeOf(new FrontendPackage)))
-
+    val instPkgPF   = WireDefault(VecInit.fill(nfch)(0.U.asTypeOf(new FrontendPackage)))
+    val instPkgFCIn = WireDefault(instPkgPF)
     // npc
     npc.io.cmt       := io.cmt.npc
     npc.io.pd        := pd.io.npc
@@ -62,32 +62,23 @@ class Frontend extends Module {
     ic.io.pp.rreq    := fq.io.enq(0).ready || io.cmt.fq.flush || pd.io.npc.flush
     ic.io.pp.vaddr   := npc.io.pc.npc
 
-    // TODO: add predictor
-    val instValid = MuxLookup((npc.io.pc.npc >> 2).take(log2Ceil(nfch)), 0.U(4.W))(
-        (0 until nfch).map(i =>
-           ((nfch-1-i).U, ((1<<(i+1))-1).U)
-        )
-    ).asBools
-    instPkgPF.zip(instValid)foreach{ case(pkg, valid) => 
-        pkg.predInfo.jumpEn := false.B
-        pkg.predInfo.offset := 4.U
-        pkg.predInfo.vld := false.B
-        pkg.valid := valid
+    instPkgPF.zip(npc.io.pc.validMask).foreach{ case(pkg, vMask) => 
+        pkg.valid    := vMask
     }
-
     /* Fetch Stage */
     val instPkgFC = WireDefault(ShiftRegister(
-        instPkgPF, 
+        instPkgFCIn, 
         1, 
         0.U.asTypeOf(Vec(nfch, new FrontendPackage)), 
         (fq.io.enq(0).ready || pd.io.npc.flush) && !npc.io.ic.miss || io.cmt.npc.flush
     ))
-    // predict
     val instPkgPDIn = WireDefault(instPkgFC)
+    // predict
     pr.io.fc.gs.pc   := pc
     pr.io.fc.btbM.pc := pc
     pr.io.pd         <> pd.io.pr
     pr.io.cmt        <> io.cmt.pr
+    
 
     instPkgPDIn.zipWithIndex.foreach{ case(pkg, i) =>
         pkg.predInfo.jumpEn := pr.io.fc.gs.jumpEnPredict(i)
@@ -105,6 +96,7 @@ class Frontend extends Module {
     instPkgPDIn.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := BLevelPAdder32(pc, (i * 4).U, 0.U).io.res }
     pr.io.fc.pc.zip(instPkgPDIn).foreach{ case (pc, pkg) => pc := pkg.pc }
 
+
     /* Previous Decode Stage */
     val instPkgPD = WireDefault(ShiftRegister(
         Mux(io.cmt.fq.flush || pd.io.npc.flush, 0.U.asTypeOf(Vec(nfch, new FrontendPackage)), instPkgPDIn), 
@@ -113,24 +105,26 @@ class Frontend extends Module {
         fq.io.enq(0).ready && !npc.io.ic.miss || io.cmt.npc.flush
     ))
     instPkgPD.zip(ic.io.pp.rdata).foreach{ case (pkg, inst) => pkg.inst := inst}
+    val instPkgFQIn = WireDefault(instPkgPD)
    
     // previous decoder
     pd.io.instPkg := instPkgPD
-    pd.io.rinfo.foreach{ rinfo => rinfo.ready := DontCare}
     pd.io.praData := io.bke.rf.praData
-    instPkgPD.zip(pd.io.rinfo).foreach{ case (pkg, rinfo) => pkg.rinfo := rinfo.bits }
-    instPkgPD.zip(pd.io.predOffset).foreach{ case (pkg, predOffset) => pkg.predOffset := predOffset }
+    instPkgFQIn.zip(pd.io.rinfo).foreach{ case (pkg, rinfo) => pkg.rinfo := rinfo }
+    instPkgFQIn.zip(pd.io.predOffset).foreach{ case (pkg, predOffset) => pkg.predOffset := predOffset }
+    instPkgFQIn.zip(pd.io.validMask).foreach{ case (pkg, validMask) => pkg.valid := validMask }
     
     // fetch queue
     fq.io.enq.zipWithIndex.foreach{ case (enq, i) => 
-        enq.valid   := pd.io.rinfo(i).valid && !ic.io.pp.miss
-        enq.bits    := instPkgPD(i)
+        enq.valid := instPkgFQIn(i).valid && !ic.io.pp.miss
+        enq.bits  := instPkgFQIn(i)
     }
-    fq.io.cmt   := io.cmt.fq
-    val instPkgDCD = WireDefault(VecInit(fq.io.deq.map(_.bits)))
-    instPkgDCD.zip(fq.io.deq).foreach{ case (pkg, deq) => pkg.valid := deq.valid }
-    
+    fq.io.cmt := io.cmt.fq
+
     /* Decode and Rename Stage */
+    val instPkgDCD = WireDefault(VecInit(fq.io.deq.map(_.bits)))
+    val instPkgDSPIn = WireDefault(instPkgDCD)
+    instPkgDSPIn.zip(fq.io.deq).foreach{ case (pkg, deq) => pkg.valid := deq.valid }
     rnm.io.fte.rinfo.zip(fq.io.deq).foreach{ case (rinfo, deq) => 
         rinfo.bits  := deq.bits.rinfo 
         rinfo.valid := deq.valid && io.dsp.instPkg(0).ready
@@ -138,17 +132,19 @@ class Frontend extends Module {
     }
     rnm.io.cmt <> io.cmt.rnm
 
-    instPkgDCD.zip(rnm.io.fte.pinfo).foreach{ case (pkg, pinfo) => pkg.pinfo := pinfo }
+    instPkgDSPIn.zip(rnm.io.fte.pinfo).foreach{ case (pkg, pinfo) => pkg.pinfo := pinfo }
     dcd.zip(instPkgDCD).foreach{ case (dcd, pkg) => 
         dcd.inst    := pkg.inst
         dcd.rinfo   := pkg.rinfo
+    }
+    dcd.zip(instPkgDSPIn).foreach{ case (dcd, pkg) => 
         pkg.op      := dcd.op
         pkg.imm     := dcd.imm
         pkg.func    := dcd.func
     }
     io.bke.rf.pra := rnm.io.fte.pra
     val instPkgDSP = WireDefault(ShiftRegister(
-        Mux(io.cmt.rnm.fList.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), instPkgDCD), 
+        Mux(io.cmt.rnm.fList.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), instPkgDSPIn), 
         1, 
         0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), 
         io.dsp.instPkg(0).ready || io.cmt.fq.flush

@@ -19,7 +19,7 @@ class NPCFetchQueueIO extends Bundle {
 class NPCFetchIO extends Bundle {
     val pc         = Input(UInt(32.W))
     val npc        = Output(UInt(32.W))
-    val btbRIdx    = Output(Vec(nfch, UInt(BTB.totalWidth.W)))
+    val validMask  = Output(Vec(nfch, Bool()))
 }
 class NPCICacheIO extends Bundle {
     val miss       = Input(Bool())
@@ -62,7 +62,8 @@ class NPC extends Module {
     }.otherwise{
         offset := 0.U
     }
-    io.pc.btbRIdx := VecInit.tabulate(nfch){i =>
-        (io.pc.npc >> 2).take(BTB.totalWidth) + i.U
-    }
+    val validMask = MuxLookup((io.pc.npc >> 2).take(log2Ceil(nfch)), 0.U(4.W))(
+        (0 until nfch).map(i => ((nfch-1-i).U, ((2<<i)-1).U))
+    ).asBools
+    io.pc.validMask := validMask
 }

@@ -79,22 +79,25 @@ class PreDecoder extends Module {
 
     val imm = Mux1H(Seq(
         isJal  -> SE(inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21) ## 0.U(1.W)),
+        // isJalr -> (instPkg.pc + predInfo.offset),
         isBr   -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W))
     ))
 
     io.npc.flush := Mux1H(Seq(
         isnJ   -> (predInfo.offset =/= 4.U), // isn't jump: predictor must be wrong if it predicts jump
         isJal  -> (predInfo.offset =/= imm), 
-        isJalr -> true.B,
+        isJalr -> !(predInfo.vld && rj =/= 1.U), // TEMP: only fix return or not valid
         isBr   -> Mux(predInfo.vld, predInfo.offset =/= Mux(predInfo.jumpEn, imm, 4.U), imm(31))
     )) && io.instPkg.valid
 
+
+    val jalrAdderRes = BLevelPAdder32(instPkg.pc, predInfo.offset, 0.U).io.res
     io.npc.jumpOffset := Mux(isnJ, 4.U, Mux(isJalr, io.praData, imm))
     io.npc.pc         := Mux(isJalr, 0.U, instPkg.pc)
     io.predOffset := Mux1H(Seq(
         isnJ   -> 4.U,
         isJal  -> imm,
-        isJalr -> io.praData,
+        isJalr -> Mux(predInfo.vld && rj =/= 1.U, jalrAdderRes, io.praData),
         isBr   -> Mux(predInfo.vld, Mux(predInfo.jumpEn, imm, 4.U), Mux(imm(31), imm, 4.U))
     ))
     io.isBr := !isnJ
@@ -109,7 +112,8 @@ class PreDecoder extends Module {
 
 class PreDecodersIO extends Bundle {
     val instPkg    = Input(Vec(nfch, new FrontendPackage))
-    val rinfo      = Vec(nfch, Decoupled(new RegisterInfo))
+    val rinfo      = Output(Vec(nfch, new RegisterInfo))
+    val validMask  = Output(Vec(nfch, Bool()))
     val npc        = Flipped(new NPCPreDecodeIO)
     val pr         = Flipped(new PredictPreDecodeIO)
     val predOffset = Vec(nfch, Output(UInt(32.W)))
@@ -121,11 +125,11 @@ class PreDecoders extends Module {
     val pds = VecInit.fill(nfch)(Module(new PreDecoder).io)
     for (i <- 0 until nfch) {
         pds(i).instPkg     := io.instPkg(i)
-        io.rinfo(i).bits   := pds(i).rinfo
+        io.rinfo(i)        := pds(i).rinfo
         pds(i).praData     := io.praData
-        io.rinfo(i).valid  := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.instPkg.valid}.take(i).reduce(_ || _)) && io.instPkg(i).valid
-        io.pr.gs.isBr(i)   := pds(i).isBr && io.rinfo(i).valid
-        io.pr.gs.jumpEn(i) := pds(i).jumpEn && io.rinfo(i).valid
+        io.validMask(i)    := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.instPkg.valid}.take(i).reduce(_ || _)) && io.instPkg(i).valid
+        io.pr.gs.isBr(i)   := pds(i).isBr && io.validMask(i)
+        io.pr.gs.jumpEn(i) := pds(i).jumpEn && io.validMask(i)
     }
     io.npc.flush      := pds.map(_.npc.flush).reduce(_ || _)
     io.npc.jumpOffset := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.jumpOffset))
