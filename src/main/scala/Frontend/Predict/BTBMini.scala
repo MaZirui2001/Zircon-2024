@@ -97,27 +97,26 @@ class BTBMini extends Module {
         b.wdata(0) := (new BTBMiniTagEntry)(tag(cmtPC), Mux1H(PriorityEncoderOH(cmtWHit), cmtWValid) | UIntToOH(bank(cmtPC)))
         b.wen(0)   := Mux(cmtPredType === 0.U, false.B, Mux(cmtWHit.reduce(_ || _), cmtWHit(i), rand === i.U))
     }
-    pht.zipWithIndex.foreach{ case(p, i) =>
-        when(cmtWHit.reduce(_ || _)){
-            // if the target is in the BTB
-            when(cmtWHit(i)){
-                p(idx(cmtPC)).zipWithIndex.foreach{ case (p, j) =>
-                    when(j.U === bank(cmtPC) && cmtPredType =/= 0.U){
-                        // step 1: update the aimed pht
-                        p := Mux(cmtJumpEn, p + (p =/= 7.U), p - (p =/= 0.U))
-                    }.elsewhen(j.U < bank(cmtPC) && cmtPredType =/= 0.U){
-                        // step 2: substract the other pht in front of the aimed pht with the same bank
-                        p := Mux(cmtJumpEn, p - (p =/= 0.U), p)
-                    }
+    pht.zipWithIndex.foreach{ case(p, i) => p.zipWithIndex.foreach{ case (pline, k) => pline.zipWithIndex.foreach{ case (pitem, j) =>
+        when(k.U === idx(cmtPC)){
+            when(cmtWHit(i) && cmtPredType =/= 0.U){
+                val pitemSSub = pitem - (pitem =/= 0.U)
+                val pitemSAdd = pitem + (pitem =/= 7.U)
+                when(j.U === bank(cmtPC) ){
+                    // step 1: update the aimed pht
+                    pitem := Mux(cmtJumpEn, pitemSAdd, pitemSSub) 
+                }.elsewhen(j.U < bank(cmtPC)){
+                    // step 2: substract the other pht in front of the aimed pht with the same bank
+                    pitem := Mux(cmtJumpEn, pitemSSub, pitem)
+                }
+            }.elsewhen(!cmtWHit.reduce(_ || _) && cmtPredType =/= 0.U){
+                // if the target is not in the BTB
+                when(j.U === bank(cmtPC)){
+                    pitem := Mux(rand === i.U, Mux(cmtJumpEn, 5.U, 2.U), pitem)
                 }
             }
-        }.otherwise{
-            // if the target is not in the BTB
-            when(cmtPredType =/= 0.U){
-                p(idx(cmtPC))(bank(cmtPC)) := Mux(rand === i.U, Mux(cmtJumpEn, 5.U, 2.U), p(idx(cmtPC))(bank(cmtPC)))
-            }
         }
-    }
+    }}}
 
     /* read */
     val rIdx = io.fc.pc >> 2
@@ -139,8 +138,14 @@ class BTBMini extends Module {
     }
     io.gs.isBr := io.fc.rData.zip(io.fc.rValid).map{ case (r, v) => r.predType =/= 0.U && v }
     // phtData: the pht data of the target
-    val phtData = VecInit(pht(PriorityEncoder(rHit))(idx(rIdx)).map{ case c => c(2)})
+    val phtData = VecInit(pht.map{case p => VecInit(p.map{ case pline => VecInit(pline.map{ case pitem => pitem(2)})})})
     // jumpCandidate: the jump candidate of the target, MUST be a one-hot vector
-    io.gs.jumpCandidate := PriorityEncoderOH(phtData.asUInt >> bank(rIdx)).asBools
 
+
+
+    io.gs.jumpCandidate := PriorityEncoderOH(phtData(PriorityEncoder(rHit))(idx(rIdx)).asUInt >> bank(rIdx)).asBools
+
+    
+    val phtBit = MuxLookup(idx(rIdx), 0.U(3.W))(Seq.tabulate(sizePerBank){i => (i.U, phtData(PriorityEncoder(rHit))(i).asUInt)})
+    io.gs.jumpCandidate := PriorityEncoderOH(phtBit.asUInt >> bank(rIdx)).asBools
 }

@@ -14,13 +14,13 @@ class CPUDebugIO extends Bundle {
 }
 
 
-class CPUIO extends Bundle {
+class CPUIO(sim: Boolean) extends Bundle {
     val axi = new AXIIO
-    val dbg = new CPUDebugIO
+    val dbg = if(sim) Some(new CPUDebugIO) else None
 }
 
-class CPU extends Module {
-    val io = IO(new CPUIO)
+class CPU(sim: Boolean = false) extends Module {
+    val io = IO(new CPUIO(sim))
 
     val fte = Module(new Frontend)
     val dsp = Module(new Dispatch)
@@ -44,12 +44,14 @@ class CPU extends Module {
     arb.io.l2  <> l2.io.mem
     arb.io.axi <> io.axi
 
-    io.dbg.cmt <> rob.io.cmt
-    io.dbg.rf  <> bke.io.dbg.rf
-
+    
     // debug
-    io.dbg.fte <> fte.io.dbg
-    io.dbg.bke <> bke.io.dbg
-    io.dbg.l2  <> l2.io.dbg
-    io.dbg.dsp <> rob.io.dbg
+    if(sim){
+        io.dbg.get.cmt <> rob.io.cmt
+        io.dbg.get.rf  <> bke.io.dbg.rf
+        io.dbg.get.fte <> fte.io.dbg
+        io.dbg.get.bke <> bke.io.dbg
+        io.dbg.get.l2  <> l2.io.dbg
+        io.dbg.get.dsp <> rob.io.dbg
+    }
 }

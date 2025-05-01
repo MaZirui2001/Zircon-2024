@@ -20,8 +20,9 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
         if (!java.nio.file.Files.exists(testDirPath)) {
             java.nio.file.Files.createDirectories(testDirPath)
         }
-        
-        test(new CPU)
+        val isSim = Option(System.getenv("BUILD_MODE")).getOrElse("SYNC") != "SYNC"
+        println(s"isSim: $isSim")
+        test(new CPU(isSim))
         .withAnnotations(Seq(
             CachingAnnotation,
             VerilatorBackendAnnotation, 

@@ -95,10 +95,10 @@ class Emulator{
                 if(stallForTooLong()){
                     return -3
                 }
-                val cmt     = cpu.io.dbg.cmt.deq(i).bits
-                val dbg     = cpu.io.dbg
+                val cmt     = cpu.io.dbg.get.cmt.deq(i).bits
+                val dbg     = cpu.io.dbg.get
 
-                if(cpu.io.dbg.cmt.deq(i).valid.peek().litToBoolean){
+                if(cpu.io.dbg.get.cmt.deq(i).valid.peek().litToBoolean){
                     cyclesFromLastCommit = 0
                     val cmtFteRd   = cmt.fte.rd.peek().litValue.toInt
                     val cmtFtePC   = cmt.fte.pc.peek().litValue.toInt

@@ -98,23 +98,23 @@ class Statistic {
         totalL2DCacheHit   += l2dcHit
     }
     def addFrontendBlockCycle(cpu: CPU): Unit = {
-        totalICacheMissCycle    += cpu.io.dbg.fte.ic.missCycle.peek().litValue.toInt
-        totalFQFullCycle        += cpu.io.dbg.fte.fq.fullCycle.peek().litValue.toInt
-        totalFQEmptyCycle       += cpu.io.dbg.fte.fq.emptyCycle.peek().litValue.toInt
-        totalRnmFListEmptyCycle += cpu.io.dbg.fte.rnm.fList.fListEmptyCycle.peek().litValue.toInt
+        totalICacheMissCycle    += cpu.io.dbg.get.fte.ic.missCycle.peek().litValue.toInt
+        totalFQFullCycle        += cpu.io.dbg.get.fte.fq.fullCycle.peek().litValue.toInt
+        totalFQEmptyCycle       += cpu.io.dbg.get.fte.fq.emptyCycle.peek().litValue.toInt
+        totalRnmFListEmptyCycle += cpu.io.dbg.get.fte.rnm.fList.fListEmptyCycle.peek().litValue.toInt
     }
 
     def addDispatchBlockCycle(cpu: CPU): Unit = {
-        totalROBFullCycle += cpu.io.dbg.dsp.fullCycle.peek().litValue.toInt
+        totalROBFullCycle += cpu.io.dbg.get.dsp.fullCycle.peek().litValue.toInt
     }
 
     def addBackendBlockCycle(cpu: CPU): Unit = {
-        totalArIQFullCycle      += cpu.io.dbg.bke.arIQ.fullCycle.peek().litValue.toInt
-        totalMdIQFullCycle      += cpu.io.dbg.bke.mdIQ.fullCycle.peek().litValue.toInt
-        totalLsIQFullCycle      += cpu.io.dbg.bke.lsIQ.fullCycle.peek().litValue.toInt
-        totalDivBusyCycle       += cpu.io.dbg.bke.mdPP.srt2.busyCycle.peek().litValue.toInt
-        totalDCacheMissCycle    += cpu.io.dbg.bke.lsPP.dc(0).asInstanceOf[DCacheReadDBG].missCycle.peek().litValue.toInt
-        totalSBFullCycle        += cpu.io.dbg.bke.lsPP.dc(0).asInstanceOf[DCacheReadDBG].sbFullCycle.peek().litValue.toInt
+        totalArIQFullCycle      += cpu.io.dbg.get.bke.arIQ.fullCycle.peek().litValue.toInt
+        totalMdIQFullCycle      += cpu.io.dbg.get.bke.mdIQ.fullCycle.peek().litValue.toInt
+        totalLsIQFullCycle      += cpu.io.dbg.get.bke.lsIQ.fullCycle.peek().litValue.toInt
+        totalDivBusyCycle       += cpu.io.dbg.get.bke.mdPP.srt2.busyCycle.peek().litValue.toInt
+        totalDCacheMissCycle    += cpu.io.dbg.get.bke.lsPP.dc(0).asInstanceOf[DCacheReadDBG].missCycle.peek().litValue.toInt
+        totalSBFullCycle        += cpu.io.dbg.get.bke.lsPP.dc(0).asInstanceOf[DCacheReadDBG].sbFullCycle.peek().litValue.toInt
     }
 
     def getTotalCycles(): Int = {

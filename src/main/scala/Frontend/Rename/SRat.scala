@@ -31,7 +31,7 @@ class SRatDiffIO extends Bundle{
 class SRatIO extends Bundle{
     val rnm = new SRatRenameIO
     val cmt = new SRatCommitIO
-    val dif = new SRatDiffIO
+    // val dif = new SRatDiffIO
 }
 
 class SRat extends Module {
@@ -68,8 +68,7 @@ class SRat extends Module {
     }
 
     io.rnm.pra := ShiftRegister(ratCmt(1), 1, 0.U, true.B)
-    // io.rnm.praVld := ShiftRegister(ratRnm(1) === ratCmt(1), 1, false.B, true.B)
 
-    io.dif.renameTable := ratRnm
+    // io.dif.renameTable := ratRnm
     
 }

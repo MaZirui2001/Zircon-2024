@@ -35,7 +35,7 @@ class RenameDBGIO extends Bundle {
 class RenameIO extends Bundle {    
     val fte = new RenameFrontendIO
     val cmt = new RenameCommitIO
-    val dif = new RenameDiffIO
+    // val dif = new RenameDiffIO
     val dbg = new RenameDBGIO
 }
 
@@ -88,8 +88,8 @@ class Rename extends Module {
 
     io.fte.pra    := srat.io.rnm.pra
     
-    io.dif.srat.renameTable := srat.io.dif.renameTable
-    io.dif.fList.fList      := fList.io.dif.fList
+    // io.dif.srat.renameTable := srat.io.dif.renameTable
+    // io.dif.fList.fList      := fList.io.dif.fList
 
     io.dbg.fList := fList.io.dbg
 }

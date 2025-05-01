@@ -9,12 +9,14 @@ object Main extends App {
         "-O=release",
         "--ignore-read-enable-mem",
         "--lower-memories",
-        "--lowering-options=disallowLocalVariables, explicitBitcast, disallowMuxInlining, disallowExpressionInliningInPorts",
+        "--lowering-options=noAlwaysComb, disallowPackedArrays, disallowLocalVariables, explicitBitcast, disallowMuxInlining, disallowExpressionInliningInPorts",
         "-o=verilog/",
         "-split-verilog",
 )
+    val isSim = Option(System.getenv("BUILD_MODE")).getOrElse("SYNC") != "SYNC"
+    println(s"isSim: $isSim")
     ChiselStage.emitSystemVerilogFile(
-        new CPU,
+        new CPU(isSim),
         Array("-td", "build/"),
         firtoolOpts = firtoolOptions,
     )
