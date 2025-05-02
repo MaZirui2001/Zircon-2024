@@ -1,6 +1,8 @@
 import chisel3._
 import chisel3.util._
 import ZirconUtil._
+import scala.reflect.runtime.universe._
+import scala.reflect.ClassTag
 
 class ClusterEntry(wOffset: Int, wQidx: Int) extends Bundle {
     val offset = UInt(wOffset.W)
@@ -35,7 +37,7 @@ class ClusterIndexFIFOIO[T <: Data](gen: T, n: Int, len: Int, ew: Int, dw: Int, 
     val dbgFIFO = Output(Vec(n*len, gen))
 }
 
-class ClusterIndexFIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int, isFlst: Boolean = false, rstVal: Option[Seq[T]] = None) extends Module {
+class ClusterIndexFIFO[T <: Data : TypeTag : ClassTag](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int, isFlst: Boolean = false, rstVal: Option[Seq[T]] = None) extends Module {
     val n = if(dw > ew) dw else ew
     val len = num / n
     assert(num % n == 0, "cluster fifo num must be divisible by n")
@@ -148,7 +150,7 @@ class ClusterIndexFIFO[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int, w
 }
 
 object ClusterIndexFIFO{
-    def apply[T <: Data](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int): ClusterIndexFIFO[T] = {
+    def apply[T <: Data : TypeTag : ClassTag](gen: T, num: Int, ew: Int, dw: Int, rw: Int, ww: Int): ClusterIndexFIFO[T] = {
         new ClusterIndexFIFO(gen, num, ew, dw, rw, ww)
     }
 }

@@ -69,6 +69,15 @@ class ROBEntry extends Bundle{
     def flushGen(): Bool = {
         this.bke.predFail || this.bke.exception(7)
     }
+    def enqueue(data: Data): Unit = {
+        val bits = data.asInstanceOf[ROBEntry]
+        this.fte := bits.fte
+        this.bke.complete := false.B
+    }
+    def write(data: Data): Unit = {
+        val bits = data.asInstanceOf[ROBEntry]
+        this.bke := bits.bke
+    }
 }
 
 class ROBDebugIO extends Bundle {
@@ -97,7 +106,7 @@ class ReorderBufferIO extends Bundle{
 class ReorderBuffer extends Module{
     val io = IO(new ReorderBufferIO)
 
-    val q = Module(new ClusterIndexFIFO(new ROBEntry, nrob, ndcd, ncommit, 0, nis))
+    val q = Module(new ClusterIndexFIFO(new ROBEntry, nrob, ndcd, ncommit, arithNissue, nis))
 
     // 1. frontend: in dispatch stage, each instruction will enqueue into the ROB
     q.io.enq.zip(io.dsp.enq).foreach{case (enq, fte) =>
@@ -116,6 +125,8 @@ class ReorderBuffer extends Module{
         wdata.fte := DontCare
         wdata.bke := bke
     }
+    q.io.ridx := io.bke.ridx
+    io.bke.rdata := q.io.rdata.map(_.fte)
     q.io.widx := io.bke.widx
     q.io.wen := io.bke.wen
     // 3. commit: in commit stage, some instruction will be committed

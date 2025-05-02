@@ -1,6 +1,8 @@
 import chisel3._
 import chisel3.util._
 import ZirconUtil._
+import scala.reflect.runtime.universe._
+import scala.reflect.ClassTag
 
 // isFlst: The FIFO is a free list for reg rename
 class IndexFIFOIO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, isFlst: Boolean) extends Bundle {
@@ -22,8 +24,23 @@ class IndexFIFOIO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, isFlst: Boolean) 
 	val dbgFIFO = Output(Vec(n, gen))
 }
 
-class IndexFIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, isFlst: Boolean = false, rstVal: Option[Seq[T]] = None) extends Module {
+class IndexFIFO[T <: Data : TypeTag : ClassTag](gen: T, n: Int, rw: Int, ww: Int, isFlst: Boolean = false, rstVal: Option[Seq[T]] = None) extends Module {
 	val io = IO(new IndexFIFOIO(gen, n, rw, ww, isFlst))
+
+	def hasFunc(funcName: String): Boolean = {
+		try {
+			val mirror = runtimeMirror(getClass.getClassLoader)
+			val instanceMirror = mirror.reflect(gen)
+			val methodSymbol = typeOf[T].member(TermName(funcName)).asMethod
+			val methodMirror = instanceMirror.reflectMethod(methodSymbol)
+			true
+		} catch {
+			case _: Exception => false
+		}
+	}
+
+	val hasEnqueueFunc = hasFunc("enqueue")
+	val hasWriteFunc = hasFunc("write")
 
 	val q = RegInit(
 		if(isFlst && rstVal.isDefined) VecInit(rstVal.get)
@@ -66,10 +83,9 @@ class IndexFIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, isFlst: Boolean = f
 	// write logic
 	q.zipWithIndex.foreach{ case (qq, i) => 
 		when(tptr(i) && io.enq.valid && fulln) { 
-			if(qq.isInstanceOf[ROBEntry]){
-				qq.asInstanceOf[ROBEntry].fte := io.enq.bits.asInstanceOf[ROBEntry].fte
-				qq.asInstanceOf[ROBEntry].bke.complete := false.B
-			}else{
+			if(hasEnqueueFunc) {
+				qq.asInstanceOf[{ def enqueue(data: T): Unit }].enqueue(io.enq.bits)
+			} else {
 				qq := io.enq.bits 
 			}
 		}
@@ -86,10 +102,10 @@ class IndexFIFO[T <: Data](gen: T, n: Int, rw: Int, ww: Int, isFlst: Boolean = f
 		when(io.wen(i)){
 			q.zipWithIndex.foreach{ case (qq, j) => 
 				when(io.widx(i)(j)){ 
-					if(qq.isInstanceOf[ROBEntry]){
-						qq.asInstanceOf[ROBEntry].bke := io.wdata(i).asInstanceOf[ROBEntry].bke
-					}else{
-						qq := io.wdata(i) 
+					if(hasWriteFunc) {
+						qq.asInstanceOf[{ def write(data: T): Unit }].write(io.wdata(i))
+					} else {
+						qq := io.wdata(i)
 					}
 				}
 			}

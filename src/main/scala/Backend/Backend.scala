@@ -15,6 +15,8 @@ class BackendDispatchIO extends Bundle {
 }
 
 class BackendCommitIO extends Bundle {
+    val ridx  = Output(Vec(arithNissue, new ClusterEntry(nrobQ, ndcd)))
+    val rdata = Input(Vec(arithNissue, new ROBFrontendEntry))
     val widx  = Output(Vec(nis, new ClusterEntry(nrobQ, ndcd)))
     val wen   = Output(Vec(nis, Bool()))
     val wdata = Output(Vec(nis, new ROBBackendEntry))
@@ -77,6 +79,8 @@ class Backend extends Module {
         a.fwd.src1Fwd       <> fwd.io.src1Fwd(i)
         a.fwd.src2Fwd       <> fwd.io.src2Fwd(i)
         a.cmt.flush         := io.cmt.flush(i)
+        io.cmt.ridx(i)      := a.cmt.ridx
+        a.cmt.rdata         := io.cmt.rdata(i)
         io.cmt.widx(i)      := a.cmt.widx
         io.cmt.wen(i)       := a.cmt.wen
         io.cmt.wdata(i)     := a.cmt.wdata

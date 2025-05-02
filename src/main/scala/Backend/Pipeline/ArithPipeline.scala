@@ -19,7 +19,11 @@ abstract class PipelineDBGIO extends Bundle {
 }
 
 
-class ArithCommitIO extends PipelineCommitIO
+
+class ArithCommitIO extends PipelineCommitIO {
+    val ridx  = Output(new ClusterEntry(nrobQ, ndcd))
+    val rdata = Input(new ROBFrontendEntry)
+}
 
 class ArithIQIO extends PipelineIQIO
 
@@ -75,6 +79,12 @@ class ArithPipeline extends Module {
     io.rf.rd.prk   := instPkgRF.prk
     instPkgRF.src1 := io.rf.rd.prjData
     instPkgRF.src2 := io.rf.rd.prkData
+
+    io.cmt.ridx.offset := UIntToOH(instPkgRF.robIdx.offset)
+    io.cmt.ridx.qidx   := UIntToOH(instPkgRF.robIdx.qidx)
+    io.cmt.ridx.high   := DontCare
+
+    instPkgRF.pc := io.cmt.rdata.pc
 
     // wakeup
     io.wk.wakeRF := (new WakeupBusPkg)(instPkgRF, io.wk.rplyIn)
