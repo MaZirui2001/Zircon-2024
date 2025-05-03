@@ -50,5 +50,4 @@ class ReadyBoard extends Module {
     io.prjInfo.zip(io.pinfo).foreach{case(e, p) => e := board(p.prj)}
     io.prkInfo.zip(io.pinfo).foreach{case(e, p) => e := board(p.prk)}
 
-    
 }

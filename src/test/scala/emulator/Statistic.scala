@@ -34,6 +34,7 @@ class Statistic {
     private var totalRnmFListEmptyCycle = 0
 
     private var totalROBFullCycle = 0
+    private var totalBDBFullCycle = 0
 
     private var totalArIQFullCycle = 0
     private var totalMdIQFullCycle = 0
@@ -70,13 +71,13 @@ class Statistic {
         totalInsts += insts
     }
 
-    def addJump(jp: Int, fail: Boolean): Unit = {
-        jp match {
-            case 0 => {}
-            case 1 => {totalBranch += 1; if(fail){totalBranchFail += 1}}
-            case 2 => {totalCall   += 1; if(fail){totalCallFail   += 1}}
-            case 3 => {totalRet    += 1; if(fail){totalRetFail    += 1}}
-        }
+    def addJump(branch: Int, call: Int, ret: Int, branchFail: Int, callFail: Int, retFail: Int): Unit = {
+        totalBranch     += branch
+        totalCall       += call
+        totalRet        += ret
+        totalBranchFail += branchFail
+        totalCallFail   += callFail
+        totalRetFail    += retFail
     }
 
     def addCacheVisit(
@@ -105,7 +106,8 @@ class Statistic {
     }
 
     def addDispatchBlockCycle(cpu: CPU): Unit = {
-        totalROBFullCycle += cpu.io.dbg.get.dsp.fullCycle.peek().litValue.toInt
+        totalROBFullCycle += cpu.io.dbg.get.cmt.rob.fullCycle.peek().litValue.toInt
+        totalBDBFullCycle += cpu.io.dbg.get.cmt.bdb.fullCycle.peek().litValue.toInt
     }
 
     def addBackendBlockCycle(cpu: CPU): Unit = {
@@ -212,7 +214,8 @@ class Statistic {
         writer.write(s"### 调度\n")
         writer.write(s"| 停顿原因 | 停顿周期数 | 停顿率 |\n")
         writer.write(s"| --- | --- | --- |\n")
-        writer.write(s"| ROB满 | ${totalROBFullCycle} | ${BigDecimal(totalROBFullCycle.toDouble / totalCycles.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        writer.write(s"| 重排序缓存满 | ${totalROBFullCycle} | ${BigDecimal(totalROBFullCycle.toDouble / totalCycles.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
+        writer.write(s"| 分支数据缓存满 | ${totalBDBFullCycle} | ${BigDecimal(totalBDBFullCycle.toDouble / totalCycles.toDouble * 100).setScale(6, BigDecimal.RoundingMode.HALF_UP).toDouble}% |\n")
 
         writer.write(s"### 后端\n")
         writer.write(s"| 停顿原因 | 停顿周期数 | 停顿率 |\n")

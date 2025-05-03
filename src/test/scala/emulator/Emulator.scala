@@ -37,6 +37,9 @@ class Emulator{
     def stallForTooLong(): Boolean = {
         cyclesFromLastCommit >= stallThreshold
     }
+    private def Bits(bits: Int, hi: Int, lo: Int): Int = {
+        (bits >> lo) & ~((-1) << (hi - lo + 1))
+    }
 
     /* difftest */
     def difftestPC(pcDut: Int): Boolean = {
@@ -87,6 +90,8 @@ class Emulator{
             }
         }
         var n = num
+        val cmtROBDeq = cpu.io.dbg.get.cmt.robDeq.deq
+        val cmtBDBDeq = cpu.io.dbg.get.cmt.bdbDeq.deq
         while(n != 0){
             n -= 1
             statistic.addCycles(1)
@@ -95,26 +100,24 @@ class Emulator{
                 if(stallForTooLong()){
                     return -3
                 }
-                val cmt     = cpu.io.dbg.get.cmt.deq(i).bits
+                val robCmt  = cmtROBDeq(i).bits
+                val bdbCmt  = cmtBDBDeq.bits
                 val dbg     = cpu.io.dbg.get
 
-                if(cpu.io.dbg.get.cmt.deq(i).valid.peek().litToBoolean){
+                if(cmtROBDeq(i).valid.peek().litToBoolean){
                     cyclesFromLastCommit = 0
-                    val cmtFteRd   = cmt.fte.rd.peek().litValue.toInt
-                    val cmtFtePC   = cmt.fte.pc.peek().litValue.toInt
-                    val cmtFteInst = cmt.fte.inst.peek().litValue.toInt
-                    val cmtFtePrd  = cmt.fte.prd.peek().litValue.toInt
-                    val cmtFtePred = cmt.fte.predType.peek().litValue.toInt
-                    val cmtFtePredFail = cmt.bke.predFail.peek().litToBoolean
+                    val cmtPC   = robCmt.pc.peek().litValue.toInt
+                    val cmtInst = memory.debugRead(cmtPC)._1
+                    val cmtRd   = Bits(cmtInst, 11, 7)
+                    val cmtPrd  = robCmt.prd.peek().litValue.toInt
                     // iring: record the instruction
-                    iring.push((cmtFtePC, cmtFteInst, cmtFteRd, cmtFtePrd))
+                    iring.push((cmtPC, cmtInst, cmtRd, cmtPrd))
                     // statistic:
                     statistic.addInsts(1)
                     // jump
-                    statistic.addJump(cmtFtePred, cmtFtePredFail)
                     // cache
                     // end check
-                    if(simEnd(cmtFteInst)){
+                    if(simEnd(cmtInst)){
                         statistic.addCacheVisit(
                             dbg.fte.ic.visit.peek().litValue.toInt, dbg.fte.ic.hit.peek().litValue.toInt, 
                             dbg.bke.lsPP.dc(0).visit.peek().litValue.toInt, dbg.bke.lsPP.dc(0).hit.peek().litValue.toInt,
@@ -126,13 +129,23 @@ class Emulator{
                         statistic.addDispatchBlockCycle(cpu)
                         statistic.addBackendBlockCycle(cpu)
                         statistic.addInstNums(simulator.instRecorderDump())
+                        statistic.addJump(
+                            dbg.cmt.bdb.branch.peek().litValue.toInt, 
+                            dbg.cmt.bdb.call.peek().litValue.toInt, 
+                            dbg.cmt.bdb.ret.peek().litValue.toInt, 
+                            dbg.cmt.bdb.branchFail.peek().litValue.toInt, 
+                            dbg.cmt.bdb.callFail.peek().litValue.toInt, 
+                            dbg.cmt.bdb.retFail.peek().litValue.toInt
+                        )
                         return (if(dbg.rf.rf(rnmTable(10)).peek().litValue.toInt == 0) 0 else -1)
                     }
                     // rnm table update
-                    rnmTableUpdate(cmtFteRd, cmtFtePrd)
+                    if(cmtPrd != 0){
+                        rnmTableUpdate(cmtRd, cmtPrd)
+                    }
                     // difftest
-                    val rdDataDut = dbg.rf.rf(rnmTable(cmtFteRd)).peek().litValue.toInt
-                    if(!difftestStep(cmtFteRd, rdDataDut, cmtFtePC)){
+                    val rdDataDut = dbg.rf.rf(rnmTable(cmtRd)).peek().litValue.toInt
+                    if(!difftestStep(cmtRd, rdDataDut, cmtPC)){
                         return -2
                     }
                 }

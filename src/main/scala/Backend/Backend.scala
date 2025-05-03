@@ -14,12 +14,23 @@ class BackendDispatchIO extends Bundle {
     val rplyBus = Output(new ReplayBusPkg)
 }
 
-class BackendCommitIO extends Bundle {
+class BackendROBIO extends Bundle {
     val ridx  = Output(Vec(arithNissue, new ClusterEntry(nrobQ, ndcd)))
-    val rdata = Input(Vec(arithNissue, new ROBFrontendEntry))
+    val rdata = Input(Vec(arithNissue, new ROBEntry))
     val widx  = Output(Vec(nis, new ClusterEntry(nrobQ, ndcd)))
     val wen   = Output(Vec(nis, Bool()))
-    val wdata = Output(Vec(nis, new ROBBackendEntry))
+    val wdata = Output(Vec(nis, new ROBEntry))
+}
+class BackendBDBIO extends Bundle {
+    val ridx  = Output(Vec(arithNissue, new ClusterEntry(nbdbQ, ndcd)))
+    val rdata = Input(Vec(arithNissue, new BDBEntry))
+    val widx  = Output(Vec(arithNissue, new ClusterEntry(nbdbQ, ndcd)))
+    val wen   = Output(Vec(arithNissue, Bool()))
+    val wdata = Output(Vec(arithNissue, new BDBEntry))
+}
+class BackendCommitIO extends Bundle {
+    val rob = new BackendROBIO
+    val bdb = new BackendBDBIO
     val sb    = new DCommitIO
     val flush = Input(Vec(nis, Bool()))
 }
@@ -79,11 +90,16 @@ class Backend extends Module {
         a.fwd.src1Fwd       <> fwd.io.src1Fwd(i)
         a.fwd.src2Fwd       <> fwd.io.src2Fwd(i)
         a.cmt.flush         := io.cmt.flush(i)
-        io.cmt.ridx(i)      := a.cmt.ridx
-        a.cmt.rdata         := io.cmt.rdata(i)
-        io.cmt.widx(i)      := a.cmt.widx
-        io.cmt.wen(i)       := a.cmt.wen
-        io.cmt.wdata(i)     := a.cmt.wdata
+        io.cmt.rob.ridx(i)  := a.cmt.rob.ridx
+        a.cmt.rob.rdata     := io.cmt.rob.rdata(i)
+        io.cmt.bdb.ridx(i)  := a.cmt.bdb.ridx
+        a.cmt.bdb.rdata     := io.cmt.bdb.rdata(i)
+        io.cmt.rob.widx(i)  := a.cmt.rob.widx
+        io.cmt.rob.wen(i)   := a.cmt.rob.wen
+        io.cmt.rob.wdata(i) := a.cmt.rob.wdata
+        io.cmt.bdb.widx(i)  := a.cmt.bdb.widx
+        io.cmt.bdb.wen(i)   := a.cmt.bdb.wen
+        io.cmt.bdb.wdata(i) := a.cmt.bdb.wdata
     }
     wakeBus(0) := VecInit(
         arPP(0).wk.wakeIssue,
@@ -108,9 +124,9 @@ class Backend extends Module {
     fwd.io.src1Fwd(3)   <> mdPP.io.fwd.src1Fwd
     fwd.io.src2Fwd(3)   <> mdPP.io.fwd.src2Fwd
     mdPP.io.cmt.flush   := io.cmt.flush(3)
-    io.cmt.widx(3)      := mdPP.io.cmt.widx
-    io.cmt.wen(3)       := mdPP.io.cmt.wen
-    io.cmt.wdata(3)     := mdPP.io.cmt.wdata
+    io.cmt.rob.widx(3)  := mdPP.io.cmt.rob.widx
+    io.cmt.rob.wen(3)   := mdPP.io.cmt.rob.wen
+    io.cmt.rob.wdata(3) := mdPP.io.cmt.rob.wdata
 
     wakeBus(1) := VecInit(
         arPP(0).wk.wakeRF,
@@ -133,9 +149,9 @@ class Backend extends Module {
     fwd.io.instPkgWB(4) := lsPP.io.fwd.instPkgWB
     lsPP.io.cmt.flush   := io.cmt.flush(4)
     lsPP.io.cmt.dc      := io.cmt.sb
-    io.cmt.widx(4)      := lsPP.io.cmt.widx
-    io.cmt.wen(4)       := lsPP.io.cmt.wen
-    io.cmt.wdata(4)     := lsPP.io.cmt.wdata
+    io.cmt.rob.widx(4)  := lsPP.io.cmt.rob.widx
+    io.cmt.rob.wen(4)   := lsPP.io.cmt.rob.wen
+    io.cmt.rob.wdata(4) := lsPP.io.cmt.rob.wdata
 
     wakeBus(2) := VecInit(
         arPP(0).wk.wakeRF,

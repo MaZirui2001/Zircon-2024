@@ -5,12 +5,16 @@ import ZirconConfig.Issue._
 import ZirconUtil._
 import ZirconConfig.Commit._
 
-class LSCommitIO extends PipelineCommitIO {
-    val dc      = new DCommitIO
+class LSPipelineROBIO extends PipelineROBIO 
+
+class LSPipelineBDBIO extends PipelineBDBIO
+
+class LSCommitIO extends Bundle {
+    val rob   = new LSPipelineROBIO
+    val dc    = new DCommitIO
+    val flush = Input(Bool())
 }
 class LSIQIO extends PipelineIQIO 
-
-// class LSRegfileIO extends PipelineRegfileIO
 
 class LSWakeupIO extends Bundle {
     val wakeRF  = Output(new WakeupBusPkg)
@@ -120,11 +124,11 @@ class LSPipeline extends Module {
     ))
     instPkgWB.rfWdata  := dc.io.pp.rdata
     // rob
-    io.cmt.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
-    io.cmt.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
-    io.cmt.widx.high   := DontCare
-    io.cmt.wen         := instPkgWB.valid
-    io.cmt.wdata       := (new ROBBackendEntry)(instPkgWB) 
+    io.cmt.rob.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
+    io.cmt.rob.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
+    io.cmt.rob.widx.high   := DontCare
+    io.cmt.rob.wen         := instPkgWB.valid
+    io.cmt.rob.wdata       := (new ROBEntry)(instPkgWB) 
     // regfile
     io.rf.wr.prd       := instPkgWB.prd
     io.rf.wr.prdVld    := instPkgWB.rdVld

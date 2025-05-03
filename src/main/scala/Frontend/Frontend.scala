@@ -111,7 +111,7 @@ class Frontend extends Module {
     pd.io.instPkg := instPkgPD
     pd.io.praData := io.bke.rf.praData
     instPkgFQIn.zip(pd.io.rinfo).foreach{ case (pkg, rinfo) => pkg.rinfo := rinfo }
-    instPkgFQIn.zip(pd.io.predOffset).foreach{ case (pkg, predOffset) => pkg.predOffset := predOffset }
+    instPkgFQIn.zip(pd.io.predOffset).foreach{ case (pkg, predOffset) => pkg.predInfo.offset := predOffset }
     instPkgFQIn.zip(pd.io.validMask).foreach{ case (pkg, validMask) => pkg.valid := validMask }
     
     // fetch queue

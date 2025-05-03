@@ -21,7 +21,6 @@ class FrontendPackage extends Bundle {
     val func       = UInt(niq.W)
     val rinfo      = new RegisterInfo()
     val pinfo      = new PRegisterInfo()
-    val predOffset = UInt(32.W)
 }
 
 class BackendPackage extends Bundle {
@@ -35,6 +34,7 @@ class BackendPackage extends Bundle {
     val op         = UInt(7.W)
     val imm        = UInt(32.W)
     val robIdx     = new ClusterEntry(wrobQ, wdecode)
+    val bdbIdx     = new ClusterEntry(wbdbQ, wdecode)
     val prjWk      = Bool()
     val prkWk      = Bool()
 
@@ -52,11 +52,10 @@ class BackendPackage extends Bundle {
     val result     = UInt(32.W)
     val nxtCmtEn   = Bool()
     
-    def apply(fte: FrontendPackage, robIdx: ClusterEntry, prjInfo: ReadyBoardEntry, prkInfo: ReadyBoardEntry): BackendPackage = {
-        val bke = Wire(new BackendPackage)
+    def apply(fte: FrontendPackage, robIdx: ClusterEntry, bdbIdx: ClusterEntry, prjInfo: ReadyBoardEntry, prkInfo: ReadyBoardEntry): BackendPackage = {
+        val bke = WireDefault(0.U.asTypeOf(new BackendPackage))
         bke.valid      := fte.valid
         bke.pc         := fte.pc
-        bke.predOffset := fte.predOffset
         bke.prj        := fte.pinfo.prj
         bke.prk        := fte.pinfo.prk
         bke.prd        := fte.pinfo.prd
@@ -64,19 +63,11 @@ class BackendPackage extends Bundle {
         bke.op         := fte.op(6, 0)
         bke.imm        := fte.imm
         bke.robIdx     := robIdx
+        bke.bdbIdx     := bdbIdx
         bke.prjWk      := prjInfo.ready && fte.pinfo.prjWk
         bke.prkWk      := prkInfo.ready && fte.pinfo.prkWk
         bke.prjLpv     := prjInfo.lpv
         bke.prkLpv     := prkInfo.lpv
-        bke.isLatest   := false.B
-        bke.src1       := 0.U
-        bke.src2       := 0.U
-        bke.result     := 0.U
-        bke.rfWdata    := 0.U
-        bke.jumpEn     := false.B
-        bke.predFail   := false.B
-        bke.exception  := 0.U
-        bke.nxtCmtEn   := false.B
         bke
     }
 }

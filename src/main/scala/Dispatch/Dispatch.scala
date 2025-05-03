@@ -6,7 +6,7 @@ import ZirconUtil._
 
 
 class DispatchIO extends Bundle {
-    val cmt = Flipped(new ROBDispatchIO)
+    val cmt = Flipped(new CommitDispatchIO)
     val fte = Flipped(new FrontendDispatchIO)
     val bke = Flipped(new BackendDispatchIO)
 }
@@ -24,22 +24,26 @@ class Dispatch extends Module {
     rboard.io.flush   := io.cmt.flush
 
     val ftePkg = VecInit.tabulate(ndcd){ i =>  
-        (new BackendPackage)(io.fte.instPkg(i).bits, io.cmt.enqIdx(i), rboard.io.prjInfo(i), rboard.io.prkInfo(i))
+        (new BackendPackage)(io.fte.instPkg(i).bits, io.cmt.rob.enqIdx(i), io.cmt.bdb.enqIdx(i), rboard.io.prjInfo(i), rboard.io.prkInfo(i))
     }
 
     // dispatcher
     dsp.io.ftePkg.zipWithIndex.foreach{ case (d, i) =>
-        d.valid := io.fte.instPkg(i).valid && io.cmt.enq(0).ready
+        d.valid := io.fte.instPkg(i).valid && io.cmt.rob.enq(0).ready && io.cmt.bdb.enq(0).ready
         d.bits  := ftePkg(i)
-        io.fte.instPkg(i).ready := d.ready && io.cmt.enq.map(_.ready).reduce(_ && _)
+        io.fte.instPkg(i).ready := d.ready && io.cmt.rob.enq(0).ready && io.cmt.bdb.enq(0).ready
     }
     dsp.io.func.zipWithIndex.foreach{ case (func, i) =>
         func := io.fte.instPkg(i).bits.func
     }
     dsp.io.bkePkg <> io.bke.instPkg
-    io.cmt.enq.zipWithIndex.foreach{ case (enq, i) =>
+    io.cmt.rob.enq.zipWithIndex.foreach{ case (enq, i) =>
         enq.valid := io.fte.instPkg(i).valid && dsp.io.ftePkg(i).ready
-        enq.bits  := (new ROBFrontendEntry)(io.fte.instPkg(i).bits)
+        enq.bits  := (new ROBEntry)(io.fte.instPkg(i).bits)
+    }
+    io.cmt.bdb.enq.zipWithIndex.foreach{ case (enq, i) =>
+        enq.valid := io.fte.instPkg(i).valid && dsp.io.ftePkg(i).ready && io.fte.instPkg(i).bits.op(4)
+        enq.bits  := (new BDBEntry)(io.fte.instPkg(i).bits)
     }
 }
 

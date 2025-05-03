@@ -5,12 +5,18 @@ import ZirconConfig.Commit._
 import ZirconConfig.Decode._
 import ZirconConfig.RegisterFile._
 
-abstract class PipelineCommitIO extends Bundle {
-    val flush   = Input(Bool())
+abstract class PipelineROBIO extends Bundle {
     val widx    = Output(new ClusterEntry(nrobQ, ndcd))
     val wen     = Output(Bool())
-    val wdata   = Output(new ROBBackendEntry)
+    val wdata   = Output(new ROBEntry)
 }
+
+abstract class PipelineBDBIO extends Bundle {
+    val widx    = Output(new ClusterEntry(nbdbQ, ndcd))
+    val wen     = Output(Bool())
+    val wdata   = Output(new BDBEntry)
+}
+
 abstract class PipelineIQIO extends Bundle {
     val instPkg = Flipped(Decoupled(new BackendPackage))
 }
@@ -18,11 +24,20 @@ abstract class PipelineIQIO extends Bundle {
 abstract class PipelineDBGIO extends Bundle {
 }
 
-
-
-class ArithCommitIO extends PipelineCommitIO {
+class ArithROBIO extends PipelineROBIO {
     val ridx  = Output(new ClusterEntry(nrobQ, ndcd))
-    val rdata = Input(new ROBFrontendEntry)
+    val rdata = Input(new ROBEntry)
+}
+
+class ArithBDBIO extends PipelineBDBIO {
+    val ridx  = Output(new ClusterEntry(nbdbQ, ndcd))
+    val rdata = Input(new BDBEntry)
+}
+
+class ArithCommitIO extends Bundle {
+    val rob   = new ArithROBIO
+    val bdb   = new ArithBDBIO
+    val flush = Input(Bool())
 }
 
 class ArithIQIO extends PipelineIQIO
@@ -80,11 +95,16 @@ class ArithPipeline extends Module {
     instPkgRF.src1 := io.rf.rd.prjData
     instPkgRF.src2 := io.rf.rd.prkData
 
-    io.cmt.ridx.offset := UIntToOH(instPkgRF.robIdx.offset)
-    io.cmt.ridx.qidx   := UIntToOH(instPkgRF.robIdx.qidx)
-    io.cmt.ridx.high   := DontCare
+    io.cmt.rob.ridx.offset := UIntToOH(instPkgRF.robIdx.offset)
+    io.cmt.rob.ridx.qidx   := UIntToOH(instPkgRF.robIdx.qidx)
+    io.cmt.rob.ridx.high   := DontCare
 
-    instPkgRF.pc := io.cmt.rdata.pc
+    io.cmt.bdb.ridx.offset := UIntToOH(instPkgRF.bdbIdx.offset)
+    io.cmt.bdb.ridx.qidx   := UIntToOH(instPkgRF.bdbIdx.qidx)
+    io.cmt.bdb.ridx.high   := DontCare
+
+    instPkgRF.pc := io.cmt.rob.rdata.pc
+    instPkgRF.predOffset := io.cmt.bdb.rdata.offset
 
     // wakeup
     io.wk.wakeRF := (new WakeupBusPkg)(instPkgRF, io.wk.rplyIn)
@@ -129,11 +149,19 @@ class ArithPipeline extends Module {
         true.B
     ))
     // rob
-    io.cmt.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
-    io.cmt.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
-    io.cmt.widx.high   := DontCare
-    io.cmt.wen         := instPkgWB.valid
-    io.cmt.wdata       := (new ROBBackendEntry)(instPkgWB)
+    io.cmt.rob.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
+    io.cmt.rob.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
+    io.cmt.rob.widx.high   := DontCare
+    io.cmt.rob.wen         := instPkgWB.valid
+    io.cmt.rob.wdata       := (new ROBEntry)(instPkgWB)
+
+    // bdb
+    io.cmt.bdb.widx.offset := UIntToOH(instPkgWB.bdbIdx.offset)
+    io.cmt.bdb.widx.qidx   := UIntToOH(instPkgWB.bdbIdx.qidx)
+    io.cmt.bdb.widx.high   := DontCare
+    io.cmt.bdb.wen         := instPkgWB.valid && instPkgWB.op(4)
+    io.cmt.bdb.wdata       := (new BDBEntry)(instPkgWB)
+
     // regfile
     io.rf.wr.prd       := instPkgWB.prd
     io.rf.wr.prdVld    := instPkgWB.rdVld

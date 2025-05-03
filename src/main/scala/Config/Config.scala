@@ -113,6 +113,10 @@ object Commit{
     val nrobQ = nrob / ndcd
     val wrob = log2Ceil(nrob)
     val wrobQ = log2Ceil(nrobQ)
+    val nbdb = 18
+    val nbdbQ = nbdb / ndcd
+    val wbdb = log2Ceil(nbdb)
+    val wbdbQ = log2Ceil(nbdbQ)
 }
 object Cache{
     import Fetch._

@@ -2,17 +2,21 @@ import chisel3._
 import chisel3.util._
 import ZirconConfig.Issue._
 import ZirconConfig.Commit._
-// import Multiply._
 
-class MulDivCommitIO extends PipelineCommitIO
+class MulDivROBIO extends PipelineROBIO
+
+class MulDivBDBIO extends PipelineBDBIO
+
+class MulDivCommitIO extends Bundle {
+    val rob   = new MulDivROBIO
+    val flush = Input(Bool())
+}
 
 class MulDivIQIO extends PipelineIQIO
 
 class MulDivDBGIO extends PipelineDBGIO {
     val srt2 = new SRT2DBG
 }
-
-// class MulDivRegfileIO extends PipelineRegfileIO
 
 class MulDivForwardIO extends Bundle {
     val instPkgWB = Output(new BackendPackage)
@@ -22,7 +26,6 @@ class MulDivForwardIO extends Bundle {
 }
 class MulDivWakeupIO extends Bundle {
     val wakeEX2 = Output(new WakeupBusPkg)
-    // val wakeEX3 = Output(new WakeupBusPkg)
     val rplyIn  = Input(new ReplayBusPkg)
 }
 
@@ -109,7 +112,6 @@ class MulDivPipeline extends Module {
         true.B
     ))
     instPkgEX3.rfWdata := Mux(instPkgEX3.op(2), div.io.res, mul.io.res)
-    // io.wk.wakeEX3 := (new WakeupBusPkg)(instPkgEX3, 0.U.asTypeOf(new ReplayBusPkg))
 
     /* Write Back Stage */
     val instPkgWB = WireDefault(ShiftRegister(
@@ -119,11 +121,11 @@ class MulDivPipeline extends Module {
         true.B
     ))
     // rob
-    io.cmt.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
-    io.cmt.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
-    io.cmt.widx.high   := DontCare
-    io.cmt.wen         := instPkgWB.valid
-    io.cmt.wdata       := (new ROBBackendEntry)(instPkgWB)
+    io.cmt.rob.widx.offset := UIntToOH(instPkgWB.robIdx.offset)
+    io.cmt.rob.widx.qidx   := UIntToOH(instPkgWB.robIdx.qidx)
+    io.cmt.rob.widx.high   := DontCare
+    io.cmt.rob.wen         := instPkgWB.valid
+    io.cmt.rob.wdata       := (new ROBEntry)(instPkgWB)
     // regfile
     io.rf.wr.prd       := instPkgWB.prd
     io.rf.wr.prdVld    := instPkgWB.rdVld
