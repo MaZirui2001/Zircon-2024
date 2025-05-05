@@ -48,12 +48,7 @@ object RegisterFile{
     val npreg = 68
     val wpreg = log2Ceil(npreg)
 }
-// object ReserveQueue{
-//     val npcq = 16
-//     val wpcq = log2Ceil(npcq)
-//     val nimq = 16
-//     val wimq = log2Ceil(nimq)
-// }
+
 object Issue{
     val niq          = 3
     val nis          = 5
@@ -74,7 +69,6 @@ object Predict{
         import Fetch._
         val ghrWidth       = 12
         val phtWidth       = ghrWidth
-        // assert(phtWidth >= nfch, "gsharePHTWidth must be greater than or equal to nfch")
         val phtSize        = 1 << phtWidth
     }
     object BTBMini{

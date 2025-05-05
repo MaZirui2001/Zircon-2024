@@ -10,9 +10,11 @@ class GShareFCIO extends Bundle {
 }
 class GShareBTBMiniIO extends Bundle {
     // isBr: the locations of the branch instructions
-    val isBr          = Input(Vec(nfch, Bool()))
+    // val isBr          = Input(Vec(nfch, Bool()))
     // jumpCandidate: One-Hot code, the most probably branch that will jump
     val jumpCandidate = Input(Vec(nfch, Bool()))
+
+    val predType      = Input(Vec(nfch, UInt(2.W)))
 
     val jumpEnPredict = Output(Vec(nfch, Bool()))
 }
@@ -47,15 +49,18 @@ class GShare extends Module {
 
     val phtRData = pht((hash(ghr, (pcFC >> log2Ceil(nfch)).take(ghrWidth))))
 
-    io.fc.jumpEnPredict := io.btbM.jumpCandidate.zip(io.btbM.isBr).map{ case (j, b) =>
-        j && b && phtRData(1)
-    }
-    io.btbM.jumpEnPredict := io.fc.jumpEnPredict
-    val jumpMask      = Mux1H(io.btbM.jumpCandidate, (0 until nfch).map(i => ((2 << i) - 1).U)) & io.btbM.isBr.asUInt
-    val shiftNum      = Mux(phtRData(1), PopCount(jumpMask), PopCount(io.btbM.isBr))
-    val shiftFillBits = Mux(phtRData(1), 1.U << PopCount(jumpMask), 0.U(nfch.W))
+    val isBr = VecInit(io.btbM.predType.map{_ =/= 0.U})
+    val isCallOrReturn = VecInit(io.btbM.predType.map{_(1)})
 
-    ghr := (shiftFillBits ## ghr) >> shiftNum
+    io.fc.jumpEnPredict := PriorityEncoderOH(io.btbM.jumpCandidate.zip(isBr).zip(isCallOrReturn).map{ case ((j, b), c) =>
+        b && (j && phtRData(1)) || c
+    })
+    io.btbM.jumpEnPredict := io.fc.jumpEnPredict
+    val jumpMask      = Mux1H(io.fc.jumpEnPredict.asUInt, (0 until nfch).map(i => ((2 << i) - 1).U)) & isBr.asUInt
+    val shiftNum      = Mux(io.fc.jumpEnPredict.asUInt.orR, PopCount(jumpMask), PopCount(isBr))
+    val shiftFillBits = Mux(io.fc.jumpEnPredict.asUInt.orR, 1.U << PopCount(jumpMask), 0.U(nfch.W))
+
+    ghr := (shiftFillBits ## ghr) >> shiftNum   
 
     // PreDecode
     val shiftNumPD      = PopCount(io.pd.isBr)

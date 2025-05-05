@@ -11,7 +11,6 @@ class BTBMiniEntry extends Bundle {
         val entry = Wire(new BTBMiniEntry)
         entry.imm      := imm
         entry.predType := predType
-        // entry.valid    := valid
         entry
     }
 }
@@ -69,7 +68,7 @@ class BTBMini extends Module {
     // stage 1 : Read and judge if the target is in the BTB
     val cmtRAddr    = io.cmt.pc >> 2
     val cmtRIdx     = idx(cmtRAddr)
-    btbTag.zipWithIndex.foreach{case (b, i) => b.raddr(1) := cmtRIdx}
+    btbTag.foreach{case b => b.raddr(1) := cmtRIdx}
     val cmtRTag    = btbTag.zipWithIndex.map{ case (b, i) => Mux(b.wen(0).orR && b.waddr(0) === cmtRIdx, b.wdata(0).tag, b.rdata(1).tag)}
     val cmtRValid  = VecInit(btbTag.zipWithIndex.map{ case (b, i) => Mux(b.wen(0).orR && b.waddr(0) === cmtRIdx, b.wdata(0).valid, b.rdata(1).valid)})
     // if one of the target is the hit, then the target is in the BTB
@@ -136,16 +135,11 @@ class BTBMini extends Module {
     io.fc.rValid.zipWithIndex.foreach{ case(r, i) => 
         r := (rValid >> i).asTypeOf(Vec(nfch, Bool()))(bank(rIdx))
     }
-    io.gs.isBr := io.fc.rData.zip(io.fc.rValid).map{ case (r, v) => r.predType =/= 0.U && v }
+    io.gs.predType := io.fc.rData.zip(io.fc.rValid).map{ case (r, v) => Mux(v, r.predType, 0.U) }
     // phtData: the pht data of the target
     val phtData = VecInit(pht.map{case p => VecInit(p.map{ case pline => VecInit(pline.map{ case pitem => pitem(2)})})})
-    // jumpCandidate: the jump candidate of the target, MUST be a one-hot vector
-
-
-
-    io.gs.jumpCandidate := PriorityEncoderOH(phtData(PriorityEncoder(rHit))(idx(rIdx)).asUInt >> bank(rIdx)).asBools
-
-    
     val phtBit = MuxLookup(idx(rIdx), 0.U(3.W))(Seq.tabulate(sizePerBank){i => (i.U, phtData(PriorityEncoder(rHit))(i).asUInt)})
-    io.gs.jumpCandidate := PriorityEncoderOH(phtBit.asUInt >> bank(rIdx)).asBools
+    // jumpCandidate: the jump candidate of the target, MUST be a one-hot vector
+    io.gs.jumpCandidate := (phtBit.asUInt >> bank(rIdx)).asBools
+
 }
