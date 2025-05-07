@@ -16,10 +16,10 @@ class RegfileWRIO extends Bundle{
     val prdData = Input(UInt(32.W))
 }
 
-class RegfilePredictIO extends Bundle {
-    val pra        = Input(UInt(wpreg.W))
-    val praData    = Output(UInt(32.W))
-}
+// class RegfilePredictIO extends Bundle {
+//     val pra        = Input(UInt(wpreg.W))
+//     val praData    = Output(UInt(32.W))
+// }
 
 class RegfileDBGIO extends Bundle{
     val rf = Output(Vec(npreg, UInt(32.W)))
@@ -32,7 +32,7 @@ class RegfileSingleIO extends Bundle{
 
 class Regfile extends Module {
     val io  = IO(Vec(nis, new RegfileSingleIO))
-    val predictIO = IO(new RegfilePredictIO)
+    // val predictIO = IO(new RegfilePredictIO)
     val dbg = IO(new RegfileDBGIO)
 
     val regfile = RegInit(VecInit.tabulate(npreg)(i => 0.U(32.W)))
@@ -44,6 +44,6 @@ class Regfile extends Module {
             regfile(io(i).wr.prd) := io(i).wr.prdData
         }
     }
-    predictIO.praData := ShiftRegister(regfile(predictIO.pra), 1, 0.U, true.B)
+    // predictIO.praData := ShiftRegister(regfile(predictIO.pra), 1, 0.U, true.B)
     dbg.rf := regfile
 }

@@ -106,6 +106,10 @@ class Commit extends Module {
     io.fte.pr.btbM.jumpTgt  := ShiftRegister(lastBDBItem.offset, 1, 0.U(32.W), true.B)
     io.fte.pr.btbM.predType := ShiftRegister(lastBDBItem.predType, 1, 0.U(2.W), true.B)
     io.fte.pr.btbM.jumpEn   := ShiftRegister(lastBDBItem.jumpEn, 1, false.B, true.B)
+
+    io.fte.pr.ras.flush     := ShiftRegister(flush, 1, false.B, true.B)
+    io.fte.pr.ras.pc        := ShiftRegister(lastROBItem.pc, 1, 0.U(32.W), true.B)
+    io.fte.pr.ras.predType  := ShiftRegister(lastBDBItem.predType, 1, 0.U(2.W), true.B)
     
     // dispatch
     io.dsp.flush := ShiftRegister(flush, 1, false.B, true.B)

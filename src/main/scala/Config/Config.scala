@@ -37,10 +37,10 @@ object EXEOp {
 }
 
 object JumpOp{
-    val NOP     = 0x0.U(4.W)
-    val BR      = 0x1.U(4.W)
-    val CALL    = 0x2.U(4.W)
-    val RET     = 0x3.U(4.W)
+    val NOP     = 0x0.U(2.W)
+    val BR      = 0x1.U(2.W)
+    val CALL    = 0x2.U(2.W)
+    val RET     = 0x3.U(2.W)
 }
 object RegisterFile{
     val nlreg = 32
@@ -86,6 +86,10 @@ object Predict{
     object BTB{
         import Fetch._
         val totalWidth        = 12
+    }
+    object RAS{
+        val size = 8
+        val width = log2Ceil(size)
     }
 
 }

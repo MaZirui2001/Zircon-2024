@@ -2,6 +2,8 @@ import chisel3._
 import chisel3.util._
 import ZirconConfig.Predict.BTBMini._
 import ZirconConfig.Fetch._
+import ZirconConfig.JumpOp._
+import ZirconUtil._
 
 class BTBMiniEntry extends Bundle {
     val imm      = UInt(19.W) // 21 imm - [1:0]
@@ -28,7 +30,9 @@ class BTBMiniTagEntry extends Bundle {
 }
 class BTBMiniFCIO extends Bundle {
     val pc      = Input(UInt(32.W))
-    val rData   = Output(Vec(nfch, new BTBMiniEntry))
+    // val rData   = Output(Vec(nfch, new BTBMiniEntry))
+    val jumpTgt = Output(Vec(nfch, UInt(32.W)))
+    val predType = Output(Vec(nfch, UInt(2.W)))
     val rValid  = Output(Vec(nfch, Bool()))
 }
 class BTBMiniCommitIO extends Bundle {
@@ -41,6 +45,7 @@ class BTBMiniIO extends Bundle {
     val fc  = new BTBMiniFCIO
     val gs  = Flipped(new GShareBTBMiniIO)
     val cmt = new BTBMiniCommitIO
+    val ras = Flipped(new RASBTBMiniIO)
 }
 
 class BTBMini extends Module {
@@ -127,15 +132,19 @@ class BTBMini extends Module {
     val rValid  = Mux1H(PriorityEncoderOH(rHit), VecInit(btbTag.map{ btag => btag.rdata(0).valid}))
 
     // shift: to cope with the pc that is not aligned to 16 bytes
-    io.fc.rData.zipWithIndex.foreach{ case(r, i) => 
-        // only when the gshare predicts a jump AND the target is in the block AND the target is valid, then use the BTB prediction   
-        r.imm := (VecInit(rData.map{ case r => Mux(io.gs.jumpEnPredict(i) && rHit.reduce(_||_) && rValid(i), r.imm, 1.U) }).asUInt >> (19*i)).asTypeOf(Vec(nfch, UInt(19.W)))(bank(rIdx))
-        r.predType := (VecInit(rData.map{ case r => r.predType }).asUInt >> (2*i)).asTypeOf(Vec(nfch, UInt(2.W)))(bank(rIdx))
+    io.fc.predType.zipWithIndex.foreach{ case(r, i) => 
+        r := Mux(io.fc.rValid(i), (VecInit(rData.map{ case r =>  r.predType }).asUInt >> (2*i)).asTypeOf(Vec(nfch, UInt(2.W)))(bank(rIdx)), 0.U)
     }
+    io.fc.jumpTgt.zipWithIndex.foreach{ case(r, i) => 
+        val imm = (VecInit(rData.map{ case r => SE(r.imm)}).asUInt >> (32*i)).asTypeOf(Vec(nfch, UInt(32.W)))(bank(rIdx))
+        r := Mux(io.fc.predType(i) === RET, io.ras.returnOffset, Mux(io.gs.jumpEnPredict(i) && rHit.reduce(_||_) && rValid(i), imm, 1.U))
+    }
+
     io.fc.rValid.zipWithIndex.foreach{ case(r, i) => 
         r := (rValid >> i).asTypeOf(Vec(nfch, Bool()))(bank(rIdx))
     }
-    io.gs.predType := io.fc.rData.zip(io.fc.rValid).map{ case (r, v) => Mux(v, r.predType, 0.U) }
+    io.gs.predType := io.fc.predType
+    io.ras.predType := io.fc.predType
     // phtData: the pht data of the target
     val phtData = VecInit(pht.map{case p => VecInit(p.map{ case pline => VecInit(pline.map{ case pitem => pitem(2)})})})
     val phtBit = MuxLookup(idx(rIdx), 0.U(3.W))(Seq.tabulate(sizePerBank){i => (i.U, phtData(PriorityEncoder(rHit))(i).asUInt)})

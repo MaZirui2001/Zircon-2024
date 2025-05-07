@@ -31,7 +31,7 @@ class CPU(sim: Boolean = false) extends Module {
 
     fte.io.dsp <> dsp.io.fte
     dsp.io.bke <> bke.io.dsp
-    fte.io.bke <> bke.io.fte
+    // fte.io.bke <> bke.io.fte
     
     fte.io.cmt <> cmt.io.fte
     bke.io.cmt <> cmt.io.bke

@@ -27,7 +27,7 @@ class FrontendDBGIO extends Bundle {
 }
 
 class FrontendIO extends Bundle {
-    val bke = Flipped(new BackendFrontendIO)
+    // val bke = Flipped(new BackendFrontendIO)
     val dsp = new FrontendDispatchIO
     val mem = new FrontendMemoryIO
     val cmt = new FrontendCommitIO
@@ -79,10 +79,9 @@ class Frontend extends Module {
     pr.io.pd         <> pd.io.pr
     pr.io.cmt        <> io.cmt.pr
     
-
     instPkgPDIn.zipWithIndex.foreach{ case(pkg, i) =>
         pkg.predInfo.jumpEn := pr.io.fc.gs.jumpEnPredict(i)
-        pkg.predInfo.offset := SE(pr.io.fc.btbM.rData(i).imm << 2)
+        pkg.predInfo.offset := pr.io.fc.btbM.jumpTgt(i) << 2
         pkg.predInfo.vld    := instPkgFC(i).valid && pr.io.fc.btbM.rValid(i)
         pkg.valid           := instPkgFC(i).valid && pr.io.fc.validMask(i)
     }
@@ -95,7 +94,7 @@ class Frontend extends Module {
     io.mem.l2         <> ic.io.l2
     instPkgPDIn.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := BLevelPAdder32(pc, (i * 4).U, 0.U).io.res }
     pr.io.fc.pc.zip(instPkgPDIn).foreach{ case (pc, pkg) => pc := pkg.pc }
-
+    pr.io.fte.fcStall := !fq.io.enq(0).ready || ic.io.pp.miss
 
     /* Previous Decode Stage */
     val instPkgPD = WireDefault(ShiftRegister(
@@ -109,11 +108,12 @@ class Frontend extends Module {
    
     // previous decoder
     pd.io.instPkg := instPkgPD
-    pd.io.praData := io.bke.rf.praData
+    // pd.io.praData := io.bke.rf.praData
     instPkgFQIn.zip(pd.io.rinfo).foreach{ case (pkg, rinfo) => pkg.rinfo := rinfo }
     instPkgFQIn.zip(pd.io.predOffset).foreach{ case (pkg, predOffset) => pkg.predInfo.offset := predOffset }
     instPkgFQIn.zip(pd.io.validMask).foreach{ case (pkg, validMask) => pkg.valid := validMask }
-    
+    pr.io.fte.pdStall := !fq.io.enq(0).ready
+
     // fetch queue
     fq.io.enq.zipWithIndex.foreach{ case (enq, i) => 
         enq.valid := instPkgFQIn(i).valid && !ic.io.pp.miss
@@ -142,7 +142,7 @@ class Frontend extends Module {
         pkg.imm     := dcd.imm
         pkg.func    := dcd.func
     }
-    io.bke.rf.pra := rnm.io.fte.pra
+    // io.bke.rf.pra := rnm.io.fte.pra
     val instPkgDSP = WireDefault(ShiftRegister(
         Mux(io.cmt.rnm.fList.flush || !rnm.io.fte.rinfo(0).ready, 0.U.asTypeOf(Vec(ndcd, new FrontendPackage)), instPkgDSPIn), 
         1, 

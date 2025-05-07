@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import ZirconUtil._
 import ZirconConfig.Fetch._
+import ZirconConfig.JumpOp._
 
 /* Pre-Decoder: 
     In order to shorten the frontend pipleline, we need to decode the instruction
@@ -23,9 +24,11 @@ class PreDecoderIO extends Bundle {
     val rinfo      = Output(new RegisterInfo)
     val npc        = Flipped(new NPCPreDecodeIO)
     val predOffset = Output(UInt(32.W))
-    val praData    = Input(UInt(32.W))
+    val predType   = Output(UInt(2.W))
+    // val praData    = Input(UInt(32.W))
     val isBr       = Output(Bool())
     val jumpEn     = Output(Bool())
+    val returnOffset = Input(UInt(32.W))
 }
 
 class PreDecoder extends Module {
@@ -86,18 +89,20 @@ class PreDecoder extends Module {
     io.npc.flush := Mux1H(Seq(
         isnJ   -> (predInfo.offset =/= 4.U), // isn't jump: predictor must be wrong if it predicts jump
         isJal  -> (predInfo.offset =/= imm), 
-        isJalr -> !(predInfo.vld && rj =/= 1.U), // TEMP: only fix return or not valid
+        // isJalr -> !(predInfo.vld && rj =/= 1.U), // TEMP: only fix return or not valid
+        isJalr -> (!predInfo.vld),
         isBr   -> Mux(predInfo.vld, predInfo.offset =/= Mux(predInfo.jumpEn, imm, 4.U), imm(31))
     )) && io.instPkg.valid
 
-
-    val jalrAdderRes = BLevelPAdder32(instPkg.pc, predInfo.offset, 0.U).io.res
-    io.npc.jumpOffset := Mux(isnJ, 4.U, Mux(isJalr, io.praData, imm))
-    io.npc.pc         := Mux(isJalr, 0.U, instPkg.pc)
+    // if the rj is 1, the jalr is a return, so we need to add 4 to the predicted offset
+    // if the rj is not 1, the jalr is a call or branch, so we need to add pc the predicted offset
+    val jalrAdderRes = BLevelPAdder32(Mux(predInfo.vld, Mux(rj =/= 1.U, instPkg.pc, 4.U), 4.U), Mux(predInfo.vld, predInfo.offset, io.returnOffset << 2), 0.U).io.res
+    io.npc.jumpOffset := Mux(isnJ, 4.U, Mux(isJalr, io.returnOffset << 2, imm))
+    io.npc.pc         := Mux(isJalr, 4.U, instPkg.pc)
     io.predOffset := Mux1H(Seq(
         isnJ   -> 4.U,
         isJal  -> imm,
-        isJalr -> Mux(predInfo.vld && rj =/= 1.U, jalrAdderRes, io.praData),
+        isJalr -> jalrAdderRes,
         isBr   -> Mux(predInfo.vld, Mux(predInfo.jumpEn, imm, 4.U), Mux(imm(31), imm, 4.U))
     ))
     io.isBr := !isnJ
@@ -106,6 +111,12 @@ class PreDecoder extends Module {
         isJal  -> true.B,
         isJalr -> true.B,
         isBr   -> Mux(predInfo.vld, predInfo.jumpEn, imm(31))
+    ))
+    io.predType := Mux1H(Seq(
+        isnJ   -> NOP,
+        isJal  -> Mux(rd =/= 0.U, CALL, BR),
+        isJalr -> Mux(rj === 1.U, RET, Mux(rd =/= 0.U, CALL, BR)),
+        isBr   -> BR
     ))
 
 }
@@ -117,7 +128,7 @@ class PreDecodersIO extends Bundle {
     val npc        = Flipped(new NPCPreDecodeIO)
     val pr         = Flipped(new PredictPreDecodeIO)
     val predOffset = Vec(nfch, Output(UInt(32.W)))
-    val praData    = Input(UInt(32.W))
+    // val praData    = Input(UInt(32.W))
 }
 
 class PreDecoders extends Module {
@@ -126,8 +137,9 @@ class PreDecoders extends Module {
     for (i <- 0 until nfch) {
         pds(i).instPkg     := io.instPkg(i)
         io.rinfo(i)        := pds(i).rinfo
-        pds(i).praData     := io.praData
-        io.validMask(i)    := (if(i == 0) true.B else !pds.map{case(p) => p.npc.flush && p.instPkg.valid}.take(i).reduce(_ || _)) && io.instPkg(i).valid
+        // pds(i).praData     := io.praData
+        pds(i).returnOffset := io.pr.ras.returnOffset
+        io.validMask(i)    := (if(i == 0) true.B else !pds.map(_.npc.flush).take(i).reduce(_ || _)) && io.instPkg(i).valid
         io.pr.gs.isBr(i)   := pds(i).isBr && io.validMask(i)
         io.pr.gs.jumpEn(i) := pds(i).jumpEn && io.validMask(i)
     }
@@ -136,4 +148,7 @@ class PreDecoders extends Module {
     io.npc.pc         := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.pc))
     io.pr.gs.flush    := io.npc.flush
     io.predOffset     := pds.map(_.predOffset)
+    io.pr.ras.flush   := io.npc.flush
+    io.pr.ras.predType := Mux1H(Log2OH(io.validMask), pds.map(_.predType))
+    io.pr.ras.pc       := Mux1H(Log2OH(io.validMask), pds.map(_.npc.pc))
 }

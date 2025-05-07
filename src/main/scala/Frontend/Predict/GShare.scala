@@ -9,13 +9,9 @@ class GShareFCIO extends Bundle {
     val jumpEnPredict = Output(Vec(nfch, Bool()))
 }
 class GShareBTBMiniIO extends Bundle {
-    // isBr: the locations of the branch instructions
-    // val isBr          = Input(Vec(nfch, Bool()))
     // jumpCandidate: One-Hot code, the most probably branch that will jump
     val jumpCandidate = Input(Vec(nfch, Bool()))
-
     val predType      = Input(Vec(nfch, UInt(2.W)))
-
     val jumpEnPredict = Output(Vec(nfch, Bool()))
 }
 class GSharePreDecodeIO extends Bundle {
@@ -29,12 +25,18 @@ class GShareCommitIO extends Bundle {
     val predType = Input(UInt(2.W))
     val flush    = Input(Bool())
 }
+class GShareFrontendIO extends Bundle {
+    val fcStall = Input(Bool())
+    val pdStall = Input(Bool())
+}
 
 class GShareIO extends Bundle {
     val fc   = new GShareFCIO
     val btbM = new GShareBTBMiniIO
     val pd   = new GSharePreDecodeIO
     val cmt  = new GShareCommitIO
+    val ras  = Flipped(new RASGShareIO)
+    val fte  = new GShareFrontendIO
 }
 
 class GShare extends Module {
@@ -56,18 +58,24 @@ class GShare extends Module {
         b && (j && phtRData(1)) || c
     })
     io.btbM.jumpEnPredict := io.fc.jumpEnPredict
+    io.ras.jumpEnPredict := io.fc.jumpEnPredict
     val jumpMask      = Mux1H(io.fc.jumpEnPredict.asUInt, (0 until nfch).map(i => ((2 << i) - 1).U)) & isBr.asUInt
     val shiftNum      = Mux(io.fc.jumpEnPredict.asUInt.orR, PopCount(jumpMask), PopCount(isBr))
     val shiftFillBits = Mux(io.fc.jumpEnPredict.asUInt.orR, 1.U << PopCount(jumpMask), 0.U(nfch.W))
 
-    ghr := (shiftFillBits ## ghr) >> shiftNum   
+    when(!io.fte.fcStall){
+        ghr := (shiftFillBits ## ghr) >> shiftNum   
+    }
 
     // PreDecode
     val shiftNumPD      = PopCount(io.pd.isBr)
     val shiftFillBitsPD = io.pd.jumpEn.asUInt
     val ghrPD           = RegInit(0.U(ghrWidth.W))
     val ghrPDNext       = (shiftFillBitsPD ## ghrPD) >> shiftNumPD
-    ghrPD               := ghrPDNext
+
+    when(!io.fte.pdStall){
+        ghrPD               := ghrPDNext
+    }
 
     // Commit
     val ghrCmt      = RegInit(0.U(ghrWidth.W))

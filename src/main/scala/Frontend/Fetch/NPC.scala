@@ -2,6 +2,7 @@ import chisel3._
 import chisel3.util._
 import ZirconConfig.Fetch._
 import ZirconConfig.Predict._
+import ZirconConfig.JumpOp._
 
 class NPCCommitIO extends Bundle {
     val flush      = Input(Bool())
@@ -28,6 +29,7 @@ class NPCPredictIO extends Bundle {
     val flush      = Input(Bool())
     val pc         = Input(UInt(32.W))
     val jumpOffset = Input(UInt(32.W))
+    val predType   = Input(UInt(2.W))
 }
 
 class NPCIO extends Bundle {
@@ -54,7 +56,7 @@ class NPC extends Module {
             pc      := io.pd.pc
             offset  := io.pd.jumpOffset
         }.elsewhen(io.pr.flush){
-            pc      := io.pr.pc
+            pc      := Mux(io.pr.predType === RET, 4.U, io.pr.pc)
             offset  := io.pr.jumpOffset
         }.otherwise {
             io.pc.npc := adderResult(31, 2+log2Ceil(nfch)) ## 0.U((2+log2Ceil(nfch)).W)
