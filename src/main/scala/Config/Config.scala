@@ -52,11 +52,11 @@ object RegisterFile{
 object Issue{
     val niq          = 3
     val nis          = 5
-    val arithNiq     = 18
+    val arithNiq     = 15
     val arithNissue  = 3
-    val muldivNiq    = 12
+    val muldivNiq    = 9
     val muldivNissue = 1
-    val lsuNiq       = 15
+    val lsuNiq       = 9
     val lsuNissue    = 1
 }
 object Fetch{
