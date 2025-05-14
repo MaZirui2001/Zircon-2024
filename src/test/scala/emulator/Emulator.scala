@@ -83,10 +83,10 @@ class Emulator{
         // 创建一个线程，等待其他线程都结束后，动态显示Total Cycles和IPC
         Future{
             while(true){
-                print(s"\rTotal cycles: ${statistic.getTotalCycles()}, " +
-                      s"IPC: ${statistic.getIpc()}, " +
-                      s"Mem access time: ${memAccessTime / 1000000000} s")
                 Thread.sleep(1000)
+                print(s"\rTotal cycles: ${statistic.getTotalCycles()}, " +
+                      s"IPC: ${statistic.getIpc()}")
+                
             }
         }
         var n = num

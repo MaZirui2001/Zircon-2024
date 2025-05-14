@@ -106,7 +106,7 @@ object Commit{
     import Decode._
     val ncommit = 2
     assert(ncommit <= ndcd, "ncommit must be less than or equal to ndcd")
-    val nrob = 54
+    val nrob = 42
     assert(nrob % ndcd == 0, "nrob must be divisible by ndcd")
     val nrobQ = nrob / ndcd
     val wrob = log2Ceil(nrob)

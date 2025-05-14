@@ -109,10 +109,11 @@ class BTBMini extends Module {
                 when(j.U === bank(cmtPC) ){
                     // step 1: update the aimed pht
                     pitem := Mux(cmtJumpEn, pitemSAdd, pitemSSub) 
-                }.elsewhen(j.U < bank(cmtPC)){
-                    // step 2: substract the other pht in front of the aimed pht with the same bank
-                    pitem := Mux(cmtJumpEn, pitemSSub, pitem)
                 }
+                // .elsewhen(j.U < bank(cmtPC)){
+                //     // step 2: substract the other pht in front of the aimed pht with the same bank
+                //     pitem := Mux(cmtJumpEn, pitemSSub, pitem)
+                // }
             }.elsewhen(!cmtWHit.reduce(_ || _) && cmtPredType =/= 0.U){
                 // if the target is not in the BTB
                 when(j.U === bank(cmtPC)){
