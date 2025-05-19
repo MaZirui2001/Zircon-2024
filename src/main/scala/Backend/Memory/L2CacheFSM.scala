@@ -49,7 +49,7 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
     val iom     = io.mem
     val iocWreq = ioc.wreq.getOrElse(false.B)
     // main fsm: for read
-    val mIdle :: mMiss :: mRefill :: mWait :: mPause :: Nil = Enum(5)
+    val mIdle :: mMiss :: mRefill :: mWait ::  Nil = Enum(4)
     val mState   = RegInit(mIdle)
 
     val cmiss    = WireDefault(false.B)
@@ -127,20 +127,16 @@ class L2CacheFSM(ic: Boolean = false) extends Module{
         is(mWait){
             wfsmRst := true.B
             if(ic){
-                mState := mPause
-                cmiss  := true.B
-                addrOH := 2.U // choose s2 addr
+                mState := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), mIdle, mWait)
+                cmiss  := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), false.B, true.B)
+                addrOH := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), 1.U, 2.U)
+                r1H    := 2.U
             } else {
-                when(wfsmOk){
-                    mState := mPause
-                    cmiss  := true.B
-                    addrOH := 2.U // choose s2 addr
-                }
+                mState := Mux(ShiftRegister(mState === mWait && wfsmOk, 1, false.B, true.B), mIdle, mWait)
+                cmiss  := Mux(ShiftRegister(mState === mWait && wfsmOk, 1, false.B, true.B), false.B, Mux(wfsmOk, true.B, false.B))
+                addrOH := Mux(ShiftRegister(mState === mWait && wfsmOk, 1, false.B, true.B), 1.U, Mux(wfsmOk, 2.U, 1.U))
+                r1H    := 2.U
             }
-        }
-        is(mPause){
-            mState := mIdle
-            r1H     := 2.U // choose rbuf
         }
     }
     io.cc.cmiss  := cmiss

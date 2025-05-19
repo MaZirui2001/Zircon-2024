@@ -45,7 +45,7 @@ class DCacheFSM extends Module {
     val io = IO(new DCacheFSMIO)
 
     // FSM states and registers
-    val mIdle :: mHold :: mMiss :: mRefill :: mWait :: mPause :: Nil = Enum(6)
+    val mIdle :: mHold :: mMiss :: mRefill :: mWait :: Nil = Enum(5)
     val mState = RegInit(mIdle)
     val lruReg = RegInit(0.U(2.W))
 
@@ -126,14 +126,10 @@ class DCacheFSM extends Module {
         }
 
         is(mWait) {
-            mState := mPause
-            io.cc.addrOH := 2.U  // choose s2 addr
-            io.cc.cmiss := true.B
-        }
-
-        is(mPause) {
-            mState := mIdle
-            io.cc.r1H := 2.U
+            mState := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), mIdle, mWait)
+            io.cc.addrOH := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), 1.U, 2.U)
+            io.cc.cmiss  := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), false.B, true.B)
+            io.cc.r1H    := 2.U
         }
     }
 }

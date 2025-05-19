@@ -39,7 +39,7 @@ class ICacheFSM extends Module {
     val io = IO(new ICacheFSMIO)
 
     // FSM states and registers
-    val mIdle :: mMiss :: mRefill :: mWait :: mPause :: Nil = Enum(5)
+    val mIdle :: mMiss :: mRefill :: mWait :: Nil = Enum(4)
     val mState = RegInit(mIdle)
     val lruReg = RegInit(0.U(2.W))
 
@@ -93,17 +93,12 @@ class ICacheFSM extends Module {
                 io.cc.memWe  := lruReg.asBools
             }
         }
-
+        // mWait must last for 2 cycles, to eliminate the mPause state
         is(mWait) {
-            mState := mPause
-            // io.cc.addrOH := 2.U  // choose s2 addr
-            io.cc.addrOH := Mux(io.cc.flush, 1.U, 2.U)
-            io.cc.cmiss  := true.B
-        }
-
-        is(mPause) {
-            mState := mIdle
-            io.cc.r1H := 2.U
+            mState       := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), mIdle, mWait)
+            io.cc.addrOH := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), 1.U, Mux(io.cc.flush, 1.U, 2.U))
+            io.cc.cmiss  := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), false.B, true.B)
+            io.cc.r1H    := 2.U
         }
     }
 }
