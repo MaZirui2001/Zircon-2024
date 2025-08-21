@@ -2,11 +2,20 @@ PWD := $(shell pwd)
 SCALA_SRC := $(shell find src -name "*.scala")
 all: verilog
 
+USE_SBT := 1
+
 verilog: $(SCALA_SRC)
+ifeq ($(USE_SBT), 1)
+	@BUILD_MODE=SYNC sbt 'runMain Main' --batch -j0
+else
 	@BUILD_MODE=SYNC ./mill -s -j0 _.runMain Main
+endif
 
 
 run:
-	# @IMG=$(IMG) TEST_DIR=$(PWD)/test_run_dir BUILD_MODE=sim sbt 'testOnly EmuMain' --batch
+ifeq ($(USE_SBT), 1)
+	@IMG=$(IMG) TEST_DIR=$(PWD)/test_run_dir BUILD_MODE=sim sbt 'testOnly EmuMain' --batch -j0
+else
 	@IMG=$(IMG) TEST_DIR=$(PWD)/test_run_dir BUILD_MODE=sim ./mill -s -j0 _.test.testOnly EmuMain
+endif
 	
