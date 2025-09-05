@@ -128,9 +128,9 @@ class BTBMini extends Module {
     btb.foreach{ _.raddr(0) := idx(rIdx) }
     btbTag.foreach{ _.raddr(0) := idx(rIdx) }
     val rHit    = VecInit(btbTag.map{ btag => btag.rdata(0).valid.orR && tag(rIdx) === btag.rdata(0).tag })
-    val rData   = Mux1H(PriorityEncoderOH(rHit), btb.map(_.rdata(0)))
+    val rData   = Mux1H(rHit, btb.map(_.rdata(0)))
     // rValid: the target is in the BTB
-    val rValid  = Mux1H(PriorityEncoderOH(rHit), VecInit(btbTag.map{ btag => btag.rdata(0).valid}))
+    val rValid  = Mux1H(rHit, VecInit(btbTag.map{ btag => btag.rdata(0).valid}))
 
     // shift: to cope with the pc that is not aligned to 16 bytes
     io.fc.predType.zipWithIndex.foreach{ case(r, i) => 
@@ -138,7 +138,7 @@ class BTBMini extends Module {
     }
     io.fc.jumpTgt.zipWithIndex.foreach{ case(r, i) => 
         val imm = (VecInit(rData.map{ case r => SE(r.imm)}).asUInt >> (32*i)).asTypeOf(Vec(nfch, UInt(32.W)))(bank(rIdx))
-        r := Mux(io.fc.predType(i) === RET, io.ras.returnOffset, Mux(io.gs.jumpEnPredict(i) && rHit.reduce(_||_) && rValid(i), imm, 1.U))
+        r := Mux(io.fc.predType(i) === RET, io.ras.returnOffset, Mux(io.gs.jumpEnPredict(i) && rValid(i), imm, 1.U))
     }
 
     io.fc.rValid.zipWithIndex.foreach{ case(r, i) => 
@@ -148,7 +148,7 @@ class BTBMini extends Module {
     io.ras.predType := io.fc.predType
     // phtData: the pht data of the target
     val phtData = VecInit(pht.map{case p => VecInit(p.map{ case pline => VecInit(pline.map{ case pitem => pitem(2)})})})
-    val phtBit = MuxLookup(idx(rIdx), 0.U(3.W))(Seq.tabulate(sizePerBank){i => (i.U, phtData(PriorityEncoder(rHit))(i).asUInt)})
+    val phtBit = MuxLookup(idx(rIdx), 0.U(3.W))(Seq.tabulate(sizePerBank){i => (i.U, phtData(OHToUInt(rHit))(i).asUInt)})
     // jumpCandidate: the jump candidate of the target, MUST be a one-hot vector
     io.gs.jumpCandidate := (phtBit.asUInt >> bank(rIdx)).asBools
 

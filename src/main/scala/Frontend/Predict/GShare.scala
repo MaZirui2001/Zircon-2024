@@ -44,7 +44,7 @@ class GShare extends Module {
 
     val pcFC = io.fc.pc >> 2 // ignore the last 2 bits
     def hash(ghr: UInt, pc: UInt): UInt = {
-        ghr ^ pc
+        ghr ^ pc.take(1)
     }
     val ghr = RegInit(0.U(ghrWidth.W))
     val pht = RegInit(VecInit.fill(phtSize)(2.U(2.W)))

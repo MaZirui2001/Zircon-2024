@@ -67,7 +67,7 @@ object Fetch{
 object Predict{
     object GShare{
         import Fetch._
-        val ghrWidth       = 12
+        val ghrWidth       = 8
         val phtWidth       = ghrWidth
         val phtSize        = 1 << phtWidth
     }
