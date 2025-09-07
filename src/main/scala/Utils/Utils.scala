@@ -36,7 +36,8 @@ object ESltu {
         assert(n == src2.getWidth, "src1 and src2 must have the same width")
         val signNeq = src1(n-1) ^ src2(n-1)
         val src1LtSrc2 = src1(n-2, 0) < src2(n-2, 0)
-        Mux(signNeq, !src1LtSrc2, src1LtSrc2)
+        // Mux(signNeq, !src1LtSrc2, src1LtSrc2)
+        signNeq ^ src1LtSrc2
     }
 }
 object Slt1H {

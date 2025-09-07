@@ -50,8 +50,12 @@ class RAS extends Module {
 
     // fetch stage
     val ptr = RegInit(1.U(size.W))
-    val predType = Mux1H(io.gs.jumpEnPredict, io.btbM.predType)
-    val pc = Mux1H(io.gs.jumpEnPredict, io.fc.pc)
+    val predType = PriorityMux(
+        io.gs.jumpEnPredict.zip(io.btbM.predType).map{ case (j, p) => (j, p) }
+    )
+    val pc = PriorityMux(
+        io.gs.jumpEnPredict.zip(io.fc.pc).map{ case (j, p) => (j, p) }
+    )
     when(!io.fte.fcStall){
         when(predType === CALL){
             ras.zipWithIndex.foreach{case (r, i) => 
@@ -62,7 +66,7 @@ class RAS extends Module {
             ptr := ShiftSub1(ptr)
         }
     }
-    io.btbM.returnOffset := ZE(Mux1H(ShiftSub1(ptr), ras))
+    io.btbM.returnOffset := ZE(Mux1H(ShiftSub1(ptr), ras)) << 2
 
     // pre-decode stage
     val ptrPD = RegInit(1.U(size.W))
@@ -80,7 +84,7 @@ class RAS extends Module {
     }
     ptrPD := ptrPDNext
     rasPD := rasPDNext
-    io.pd.returnOffset := ShiftRegister(ZE(Mux1H(ShiftSub1(ptrPD), rasPD)), 1, 0.U, true.B)
+    io.pd.returnOffset := ShiftRegister(ZE(Mux1H(ShiftSub1(ptrPD), rasPD)) << 2, 1, 0.U, true.B)
     when(io.pd.flush){
         ptr := ptrPDNext
         ras := rasPDNext
@@ -93,7 +97,7 @@ class RAS extends Module {
     when(io.cmt.predType === CALL){
         ptrCmtNext := ShiftAdd1(ptrCmt)
         rasCmtNext.zipWithIndex.foreach{case (r, i) => 
-            r := Mux(ptrCmt(i), io.cmt.pc(31, 2), rasCmt(i))
+            r := Mux(ptrCmt(i), BLevelPAdder32(io.cmt.pc, 4.U, 0.U).io.res(31, 2), rasCmt(i))
         }
     }.elsewhen(io.cmt.predType === RET){
         ptrCmtNext := ShiftSub1(ptrCmt)

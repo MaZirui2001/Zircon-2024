@@ -9,6 +9,7 @@ class PredictFCIO extends Bundle {
     val btbM      = new BTBMiniFCIO
     // val ras       = new RASFCIO
     val pc        = Input(Vec(nfch, UInt(32.W)))
+    val pcsPlus4  = Input(Vec(nfch, UInt(32.W)))
     val validMask = Output(UInt(nfch.W))
 }
 
@@ -56,16 +57,24 @@ class Predict extends Module {
 
     ras.io.pd  <> io.pd.ras
     ras.io.cmt <> io.cmt.ras
-    ras.io.fc.pc := io.fc.pc
+    ras.io.fc.pc := io.fc.pcsPlus4
     ras.io.fte.fcStall := io.fte.fcStall
     ras.io.fte.pdStall := io.fte.pdStall
 
     io.npc.flush      := gs.io.fc.jumpEnPredict.reduce(_ || _)
-    io.npc.pc         := Mux1H(gs.io.fc.jumpEnPredict, io.fc.pc)
-    io.npc.predType   := Mux1H(gs.io.fc.jumpEnPredict, io.fc.btbM.predType)
+    io.npc.pc := PriorityMux(
+        gs.io.fc.jumpEnPredict.zip(io.fc.pc).map{ case (j, p) => (j, p) }
+    )
+    io.npc.predType := PriorityMux(
+        gs.io.fc.jumpEnPredict.zip(io.fc.btbM.predType).map{ case (j, p) => (j, p) }
+    )
     io.fc.validMask   := Mux(gs.io.fc.jumpEnPredict.reduce(_ || _), 
-        Mux1H(gs.io.fc.jumpEnPredict, (0 until nfch).map(i => ((2 << i) - 1).U)),
+        PriorityMux(
+            gs.io.fc.jumpEnPredict.zip((0 until nfch).map(i => ((2 << i) - 1).U)).map{ case (j, m) => (j, m) }
+        ),
         Fill(nfch, true.B)
     )
-    io.npc.jumpOffset := Mux1H(gs.io.fc.jumpEnPredict, btbM.io.fc.jumpTgt.map(_ << 2))
+    io.npc.jumpOffset := PriorityMux(
+        gs.io.fc.jumpEnPredict.zip(btbM.io.fc.jumpTgt).map{ case (j, t) => (j, t) }
+    )
 }

@@ -44,25 +44,22 @@ class NPC extends Module {
     val io             = IO(new NPCIO)
     val pc             = WireDefault(io.pc.pc)
     val offset         = WireDefault((nfch * 4).U)
-    val adderResult    = BLevelPAdder32(pc, offset, 0.U).io.res
-    io.pc.npc  := adderResult
     when(io.cmt.flush){
-        pc          := io.cmt.jumpTgt
-        offset      := Mux(io.cmt.jumpEn, 0.U, 4.U)
+        io.pc.npc := BLevelPAdder32(io.cmt.jumpTgt, Mux(io.cmt.jumpEn, 0.U, 4.U), 0.U).io.res
     }.elsewhen(io.fq.ready){
         when(io.ic.miss){
-            offset  := 0.U
+            io.pc.npc := pc
         }.elsewhen(io.pd.flush){
-            pc      := io.pd.pc
-            offset  := io.pd.jumpOffset
-        }.elsewhen(io.pr.flush){
-            pc      := Mux(io.pr.predType === RET, 4.U, io.pr.pc)
-            offset  := io.pr.jumpOffset
-        }.otherwise {
-            io.pc.npc := adderResult(31, 2+log2Ceil(nfch)) ## 0.U((2+log2Ceil(nfch)).W)
+            io.pc.npc := BLevelPAdder32(io.pd.pc, io.pd.jumpOffset, 0.U).io.res
+        }
+        .elsewhen(io.pr.flush){
+            io.pc.npc := io.pr.jumpOffset
+        }
+        .otherwise{
+            io.pc.npc := BLevelPAdder32(pc, offset, 0.U).io.res(31, 2+log2Ceil(nfch)) ## 0.U((2+log2Ceil(nfch)).W)
         }
     }.otherwise{
-        offset := 0.U
+        io.pc.npc := pc
     }
     val validMask = MuxLookup((io.pc.npc >> 2).take(log2Ceil(nfch)), 0.U(4.W))(
         (0 until nfch).map(i => ((nfch-1-i).U, ((2<<i)-1).U))

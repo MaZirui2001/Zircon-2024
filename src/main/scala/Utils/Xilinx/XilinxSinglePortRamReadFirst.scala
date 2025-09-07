@@ -26,8 +26,9 @@ class XilinxSinglePortRamReadFirst(RAMWIDTH: Int, RAMDEPTH: Int) extends BlackBo
 |   input ena,                            // RAM Enable, for additional power savings, disable port when not in use
 |   output [RAMWIDTH-1:0] douta          // RAM output data
 | );
-| 
+|   (*ram_style="block"*)
 |   reg [RAMWIDTH-1:0] BRAM [RAMDEPTH-1:0];
+|   reg [$clog2(RAMDEPTH)-1:0] addrR;
 |   reg [RAMWIDTH-1:0] ramData = {RAMWIDTH{1'b0}};
 | 
 |   // The following code either initializes the memory values to a specified file or to all zeros to match hardware
@@ -42,9 +43,9 @@ class XilinxSinglePortRamReadFirst(RAMWIDTH: Int, RAMDEPTH: Int) extends BlackBo
 |     if (ena) begin
 |       if (wea)
 |         BRAM[addra] <= dina;
-|       ramData <= BRAM[addra];
+|       addrR <= addra;
 |     end
-|   assign douta = ramData;
+|   assign douta = BRAM[addrR];
 | 
 |   //  The following function calculates the address width based on specified RAM depth
 |   function integer clogb2;

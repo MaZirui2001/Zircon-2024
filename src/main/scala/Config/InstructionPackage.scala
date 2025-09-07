@@ -9,6 +9,7 @@ class PredictInfo extends Bundle {
     val offset     = UInt(32.W)
     val jumpEn     = Bool()
     val vld        = Bool()
+    val pcPlus4    = UInt(32.W)
 }
 
 class FrontendPackage extends Bundle {
@@ -37,6 +38,7 @@ class BackendPackage extends Bundle {
     val bdbIdx     = new ClusterEntry(wbdbQ, wdecode)
     val prjWk      = Bool()
     val prkWk      = Bool()
+    val prAllWk    = Bool()
 
     // for inferred wakeup
     val prjLpv     = UInt(3.W)

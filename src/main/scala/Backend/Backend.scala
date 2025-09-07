@@ -105,7 +105,7 @@ class Backend extends Module {
         arPP(0).wk.wakeIssue,
         arPP(1).wk.wakeIssue,
         arPP(2).wk.wakeIssue,
-        mdPP.io.wk.wakeEX2,
+        mdPP.io.wk.wakeEX3,
         lsPP.io.wk.wakeRF
     )
     /* pipeline 3: muldiv */
@@ -132,7 +132,7 @@ class Backend extends Module {
         arPP(0).wk.wakeRF,
         arPP(1).wk.wakeRF,
         arPP(2).wk.wakeRF,
-        mdPP.io.wk.wakeEX2,
+        mdPP.io.wk.wakeEX3,
         lsPP.io.wk.wakeRF
     )
 
@@ -157,7 +157,7 @@ class Backend extends Module {
         arPP(0).wk.wakeRF,
         arPP(1).wk.wakeRF,
         arPP(2).wk.wakeRF,
-        mdPP.io.wk.wakeEX2,
+        mdPP.io.wk.wakeEX3,
         lsPP.io.wk.wakeD1
     )
     rplyBus := lsPP.io.wk.rplyOut

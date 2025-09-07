@@ -35,10 +35,10 @@ class XilinxTrueDualPortReadFirst1ClockRam(RAMWIDTH: Int, RAMDEPTH: Int) extends
 |   output [RAMWIDTH-1:0] douta,         // Port A RAM output data
 |   output [RAMWIDTH-1:0] doutb          // Port B RAM output data
 | );
-| 
+|   (*ram_style="block"*)
 |   reg [RAMWIDTH-1:0] BRAM [RAMDEPTH-1:0];
-|   reg [RAMWIDTH-1:0] ramDataA = {RAMWIDTH{1'b0}};
-|   reg [RAMWIDTH-1:0] ramDataB = {RAMWIDTH{1'b0}};
+|   reg [$clog2(RAMDEPTH)-1:0] addrRA;
+|   reg [$clog2(RAMDEPTH)-1:0] addrRB;
 | 
 |   // The following code either initializes the memory values to a specified file or to all zeros to match hardware
 |   generate
@@ -52,20 +52,20 @@ class XilinxTrueDualPortReadFirst1ClockRam(RAMWIDTH: Int, RAMDEPTH: Int) extends
 |     if (ena) begin
 |       if (wea)
 |         BRAM[addra] <= dina;
-|       ramDataA <= BRAM[addra];
+|       addrRA <= addra;
 |     end
 | 
 |   always @(posedge clka)
 |     if (enb) begin
 |       if (web)
 |         BRAM[addrb] <= dinb;
-|       ramDataB <= BRAM[addrb];
+|       addrRB <= addrb;
 |     end
 | 
 |   generate
 |         // The following is a 1 clock cycle read latency at the cost of a longer clock-to-out timing
-|        assign douta = ramDataA;
-|        assign doutb = ramDataB;
+|        assign douta = BRAM[addrRA];
+|        assign doutb = BRAM[addrRB];
 | 
 |   endgenerate
 | 

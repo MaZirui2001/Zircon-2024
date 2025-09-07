@@ -25,7 +25,7 @@ class MulDivForwardIO extends Bundle {
     val src2Fwd   = Flipped(Decoupled(UInt(32.W)))
 }
 class MulDivWakeupIO extends Bundle {
-    val wakeEX2 = Output(new WakeupBusPkg)
+    val wakeEX3 = Output(new WakeupBusPkg)
     val rplyIn  = Input(new ReplayBusPkg)
 }
 
@@ -100,22 +100,21 @@ class MulDivPipeline extends Module {
         io.cmt.flush || !div.io.busy
     ))
 
-    val instPkgEX2ForWakeup = WireDefault(instPkgEX2)
-    instPkgEX2ForWakeup.prd := Mux(div.io.busy, 0.U, instPkgEX2.prd)
-    io.wk.wakeEX2 := (new WakeupBusPkg)(instPkgEX2ForWakeup, 0.U.asTypeOf(new ReplayBusPkg))
-
     /* Execute Stage 3 */
     val instPkgEX3 = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush || div.io.busy, 0.U.asTypeOf(new BackendPackage), instPkgEX2), 
+        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEX2), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
-        true.B
+        io.cmt.flush || !div.io.busy
     ))
+    val instPkgEX3ForWakeup = WireDefault(instPkgEX3)
+    instPkgEX3ForWakeup.prd := Mux(div.io.busy, 0.U, instPkgEX3.prd)
+    io.wk.wakeEX3 := (new WakeupBusPkg)(instPkgEX3ForWakeup, 0.U.asTypeOf(new ReplayBusPkg))
     instPkgEX3.rfWdata := Mux(instPkgEX3.op(2), div.io.res, mul.io.res)
 
     /* Write Back Stage */
     val instPkgWB = WireDefault(ShiftRegister(
-        Mux(io.cmt.flush, 0.U.asTypeOf(new BackendPackage), instPkgEX3), 
+        Mux(io.cmt.flush || div.io.busy, 0.U.asTypeOf(new BackendPackage), instPkgEX3), 
         1, 
         0.U.asTypeOf(new BackendPackage), 
         true.B

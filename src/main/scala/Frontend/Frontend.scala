@@ -78,11 +78,14 @@ class Frontend extends Module {
     pr.io.fc.btbM.pc := pc
     pr.io.pd         <> pd.io.pr
     pr.io.cmt        <> io.cmt.pr
-    
+    import ZirconConfig.JumpOp._
+    val pcs = VecInit.tabulate(nfch){i => BLevelPAdder32(pc, (i * 4).U, 0.U).io.res}
+    val pcsPlus4 = VecInit.tabulate(nfch){i => BLevelPAdder32(pc, (i * 4 + 4).U, 0.U).io.res}
     instPkgPDIn.zipWithIndex.foreach{ case(pkg, i) =>
         pkg.predInfo.jumpEn := pr.io.fc.gs.jumpEnPredict(i)
-        pkg.predInfo.offset := pr.io.fc.btbM.jumpTgt(i) << 2
+        pkg.predInfo.offset := Mux(pr.io.fc.gs.jumpEnPredict(i), Mux(pr.io.fc.btbM.predType(i) === RET, pr.io.fc.btbM.jumpTgt(i), BLevelPAdder32(pr.io.fc.btbM.jumpTgt(i), ~pcs(i), 1.U).io.res), 4.U)
         pkg.predInfo.vld    := instPkgFC(i).valid && pr.io.fc.btbM.rValid(i)
+        pkg.predInfo.pcPlus4 := pcsPlus4(i)
         pkg.valid           := instPkgFC(i).valid && pr.io.fc.validMask(i)
     }
 
@@ -92,8 +95,9 @@ class Frontend extends Module {
     ic.io.pp.stall    := !fq.io.enq(0).ready
     ic.io.pp.flush    := io.cmt.npc.flush || pd.io.npc.flush
     io.mem.l2         <> ic.io.l2
-    instPkgPDIn.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := BLevelPAdder32(pc, (i * 4).U, 0.U).io.res }
+    instPkgPDIn.zipWithIndex.foreach{ case (pkg, i) => pkg.pc := pcs(i) }
     pr.io.fc.pc.zip(instPkgPDIn).foreach{ case (pc, pkg) => pc := pkg.pc }
+    pr.io.fc.pcsPlus4 := pcsPlus4
     pr.io.fte.fcStall := !fq.io.enq(0).ready || ic.io.pp.miss
 
     /* Previous Decode Stage */

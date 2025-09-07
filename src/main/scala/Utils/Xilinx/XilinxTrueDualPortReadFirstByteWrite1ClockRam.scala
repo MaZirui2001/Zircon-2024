@@ -35,10 +35,10 @@ class XilinxTrueDualPortReadFirstByteWrite1ClockRam(NBCOL: Int, COLWIDTH: Int, R
 |  output [(NBCOL*COLWIDTH)-1:0] douta, // Port A RAM output data
 |  output [(NBCOL*COLWIDTH)-1:0] doutb  // Port B RAM output data
 |);
-|
+|  (*ram_style="block"*)
 |  reg [(NBCOL*COLWIDTH)-1:0] BRAM [RAMDEPTH-1:0];
-|  reg [(NBCOL*COLWIDTH)-1:0] ramDataA = {(NBCOL*COLWIDTH){1'b0}};
-|  reg [(NBCOL*COLWIDTH)-1:0] ramDataB = {(NBCOL*COLWIDTH){1'b0}};
+|  reg [$clog2(RAMDEPTH)-1:0] addrRA;
+|  reg [$clog2(RAMDEPTH)-1:0] addrRB;
 |
 |  // The following code either initializes the memory values to a specified file or to all zeros to match hardware
 |  generate
@@ -50,12 +50,12 @@ class XilinxTrueDualPortReadFirstByteWrite1ClockRam(NBCOL: Int, COLWIDTH: Int, R
 |
 |  always @(posedge clka)
 |    if (ena) begin
-|      ramDataA <= BRAM[addra];
+|      addrRA <= addra;
 |    end
 |
 |  always @(posedge clka)
 |    if (enb) begin
-|      ramDataB <= BRAM[addrb];
+|      addrRB <= addrb;
 |    end
 |
 |  generate
@@ -74,8 +74,8 @@ class XilinxTrueDualPortReadFirstByteWrite1ClockRam(NBCOL: Int, COLWIDTH: Int, R
 |
 |  generate
 |      // The following is a 1 clock cycle read latency at the cost of a longer clock-to-out timing
-|       assign douta = ramDataA;
-|       assign doutb = ramDataB;
+|       assign douta = BRAM[addrRA];
+|       assign doutb = BRAM[addrRB];
 |  endgenerate
 |
 |  //  The following function calculates the address width based on specified RAM depth

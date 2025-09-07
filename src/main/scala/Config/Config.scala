@@ -45,29 +45,29 @@ object JumpOp{
 object RegisterFile{
     val nlreg = 32
     val wlreg = log2Ceil(nlreg)
-    val npreg = 68
+    val npreg = 62
     val wpreg = log2Ceil(npreg)
 }
 
 object Issue{
     val niq          = 3
     val nis          = 5
-    val arithNiq     = 15
+    val arithNiq     = 12
     val arithNissue  = 3
-    val muldivNiq    = 9
+    val muldivNiq    = 4
     val muldivNissue = 1
-    val lsuNiq       = 9
+    val lsuNiq       = 6
     val lsuNissue    = 1
 }
 object Fetch{
     val nfch = 4
-    val nfq = 16
+    val nfq = 8
 }
 
 object Predict{
     object GShare{
         import Fetch._
-        val ghrWidth       = 8
+        val ghrWidth       = 5
         val phtWidth       = ghrWidth
         val phtSize        = 1 << phtWidth
     }
@@ -79,7 +79,7 @@ object Predict{
         val addrWidth         = log2Ceil(size)
         assert(size % bank == 0, "size must be divisible by way")
         val sizePerBank       = size / bank
-        val totalWidth        = 16
+        val totalWidth        = 13
         val tagWidth          = totalWidth - addrWidth - bankWidth
         val way               = 2
     }
@@ -95,23 +95,23 @@ object Predict{
 }
 
 object Decode{
-    val ndcd = 3
+    val ndcd = 2
     val wdecode = log2Ceil(ndcd)
 }
 object StoreBuffer{
-    val nsb = 8
+    val nsb = 4
     val wsb = log2Ceil(nsb)
 }
 object Commit{
     import Decode._
     val ncommit = 2
     assert(ncommit <= ndcd, "ncommit must be less than or equal to ndcd")
-    val nrob = 42
+    val nrob = 30
     assert(nrob % ndcd == 0, "nrob must be divisible by ndcd")
     val nrobQ = nrob / ndcd
     val wrob = log2Ceil(nrob)
     val wrobQ = log2Ceil(nrobQ)
-    val nbdb = 18
+    val nbdb = 12
     val nbdbQ = nbdb / ndcd
     val wbdb = log2Ceil(nbdb)
     val wbdbQ = log2Ceil(nbdbQ)
@@ -119,8 +119,8 @@ object Commit{
 object Cache{
     import Fetch._
     val l1Way         = 2
-    val l1Offset      = 6
-    val l1Index       = 6
+    val l1Offset      = 5
+    val l1Index       = 4
     val l1IndexNum    = 1 << l1Index
     val l1Tag         = 32 - l1Offset - l1Index
     val l1Line        = (1 << l1Offset)
@@ -129,8 +129,8 @@ object Cache{
     val icLineBits    = icLine * 8
     val fetchOffset   = 2 + log2Ceil(nfch)
     assert(l1Offset >= fetchOffset, "l1Offset must be greater than fetchOffset")
-    val l2Offset      = 7
-    val l2Index       = 7
+    val l2Offset      = 6
+    val l2Index       = 5
     val l2IndexNum    = 1 << l2Index
     val l2Tag         = 32 - l2Offset - l2Index
     val l2Way         = 2 * l1Way

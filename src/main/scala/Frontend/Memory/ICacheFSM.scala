@@ -48,7 +48,7 @@ class ICacheFSM extends Module {
     io.cc.tagvWe       := VecInit.fill(l1Way)(false.B)
     io.cc.memWe        := VecInit.fill(l1Way)(false.B)
     io.cc.addrOH       := 1.U  // default: s1 addr
-    io.cc.r1H          := 1.U      // default: mem
+    io.cc.r1H          := Mux(mState === mWait, 2.U, 1.U)      // default: mem
     io.cc.lruUpd       := 0.U
     io.l2.rreq         := false.B
 
@@ -76,7 +76,6 @@ class ICacheFSM extends Module {
         }
 
         is(mMiss) {
-            // send two requests to L2: this line and next line
             when(io.l2.rrsp) {
                 mState := Mux(io.cc.uncache, mWait, mRefill)
             }
@@ -98,7 +97,7 @@ class ICacheFSM extends Module {
             mState       := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), mIdle, mWait)
             io.cc.addrOH := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), 1.U, Mux(io.cc.flush, 1.U, 2.U))
             io.cc.cmiss  := Mux(ShiftRegister(mState === mWait, 1, false.B, true.B), false.B, true.B)
-            io.cc.r1H    := 2.U
+            // io.cc.r1H    := 2.U
         }
     }
 }

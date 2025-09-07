@@ -26,6 +26,21 @@ object BLevelCarry4 {
     }
 }
 
+class BLevelAdder4 extends Module {
+    val io = IO(new AdderIO(4))
+    val (p, g, c) = BLevelCarry4(io.src1, io.src2, io.cin)
+    io.res := io.src1 ^ io.src2 ^ (c.asUInt(3, 0) ## io.cin)
+    io.cout := c.asUInt(3)
+}
+
+class BLevelAdder5 extends Module {
+    val io = IO(new AdderIO(5))
+    val adder4 = BLevelAdder4(io.src1(4, 0), io.src2(4, 0), io.cin)
+    io.res := (adder4.io.cout ^ io.src1(4) ^ io.src2(4)) ## adder4.io.res
+    io.cout := (adder4.io.cout & io.src1(4)) | (adder4.io.cout & io.src2(4)) | (io.src1(4) & io.src2(4))
+}
+
+
 class BLevelPAdder32 extends Module{
     val io = IO(new AdderIO(32))
     val pi = io.src1 | io.src2;
@@ -91,6 +106,26 @@ class BLevelPAdder33 extends Module{
     val adder32 = BLevelPAdder32(io.src1(31, 0), io.src2(31, 0), io.cin)
     io.res := (adder32.io.cout ^ io.src1(32) ^ io.src2(32)) ## adder32.io.res
     io.cout := (adder32.io.cout & io.src1(32)) | (adder32.io.cout & io.src2(32)) | (io.src1(32) & io.src2(32))
+}
+
+object BLevelAdder4 {
+    def apply(src1: UInt, src2: UInt, cin: UInt): BLevelAdder4 = {
+        val adder = Module(new BLevelAdder4)
+        adder.io.src1 := src1
+        adder.io.src2 := src2
+        adder.io.cin := cin
+        adder
+    }
+}
+
+object BLevelAdder5 {
+    def apply(src1: UInt, src2: UInt, cin: UInt): BLevelAdder5 = {
+        val adder = Module(new BLevelAdder5)
+        adder.io.src1 := src1
+        adder.io.src2 := src2
+        adder.io.cin := cin
+        adder
+    }
 }
 
 object BLevelPAdder32{

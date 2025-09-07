@@ -54,12 +54,15 @@ class GShare extends Module {
     val isBr = VecInit(io.btbM.predType.map{_ =/= 0.U})
     val isCallOrReturn = VecInit(io.btbM.predType.map{_(1)})
 
-    io.fc.jumpEnPredict := PriorityEncoderOH(io.btbM.jumpCandidate.zip(isBr).zip(isCallOrReturn).map{ case ((j, b), c) =>
-        b && (j && phtRData(1)) || c
-    })
+    io.fc.jumpEnPredict := io.btbM.jumpCandidate.zip(isCallOrReturn).map{ case (j, c) =>
+        (j && phtRData(1)) || c
+    }
+
     io.btbM.jumpEnPredict := io.fc.jumpEnPredict
     io.ras.jumpEnPredict := io.fc.jumpEnPredict
-    val jumpMask      = Mux1H(io.fc.jumpEnPredict.asUInt, (0 until nfch).map(i => ((2 << i) - 1).U)) & isBr.asUInt
+    val jumpMask = PriorityMux(
+        io.fc.jumpEnPredict.zip((0 until nfch).map(i => ((2 << i) - 1).U & isBr(i)) ).map{ case (j, m) => (j, m) }
+    ) & isBr.asUInt
     val shiftNum      = Mux(io.fc.jumpEnPredict.asUInt.orR, PopCount(jumpMask), PopCount(isBr))
     val shiftFillBits = Mux(io.fc.jumpEnPredict.asUInt.orR, 1.U << PopCount(jumpMask), 0.U(nfch.W))
 

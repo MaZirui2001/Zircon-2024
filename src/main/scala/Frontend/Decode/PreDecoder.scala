@@ -70,7 +70,6 @@ class PreDecoder extends Module {
     io.rinfo.rk := Mux(rkVld, rk, 0.U)
 
     /* branch */
-    // jalr: not care
     // jal: must jump, and jumpTgt must be pc + imm
     // branch: if not pred, static predict; if pred, jumpTgt must be pc + predOffset
     // if not jump or branch, shouldn't predict jump
@@ -78,39 +77,43 @@ class PreDecoder extends Module {
     val isJalr = inst(6, 0) === 0x67.U
     val isJal  = inst(6, 0) === 0x6f.U
     val isBr   = inst(6, 0) === 0x63.U
-    val isnJ   = !(isJalr || isJal || isBr)
+    // val isnJ   = !(isJalr || isJal || isBr)
+    val isnJ   = inst(6, 4) =/= 6.U && inst(1, 0) === 3.U
 
+    val immJal = inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21)
+    val immBr =  inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8)
     val imm = Mux1H(Seq(
-        isJal  -> SE(inst(31) ## inst(19, 12) ## inst(20) ## inst(30, 21) ## 0.U(1.W)),
-        // isJalr -> (instPkg.pc + predInfo.offset),
-        isBr   -> SE(inst(31) ## inst(7) ## inst(30, 25) ## inst(11, 8) ## 0.U(1.W))
+        isnJ   -> 4.U,
+        isJal  -> SE(immJal << 1),
+        isBr   -> SE(immBr << 1)
     ))
 
     io.npc.flush := Mux1H(Seq(
-        isnJ   -> (predInfo.offset =/= 4.U), // isn't jump: predictor must be wrong if it predicts jump
-        isJal  -> (predInfo.offset =/= imm), 
-        // isJalr -> !(predInfo.vld && rj =/= 1.U), // TEMP: only fix return or not valid
+        isnJ   -> (predInfo.offset(21, 1) =/= 2.U), // isn't jump: predictor must be wrong if it predicts jump
+        isJal  -> (predInfo.offset(21, 1) =/= immJal), 
         isJalr -> (!predInfo.vld),
-        isBr   -> Mux(predInfo.vld, predInfo.offset =/= Mux(predInfo.jumpEn, imm, 4.U), imm(31))
+        // isBr   -> Mux(predInfo.vld, predInfo.offset(12, 1) =/= Mux(predInfo.jumpEn, immBr, 2.U), immBr(11))
+        isBr   -> Mux(predInfo.vld, false.B, immBr(11))
     )) && io.instPkg.valid
 
     // if the rj is 1, the jalr is a return, so we need to add 4 to the predicted offset
     // if the rj is not 1, the jalr is a call or branch, so we need to add pc the predicted offset
-    val jalrAdderRes = BLevelPAdder32(Mux(predInfo.vld, Mux(rj =/= 1.U, instPkg.pc, 4.U), 4.U), Mux(predInfo.vld, predInfo.offset, io.returnOffset << 2), 0.U).io.res
-    io.npc.jumpOffset := Mux(isnJ, 4.U, Mux(isJalr, io.returnOffset << 2, imm))
-    io.npc.pc         := Mux(isJalr, 4.U, instPkg.pc)
+    io.npc.jumpOffset := Mux(isJalr, io.returnOffset, imm)
+    io.npc.pc         := Mux(isJalr, 0.U, instPkg.pc)
+    val jalrAdderRes = BLevelPAdder32(Mux(predInfo.vld, Mux(rj =/= 1.U, instPkg.pc, 0.U), 0.U), Mux(predInfo.vld, predInfo.offset, io.returnOffset), 0.U).io.res
     io.predOffset := Mux1H(Seq(
         isnJ   -> 4.U,
-        isJal  -> imm,
+        isJal  -> SE(immJal << 1),
         isJalr -> jalrAdderRes,
-        isBr   -> Mux(predInfo.vld, Mux(predInfo.jumpEn, imm, 4.U), Mux(imm(31), imm, 4.U))
+        // isBr   -> Mux(predInfo.vld, Mux(predInfo.jumpEn, SE(immBr << 1), 4.U), Mux(immBr(11), SE(immBr << 1), 4.U))
+        isBr   -> Mux(predInfo.vld, predInfo.offset, Mux(immBr(11), SE(immBr << 1), 4.U))
     ))
     io.isBr := !isnJ
     io.jumpEn := Mux1H(Seq(
         isnJ   -> false.B,
         isJal  -> true.B,
         isJalr -> true.B,
-        isBr   -> Mux(predInfo.vld, predInfo.jumpEn, imm(31))
+        isBr   -> Mux(predInfo.vld, predInfo.jumpEn, immBr(11))
     ))
     io.predType := Mux1H(Seq(
         isnJ   -> NOP,
@@ -144,11 +147,15 @@ class PreDecoders extends Module {
         io.pr.gs.jumpEn(i) := pds(i).jumpEn && io.validMask(i)
     }
     io.npc.flush      := pds.map(_.npc.flush).reduce(_ || _)
-    io.npc.jumpOffset := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.jumpOffset))
-    io.npc.pc         := Mux1H(Log2OHRev(pds.map(_.npc.flush)), pds.map(_.npc.pc))
+    io.npc.jumpOffset := PriorityMux(
+        pds.map(_.npc.flush).zip(pds.map(_.npc.jumpOffset)).map{ case (f, j) => (f, j) }
+    )
+    io.npc.pc         := PriorityMux(
+        pds.map(_.npc.flush).zip(pds.map(_.npc.pc)).map{ case (f, p) => (f, p) }
+    )
     io.pr.gs.flush    := io.npc.flush
     io.predOffset     := pds.map(_.predOffset)
     io.pr.ras.flush   := io.npc.flush
     io.pr.ras.predType := Mux1H(Log2OH(io.validMask), pds.map(_.predType))
-    io.pr.ras.pc       := Mux1H(Log2OH(io.validMask), pds.map(_.npc.pc))
+    io.pr.ras.pc       := Mux1H(Log2OH(io.validMask), pds.map(_.instPkg.predInfo.pcPlus4))
 }
