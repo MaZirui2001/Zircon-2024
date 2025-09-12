@@ -195,8 +195,9 @@ class AXIMemory(randDelay: Boolean){
     }
     def loadFromFile(filename: String, baseAddr: UInt): Unit = {
         if(filename == "" || filename == null) {
-            // println("没有提供镜像文件路径，使用默认镜像")
-            mem(baseAddr) = new MemoryItem(UInt(0x80000000L), new Array[Int](4))
+            println("没有提供镜像文件路径，使用默认镜像")
+            mem(baseAddr >> 2) = new MemoryItem(UInt(0x80000000), new Array[Int](4))
+            memRef(baseAddr >> 2) = new MemoryItem(UInt(0x80000000), new Array[Int](4))
             return
         }
         import java.nio.file.{Files, Paths}

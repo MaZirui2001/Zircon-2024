@@ -41,9 +41,7 @@ class EmuMain extends AnyFlatSpec with ChiselScalatestTester {
             val imgPath = Option(System.getenv("IMG"))
             imgPath match {
                 case Some(path) => emu.memInit(path)
-                case None => 
-                    println("没有提供镜像文件路径，使用默认镜像")
-                    emu.memInit(null)
+                case None => {}
             }
             // 通过IMG参数解析文件名（文件名是.前，最后一个/后）
             val imgName = imgPath.getOrElse("default").split("/").last.split("\\.").head
