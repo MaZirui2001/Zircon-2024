@@ -71,8 +71,7 @@ class StoreBuffer extends Module {
     .elsewhen(io.enq.valid) { fulln := !(cptrNxt & tptrNxt) }
     .elsewhen(io.stFinish) { fulln := true.B }
 
-    when(io.lock){ eptyn := eptyn }
-    .elsewhen(io.deq.ready){ eptyn := !(hptrNxt & rptrNxt) }
+    when(io.deq.ready){ eptyn := !(hptrNxt & rptrNxt) }
     .elsewhen(io.stCmt) { eptyn := true.B }
 
     when(io.flush){ allClear := Mux(io.stFinish, (rptrNxt & cptrNxt).orR, !q.map(_.commit).reduce(_ || _)) }
