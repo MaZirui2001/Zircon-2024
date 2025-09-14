@@ -6,6 +6,8 @@ Zircon-2024是一款RISC-V处理器，由Zircon项目迭代而来。
 
 ## 处理器架构
 
+[处理器架构主页](https://mazirui2001.github.io/Zircon-2024-Web/Zircon2024/)
+
 ## 目录概览
 
 以下是一些关键目录：
@@ -53,4 +55,5 @@ make verilog
     ```bash
     make run
     ```
+    注意：RV-Software的编译需要依赖支持riscv32的clang编译器和对应的lld链接器。
 * 运行每一个测试后，仿真环境都会自动生成一份处理器性能报告，位于`test_run_dir/reports/`目录下。
