@@ -107,8 +107,7 @@ class SRT2 extends Module {
         adder.io.cin  := 1.U
     }
 
-    val quotientS3  = BLevelPAdder32(adder.io.res, Mux(rmdReg(64), 0xFFFFFFFFL.U(32.W), 0.U), 0.U).io.res
-    val remainderS3 = BLevelPAdder32(rmdReg(63, 32), Mux(rmdReg(64), divReg, 0.U), 0.U).io.res >> src2LeadingZeros
+
     
     /* stage 3: calculate the result */
     val resSignS3   = ShiftRegister(resSignS2, 1, false.B, iter(5))
@@ -116,6 +115,10 @@ class SRT2 extends Module {
     val opS3        = ShiftRegister(opS2, 1, 0.U, iter(5))
     val divS3IsZero = divReg === 0.U
     val readyS3     = iter(5) && opS3(2)
+    val src2LeadingZerosS3 = ShiftRegister(src2LeadingZeros, 1, 0.U, iter(5))
+    val quotientS3  = BLevelPAdder32(adder.io.res, Mux(rmdReg(64), 0xFFFFFFFFL.U(32.W), 0.U), 0.U).io.res
+    val remainderS3 = BLevelPAdder32(rmdReg(63, 32), Mux(rmdReg(64), divReg, 0.U), 0.U).io.res >> src2LeadingZerosS3
+
 
     val resultAdder = Module(new BLevelPAdder32)
     // for div, if the divisor is 0, the result is 0xffffffff according to the RISC-V spec
