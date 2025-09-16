@@ -1,3 +1,6 @@
 [submodule "RV-Software"]
 	path = RV-Software
 	url = git@github.com:MaZirui2001/RV-Software.git
+[submodule "ZirconSim"]
+	path = ZirconSim
+	url = https://github.com/MaZirui2001/ZirconSim.git
